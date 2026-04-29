@@ -14,8 +14,13 @@ jobs:
           username: root
           key: ${{ secrets.SSH_KEY }}
           script: |
+            if [ ! -d "/root/kindercare-backend" ]; then
+              git clone https://github.com/Kindergarten-Care/kindercare-backend.git /root/kindercare-backend
+            fi
             cd /root/kindercare-backend
-            git pull origin main
+            git fetch origin
+            git checkout release/master
+            git pull origin release/master
             docker build -t kindercare-api .
             docker stop kindercare-api || true
             docker rm kindercare-api || true
