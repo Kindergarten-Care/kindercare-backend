@@ -1,0 +1,22 @@
+name: Deploy Backend
+on:
+  push:
+    branches: [ release/master ]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }} 
+          username: root
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /root/kindercare-backend
+            git pull origin main
+            docker build -t kindercare-api .
+            docker stop kindercare-api || true
+            docker rm kindercare-api || true
+            docker run -d --name kindercare-api -p 5000:5000 kindercare-api
