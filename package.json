@@ -2,11 +2,10 @@
   "name": "kindercare-backend",
   "version": "1.0.0",
   "description": "",
-  "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -23,7 +22,11 @@
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "helmet": "^8.1.0",
+    "http-status": "^2.1.0",
+    "morgan": "^1.10.1",
+    "mysql2": "^3.22.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
