@@ -11,7 +11,9 @@ import logger from './config/logger.js';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpecs from './config/swagger.js';
 
-dotenv.config();
+dotenv.config({
+  path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env'
+});
 
 const app = express();
 const PORT = process.env.PORT || 5000;
