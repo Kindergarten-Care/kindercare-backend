@@ -1,12 +1,13 @@
-name: Deploy Backend
+name: Deploy Backend Production
+
 on:
   push:
     branches: [ release/master ]
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
       - name: Deploy via SSH
         uses: appleboy/ssh-action@master
         with:
@@ -14,14 +15,18 @@ jobs:
           username: root
           key: ${{ secrets.SSH_KEY }}
           script: |
+            # 1. Kiểm tra folder source code
             if [ ! -d "/root/kindercare-backend" ]; then
               git clone https://github.com/Kindergarten-Care/kindercare-backend.git /root/kindercare-backend
             fi
+            
+            # 2. Cập nhật code mới nhất
             cd /root/kindercare-backend
             git fetch origin
             git checkout release/master
             git pull origin release/master
-            docker build -t kindercare-api .
-            docker stop kindercare-api || true
-            docker rm kindercare-api || true
-            docker run -d --name kindercare-api -p 5000:5000 kindercare-api
+            
+            # 3. Quay lại thư mục Root để chạy Docker Compose
+            cd /root
+            # Chỉ khởi động lại service production, không ảnh hưởng đến bản test
+            docker-compose up -d --build kindercare-api
