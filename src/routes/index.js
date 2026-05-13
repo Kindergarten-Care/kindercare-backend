@@ -1,18 +1,15 @@
 import express from 'express';
-import studentRoute from '../modules/student/student.route.js';
-import invoiceRoute from '../modules/invoice/invoice.route.js';
 
 const router = express.Router();
 
+/**
+ * Register your module routes here
+ * Example:
+ * import userRoute from '../modules/user/user.route.js';
+ * router.use('/user', userRoute);
+ */
 const defaultRoutes = [
-  {
-    path: '/student',
-    route: studentRoute,
-  },
-  {
-    path: '/invoice',
-    route: invoiceRoute,
-  },
+  // Add your real modules here
 ];
 
 defaultRoutes.forEach((route) => {
