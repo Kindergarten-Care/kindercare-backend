@@ -12,7 +12,7 @@ import swaggerUi from 'swagger-ui-express';
 import swaggerSpecs from './config/swagger.js';
 
 dotenv.config({
-  path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env'
+    path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env'
 });
 
 const app = express();
@@ -30,8 +30,9 @@ if (process.env.NODE_ENV !== 'production') {
 
 app.use('/api/v1', routes);
 
-// Swagger API Documentation
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
+if (process.env.NODE_ENV !== 'production') {
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
+}
 
 app.use((req, res, next) => {
     next(new ApiError(httpStatus.NOT_FOUND, 'Not found'));
