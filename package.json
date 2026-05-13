@@ -2,7 +2,8 @@
   "name": "kindercare-backend",
   "version": "1.0.0",
   "description": "",
-  "main": "src/index.js",
+  "main": "src/app.js",
+  "type": "module",
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
@@ -26,7 +27,11 @@
     "helmet": "^8.1.0",
     "http-status": "^2.1.0",
     "morgan": "^1.10.1",
-    "mysql2": "^3.22.3"
+    "mysql2": "^3.22.3",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
