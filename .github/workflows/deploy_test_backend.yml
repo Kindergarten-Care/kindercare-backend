@@ -1,0 +1,25 @@
+name: Deploy Backend Test
+
+on:
+  push:
+    branches: [ dev ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }} 
+          username: root
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /root/kindercare-backend
+            git fetch origin
+            git checkout dev
+            git pull origin dev
+            
+            cd /root
+            # Chỉ khởi động lại service test, không ảnh hưởng đến bản prod
+            docker-compose up -d --build kindercare-api-test
