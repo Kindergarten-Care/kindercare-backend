@@ -11,13 +11,15 @@ This document defines the high-level architecture and coding standards for the K
 The project follows a **Modular Layered Architecture**. All source code resides in the `src/` directory.
 
 - `src/config/`: Configuration files (Database, Environment variables, Cloud services).
-- `src/routes/`: Route definitions. Only responsible for mapping URLs to controllers.
-- `src/middlewares/`: Request filters (Auth, Logging, Global Error Handling).
-- `src/controllers/`: Handle HTTP requests. Responsible for extracting data and sending responses. **No business logic here.**
-- `src/services/`: The **Heart** of the application. Contains all business logic, calculations, and Database interactions (Queries).
-- `src/models/`: Database schemas or data structure definitions.
-- `src/validations/`: Request body/params validation logic (e.g., Joi or Zod schemas).
-- `src/utils/`: Generic helper functions (Date formatters, encryption, etc.).
+- `src/modules/`: The core of the application. All business logic is grouped here by feature (e.g., `src/modules/user/`).
+  - `[module].controller.js`: Handle HTTP requests.
+  - `[module].service.js`: Business logic and Database interactions.
+  - `[module].route.js`: Module-specific route definitions.
+  - `[module].validation.js`: Module-specific request validation.
+  - `[module].model.js`: Database schemas for the module.
+- `src/routes/`: Global route registry (e.g., `src/routes/index.js`).
+- `src/middlewares/`: Shared request filters (Auth, Logging, Global Error Handling).
+- `src/utils/`: Shared helper functions (Date formatters, encryption, etc.).
 
 ## 2. File Naming Convention
 Files should be named using `camelCase` with a suffix indicating their layer:
@@ -36,7 +38,7 @@ Every request must follow this sequence:
 
 ## 4. Error Handling Standards
 - **Never crash the process**: Use `ApiError` for known operational errors.
-- **Async Handling**: We use `express-async-errors`, so you can write `async` functions without `try-catch` blocks. The error will automatically reach the global handler.
+- **Async Handling**: We use **Express 5**, which natively handles rejected promises from async route handlers and middleware. You can write `async` functions without `try-catch` blocks; errors will automatically reach the global handler.
 - **Status Codes**: Always use the `http-status` library constants (e.g., `httpStatus.INTERNAL_SERVER_ERROR`).
 
 ## 5. API Response Standard
@@ -74,3 +76,17 @@ res.status(httpStatus.OK).send(new ApiResponse(httpStatus.OK, data, 'Success mes
 - **ES Modules**: Use `import/export`.
 - **Formatting**: Use 2 spaces for indentation.
 - **Strictness**: Avoid `any` types or vague variable names.
+- **Commenting**:
+  - **Avoid Redundant Comments**: Do not comment on obvious things (e.g., `// Send response`).
+  - **Logic Focus**: Only add comments for complex business logic, non-obvious calculations, or critical warnings that need attention.
+  - **Documentation**: Use JSDoc for functions only when parameters or return types are complex and need clarification.
+- **Logging Standards**:
+  - **System Events**: Use `logger.info()` from `src/config/logger.js` to log system startup, module initialization, or successful major actions.
+  - **Error Logging**: All internal server errors (Status 500+) must be logged using `logger.error(err)` in the global error handler.
+  - **Development Logging**: Use `logger.debug()` for information only needed during development.
+  - **No Console**: Strictly forbid the use of `console.log`, `console.error`, etc. Everything must go through the centralized `logger`.
+- **API Documentation Standards**:
+  - **Separate Files**: All Swagger/OpenAPI documentation must be placed in a separate file named `[module].docs.js` within the same module directory.
+  - **English Only**: All summaries, descriptions, and tag names in the documentation must be written in **100% English**.
+  - **Mandatory for New Endpoints**: Every new endpoint created must have its corresponding documentation updated or created immediately.
+  - **Accuracy**: Descriptions must be precise and reflect the actual business logic of the endpoint.
