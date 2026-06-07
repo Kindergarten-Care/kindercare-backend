@@ -77,4 +77,124 @@ const router = express.Router();
  */
 router.post('/login', authController.login);
 
+/**
+ * @swagger
+ * /auth/admin/login:
+ *   post:
+ *     summary: Đăng nhập Admin (role 1)
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [identifier, password]
+ *             properties:
+ *               identifier:
+ *                 type: string
+ *                 example: admin_it
+ *               password:
+ *                 type: string
+ *                 example: password123
+ *     responses:
+ *       200:
+ *         description: Đăng nhập thành công
+ *       401:
+ *         description: Sai thông tin đăng nhập
+ *       403:
+ *         description: Không có quyền truy cập hoặc tài khoản bị vô hiệu hóa
+ */
+router.post('/admin/login', authController.loginAdmin);
+
+/**
+ * @swagger
+ * /auth/principal/login:
+ *   post:
+ *     summary: Đăng nhập Hiệu trưởng (role 2)
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [identifier, password]
+ *             properties:
+ *               identifier:
+ *                 type: string
+ *                 example: hieutruong_mai
+ *               password:
+ *                 type: string
+ *                 example: password123
+ *     responses:
+ *       200:
+ *         description: Đăng nhập thành công
+ *       401:
+ *         description: Sai thông tin đăng nhập
+ *       403:
+ *         description: Không có quyền truy cập hoặc tài khoản bị vô hiệu hóa
+ */
+router.post('/principal/login', authController.loginPrincipal);
+
+/**
+ * @swagger
+ * /auth/teacher/login:
+ *   post:
+ *     summary: Đăng nhập Giáo viên (role 3)
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [identifier, password]
+ *             properties:
+ *               identifier:
+ *                 type: string
+ *                 example: gv_lan
+ *               password:
+ *                 type: string
+ *                 example: password123
+ *     responses:
+ *       200:
+ *         description: Đăng nhập thành công
+ *       401:
+ *         description: Sai thông tin đăng nhập
+ *       403:
+ *         description: Không có quyền truy cập hoặc tài khoản bị vô hiệu hóa
+ */
+router.post('/teacher/login', authController.loginTeacher);
+
+/**
+ * @swagger
+ * /auth/parent/login:
+ *   post:
+ *     summary: Đăng nhập Phụ huynh (role 4)
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [identifier, password]
+ *             properties:
+ *               identifier:
+ *                 type: string
+ *                 example: ph_tuan
+ *               password:
+ *                 type: string
+ *                 example: password123
+ *     responses:
+ *       200:
+ *         description: Đăng nhập thành công
+ *       401:
+ *         description: Sai thông tin đăng nhập
+ *       403:
+ *         description: Không có quyền truy cập hoặc tài khoản bị vô hiệu hóa
+ */
+router.post('/parent/login', authController.loginParent);
+
 export default router;
