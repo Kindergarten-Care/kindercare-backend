@@ -23,14 +23,42 @@ const login = async (req, res, next) => {
         // Tự động nhận diện loại identifier
         const identifierType = detectIdentifierType(identifier);
 
-        const [rows] = await pool.query(
-            `SELECT u.UserID, u.Username, u.PasswordHash, u.RoleID, u.fcm_token, u.Status,
-                    r.RoleName
-             FROM Users u
-             LEFT JOIN Roles r ON u.RoleID = r.RoleID
-             WHERE u.${identifierType} = ?`,
-            [identifier]
-        );
+        let query = '';
+        if (identifierType === 'Email') {
+            query = `
+                SELECT u.UserID, u.Username, u.PasswordHash, u.RoleID, u.fcm_token, u.Status,
+                       r.RoleName
+                FROM Users u
+                LEFT JOIN Roles r ON u.RoleID = r.RoleID
+                LEFT JOIN Parents p ON u.UserID = p.ParentID
+                LEFT JOIN Teachers t ON u.UserID = t.TeacherID
+                WHERE p.Email = ? OR t.Email = ?
+            `;
+        } else if (identifierType === 'Phone') {
+            query = `
+                SELECT u.UserID, u.Username, u.PasswordHash, u.RoleID, u.fcm_token, u.Status,
+                       r.RoleName
+                FROM Users u
+                LEFT JOIN Roles r ON u.RoleID = r.RoleID
+                LEFT JOIN Parents p ON u.UserID = p.ParentID
+                LEFT JOIN Teachers t ON u.UserID = t.TeacherID
+                WHERE p.PhoneNumber = ? OR t.PhoneNumber = ?
+            `;
+        } else {
+            query = `
+                SELECT u.UserID, u.Username, u.PasswordHash, u.RoleID, u.fcm_token, u.Status,
+                       r.RoleName
+                FROM Users u
+                LEFT JOIN Roles r ON u.RoleID = r.RoleID
+                WHERE u.Username = ?
+            `;
+        }
+
+        const queryParams = identifierType === 'Email' || identifierType === 'Phone'
+            ? [identifier, identifier]
+            : [identifier];
+
+        const [rows] = await pool.query(query, queryParams);
 
         if (rows.length === 0) {
             throw new ApiError(httpStatus.UNAUTHORIZED, 'Tên đăng nhập hoặc mật khẩu không đúng');
