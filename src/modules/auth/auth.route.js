@@ -1,5 +1,6 @@
 import express from 'express';
 import authController from './auth.controller.js';
+import { authenticate } from '../../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
@@ -369,5 +370,38 @@ router.post('/teacher/login', authController.loginTeacher);
  *         description: Không có quyền truy cập hoặc tài khoản bị vô hiệu hóa
  */
 router.post('/parent/login', authController.loginParent);
+
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: Đăng xuất
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Đăng xuất thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Đăng xuất thành công
+ *                 data:
+ *                   nullable: true
+ *                   example: null
+ *       401:
+ *         description: Token không hợp lệ hoặc đã hết hạn
+ */
+router.post('/logout', authenticate, authController.logout);
 
 export default router;

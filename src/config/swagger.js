@@ -19,6 +19,15 @@ const options = {
         description: process.env.NODE_ENV === 'production' ? 'Production Server' : 'Development Server',
       },
     ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+      },
+    },
   },
   apis: ['./src/modules/**/*.js'],
 };

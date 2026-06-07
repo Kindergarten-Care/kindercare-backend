@@ -118,10 +118,17 @@ const createLoginHandler = (allowedRoleIds = null, allowedIdentifiers = ['Userna
     };
 };
 
+const logout = (_req, res) => {
+    res.status(httpStatus.OK).json(
+        new ApiResponse(httpStatus.OK, null, 'Đăng xuất thành công')
+    );
+};
+
 export default {
     login:          createLoginHandler(),
     loginAdmin:     createLoginHandler([1], ['Username']),
     loginPrincipal: createLoginHandler([2], ['Username']),
     loginTeacher:   createLoginHandler([3], ['Username']),
     loginParent:    createLoginHandler([4], ['Username', 'Email', 'Phone']),
+    logout,
 };
