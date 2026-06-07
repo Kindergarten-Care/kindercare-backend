@@ -5,6 +5,7 @@ import ApiError from '../../utils/ApiError.js';
 import ApiResponse from '../../utils/ApiResponse.js';
 import httpStatus from 'http-status';
 
+// Trả về tên cột tương ứng trong bảng Users
 const detectIdentifierType = (identifier) => {
     if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)) return 'Email';
     if (/^[0-9]{9,11}$/.test(identifier)) return 'Phone';
