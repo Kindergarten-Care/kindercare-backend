@@ -22,13 +22,11 @@ const router = express.Router();
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - identifier
- *               - password
+ *             required: [identifier, password]
  *             properties:
  *               identifier:
  *                 type: string
- *                 description: Username, email hoặc số điện thoại
+ *                 description: Tên đăng nhập
  *                 example: admin_it
  *               password:
  *                 type: string
@@ -55,23 +53,30 @@ const router = express.Router();
  *                   properties:
  *                     token:
  *                       type: string
+ *                       example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
  *                     user:
  *                       type: object
  *                       properties:
  *                         userId:
  *                           type: integer
+ *                           example: 1
  *                         username:
  *                           type: string
+ *                           example: admin_it
  *                         roleId:
  *                           type: integer
+ *                           example: 1
  *                         roleName:
  *                           type: string
+ *                           example: Admin
  *                         fcmToken:
  *                           type: string
+ *                           nullable: true
+ *                           example: null
  *       400:
  *         description: Thiếu thông tin đăng nhập
  *       401:
- *         description: Sai tên đăng nhập hoặc mật khẩu
+ *         description: Sai thông tin đăng nhập
  *       403:
  *         description: Tài khoản bị vô hiệu hóa
  */
@@ -81,7 +86,7 @@ router.post('/login', authController.login);
  * @swagger
  * /auth/admin/login:
  *   post:
- *     summary: Đăng nhập Admin (role 1)
+ *     summary: Đăng nhập Admin
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -93,6 +98,7 @@ router.post('/login', authController.login);
  *             properties:
  *               identifier:
  *                 type: string
+ *                 description: Tên đăng nhập
  *                 example: admin_it
  *               password:
  *                 type: string
@@ -100,6 +106,47 @@ router.post('/login', authController.login);
  *     responses:
  *       200:
  *         description: Đăng nhập thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Đăng nhập thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     token:
+ *                       type: string
+ *                       example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *                     user:
+ *                       type: object
+ *                       properties:
+ *                         userId:
+ *                           type: integer
+ *                           example: 1
+ *                         username:
+ *                           type: string
+ *                           example: admin_it
+ *                         roleId:
+ *                           type: integer
+ *                           example: 1
+ *                         roleName:
+ *                           type: string
+ *                           example: Admin
+ *                         fcmToken:
+ *                           type: string
+ *                           nullable: true
+ *                           example: null
+ *       400:
+ *         description: Thiếu thông tin đăng nhập
  *       401:
  *         description: Sai thông tin đăng nhập
  *       403:
@@ -111,7 +158,7 @@ router.post('/admin/login', authController.loginAdmin);
  * @swagger
  * /auth/principal/login:
  *   post:
- *     summary: Đăng nhập Hiệu trưởng (role 2)
+ *     summary: Đăng nhập Hiệu trưởng
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -123,6 +170,7 @@ router.post('/admin/login', authController.loginAdmin);
  *             properties:
  *               identifier:
  *                 type: string
+ *                 description: Tên đăng nhập
  *                 example: hieutruong_mai
  *               password:
  *                 type: string
@@ -130,6 +178,47 @@ router.post('/admin/login', authController.loginAdmin);
  *     responses:
  *       200:
  *         description: Đăng nhập thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Đăng nhập thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     token:
+ *                       type: string
+ *                       example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *                     user:
+ *                       type: object
+ *                       properties:
+ *                         userId:
+ *                           type: integer
+ *                           example: 2
+ *                         username:
+ *                           type: string
+ *                           example: hieutruong_mai
+ *                         roleId:
+ *                           type: integer
+ *                           example: 2
+ *                         roleName:
+ *                           type: string
+ *                           example: Principal
+ *                         fcmToken:
+ *                           type: string
+ *                           nullable: true
+ *                           example: token_ht_01
+ *       400:
+ *         description: Thiếu thông tin đăng nhập
  *       401:
  *         description: Sai thông tin đăng nhập
  *       403:
@@ -141,7 +230,7 @@ router.post('/principal/login', authController.loginPrincipal);
  * @swagger
  * /auth/teacher/login:
  *   post:
- *     summary: Đăng nhập Giáo viên (role 3)
+ *     summary: Đăng nhập Giáo viên
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -153,6 +242,7 @@ router.post('/principal/login', authController.loginPrincipal);
  *             properties:
  *               identifier:
  *                 type: string
+ *                 description: Tên đăng nhập
  *                 example: gv_lan
  *               password:
  *                 type: string
@@ -160,6 +250,47 @@ router.post('/principal/login', authController.loginPrincipal);
  *     responses:
  *       200:
  *         description: Đăng nhập thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Đăng nhập thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     token:
+ *                       type: string
+ *                       example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *                     user:
+ *                       type: object
+ *                       properties:
+ *                         userId:
+ *                           type: integer
+ *                           example: 3
+ *                         username:
+ *                           type: string
+ *                           example: gv_lan
+ *                         roleId:
+ *                           type: integer
+ *                           example: 3
+ *                         roleName:
+ *                           type: string
+ *                           example: Teacher
+ *                         fcmToken:
+ *                           type: string
+ *                           nullable: true
+ *                           example: token_gv_01
+ *       400:
+ *         description: Thiếu thông tin đăng nhập
  *       401:
  *         description: Sai thông tin đăng nhập
  *       403:
@@ -171,7 +302,7 @@ router.post('/teacher/login', authController.loginTeacher);
  * @swagger
  * /auth/parent/login:
  *   post:
- *     summary: Đăng nhập Phụ huynh (role 4)
+ *     summary: Đăng nhập Phụ huynh
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -183,6 +314,7 @@ router.post('/teacher/login', authController.loginTeacher);
  *             properties:
  *               identifier:
  *                 type: string
+ *                 description: Tên đăng nhập, email hoặc số điện thoại
  *                 example: ph_tuan
  *               password:
  *                 type: string
@@ -190,6 +322,47 @@ router.post('/teacher/login', authController.loginTeacher);
  *     responses:
  *       200:
  *         description: Đăng nhập thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Đăng nhập thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     token:
+ *                       type: string
+ *                       example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *                     user:
+ *                       type: object
+ *                       properties:
+ *                         userId:
+ *                           type: integer
+ *                           example: 9
+ *                         username:
+ *                           type: string
+ *                           example: ph_tuan
+ *                         roleId:
+ *                           type: integer
+ *                           example: 4
+ *                         roleName:
+ *                           type: string
+ *                           example: Parent
+ *                         fcmToken:
+ *                           type: string
+ *                           nullable: true
+ *                           example: token_ph_01
+ *       400:
+ *         description: Thiếu thông tin đăng nhập
  *       401:
  *         description: Sai thông tin đăng nhập
  *       403:
