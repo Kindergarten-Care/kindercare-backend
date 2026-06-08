@@ -13,34 +13,48 @@ const detectIdentifierType = (identifier) => {
 };
 
 const buildQuery = (identifierType) => {
+    const baseSelect = `
+        SELECT u.UserID, u.Username, u.PasswordHash, u.RoleID, u.fcm_token, u.Status,
+               r.RoleName,
+               COALESCE(a.FullName, pr.FullName, t.FullName, p.FullName) AS FullName,
+               (
+                   SELECT JSON_ARRAYAGG(
+                       JSON_OBJECT(
+                           'studentId', s.StudentID,
+                           'fullName', s.FullName,
+                           'relationship', sp.Relationship,
+                           'avatarUrl', s.AvatarURL,
+                           'classId', s.ClassID,
+                           'className', c.ClassName
+                       )
+                   )
+                   FROM StudentParents sp
+                   JOIN Students s ON sp.StudentID = s.StudentID
+                   LEFT JOIN Classes c ON s.ClassID = c.ClassID
+                   WHERE sp.ParentID = p.ParentID
+               ) AS Children
+        FROM Users u
+        LEFT JOIN Roles r ON u.RoleID = r.RoleID
+        LEFT JOIN Admins a ON u.RoleID = 1 AND u.UserID = a.AdminID
+        LEFT JOIN Principals pr ON u.RoleID = 2 AND u.UserID = pr.PrincipalID
+        LEFT JOIN Teachers t ON u.RoleID = 3 AND u.UserID = t.TeacherID
+        LEFT JOIN Parents p ON u.RoleID = 4 AND u.UserID = p.ParentID
+    `;
+
     if (identifierType === 'Email') {
         return {
-            query: `SELECT u.UserID, u.Username, u.PasswordHash, u.RoleID, u.fcm_token, u.Status,
-                           r.RoleName
-                    FROM Users u
-                    LEFT JOIN Roles r ON u.RoleID = r.RoleID
-                    LEFT JOIN Parents p ON u.UserID = p.ParentID
-                    WHERE p.Email = ?`,
+            query: `${baseSelect} WHERE p.Email = ?`,
             paramCount: 1,
         };
     }
     if (identifierType === 'Phone') {
         return {
-            query: `SELECT u.UserID, u.Username, u.PasswordHash, u.RoleID, u.fcm_token, u.Status,
-                           r.RoleName
-                    FROM Users u
-                    LEFT JOIN Roles r ON u.RoleID = r.RoleID
-                    LEFT JOIN Parents p ON u.UserID = p.ParentID
-                    WHERE p.PhoneNumber = ?`,
+            query: `${baseSelect} WHERE p.PhoneNumber = ?`,
             paramCount: 1,
         };
     }
     return {
-        query: `SELECT u.UserID, u.Username, u.PasswordHash, u.RoleID, u.fcm_token, u.Status,
-                       r.RoleName
-                FROM Users u
-                LEFT JOIN Roles r ON u.RoleID = r.RoleID
-                WHERE u.Username = ?`,
+        query: `${baseSelect} WHERE u.Username = ?`,
         paramCount: 1,
     };
 };
@@ -85,11 +99,24 @@ const createLoginHandler = (allowedRoleIds = null, allowedIdentifiers = ['Userna
                 throw new ApiError(httpStatus.UNAUTHORIZED, 'Thông tin đăng nhập không đúng');
             }
 
+            let children = [];
+            if (user.Children) {
+                try {
+                    children = typeof user.Children === 'string' ? JSON.parse(user.Children) : user.Children;
+                } catch (e) {
+                    console.error('Lỗi parse children:', e);
+                }
+            }
+
+            const relationship = children[0]?.relationship || null;
+
             const payload = {
                 userId: user.UserID,
                 username: user.Username,
                 roleId: user.RoleID,
                 roleName: user.RoleName,
+                fullName: user.FullName,
+                relationship: relationship,
             };
 
             const token = jwt.sign(payload, process.env.JWT_SECRET, {
@@ -107,6 +134,9 @@ const createLoginHandler = (allowedRoleIds = null, allowedIdentifiers = ['Userna
                             roleId: user.RoleID,
                             roleName: user.RoleName,
                             fcmToken: user.fcm_token,
+                            fullName: user.FullName,
+                            relationship: relationship,
+                            children: children,
                         },
                     },
                     'Đăng nhập thành công'
