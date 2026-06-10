@@ -16,7 +16,10 @@ const getUsersByRole = async (req, res, next) => {
                 COALESCE(a.Email, pr.Email, t.Email, p.Email) AS email,
                 COALESCE(a.PhoneNumber, pr.PhoneNumber, t.PhoneNumber, p.PhoneNumber) AS phoneNumber,
                 p.Job AS job,
-                p.Address AS address,
+                COALESCE(t.Address, p.Address) AS address,
+                t.DateOfBirth AS dateOfBirth,
+                t.Gender AS gender,
+                t.IDCard AS idCard,
                 t.ProfessionalRank AS professionalRank,
                 t.WorkStatus AS workStatus
             FROM Users u
@@ -54,6 +57,10 @@ const getUsersByRole = async (req, res, next) => {
                 user.job = row.job;
                 user.address = row.address;
             } else if (row.roleId === 3) { // Teacher
+                user.dateOfBirth = row.dateOfBirth;
+                user.gender = row.gender;
+                user.idCard = row.idCard;
+                user.address = row.address;
                 user.professionalRank = row.professionalRank;
                 user.workStatus = row.workStatus;
             }
