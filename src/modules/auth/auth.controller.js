@@ -18,7 +18,7 @@ const buildQuery = (identifierType) => {
                r.RoleName,
                COALESCE(a.FullName, pr.FullName, t.FullName, p.FullName) AS FullName,
                (
-                   SELECT JSON_ARRAYAGG(
+                   SELECT CONCAT('[', COALESCE(GROUP_CONCAT(
                        JSON_OBJECT(
                            'studentId', s.StudentID,
                            'fullName', s.FullName,
@@ -27,7 +27,7 @@ const buildQuery = (identifierType) => {
                            'classId', s.ClassID,
                            'className', c.ClassName
                        )
-                   )
+                   ), ''), ']')
                    FROM StudentParents sp
                    JOIN Students s ON sp.StudentID = s.StudentID
                    LEFT JOIN Classes c ON s.ClassID = c.ClassID
