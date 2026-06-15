@@ -96,6 +96,26 @@
  *                       isPrimary:
  *                         type: integer
  *                         example: 1
+ *                       teachers:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             teacherId:
+ *                               type: integer
+ *                               example: 3
+ *                             fullName:
+ *                               type: string
+ *                               example: Nguyễn Thị Lan
+ *                             phoneNumber:
+ *                               type: string
+ *                               example: 0901234567
+ *                             email:
+ *                               type: string
+ *                               example: lan.nguyen@kindercare.edu.vn
+ *                             roleInClass:
+ *                               type: string
+ *                               example: Lead
  *       401:
  *         description: Unauthorized - token missing or invalid
  *       403:
