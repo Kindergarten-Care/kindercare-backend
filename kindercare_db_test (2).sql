@@ -502,7 +502,7 @@ CREATE TABLE `Parents` (
   `ParentID` int NOT NULL,
   `FullName` varchar(100) NOT NULL,
   `PhoneNumber` varchar(20) NOT NULL,
-  `Email覆` varchar(100) DEFAULT NULL,
+  `Email` varchar(100) DEFAULT NULL,
   `IDCard` varchar(20) DEFAULT NULL,
   `Job` varchar(100) DEFAULT NULL,
   `Address` text
@@ -512,7 +512,7 @@ CREATE TABLE `Parents` (
 -- Đang đổ dữ liệu cho bảng `Parents`
 --
 
-INSERT INTO `Parents` (`ParentID`, `FullName`, `PhoneNumber`, `Email覆`, `IDCard`, `Job`, `Address`) VALUES
+INSERT INTO `Parents` (`ParentID`, `FullName`, `PhoneNumber`, `Email`, `IDCard`, `Job`, `Address`) VALUES
 (4, 'Nguyễn Anh Tuấn', '0911111111', 'tuan.nguyen@gmail.com', NULL, 'Kỹ sư', '65 Huỳnh Thúc Kháng, Q1'),
 (6, 'Hồ Công Danh', '086655189', 'hocong.danh16@gmail.com', '07020002832', 'IT', 'Bình Tân, HCM');
 
