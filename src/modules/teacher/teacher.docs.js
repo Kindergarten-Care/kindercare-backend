@@ -1,0 +1,492 @@
+/**
+ * @swagger
+ * tags:
+ *   name: Teacher
+ *   description: Teacher-specific operations (Dashboard, Profile, Leave Requests, and Attendance)
+ */
+
+/**
+ * @swagger
+ * /teacher/dashboard:
+ *   get:
+ *     summary: Get Teacher Dashboard statistics
+ *     description: Retrieve dashboard data for all classes assigned to the logged-in teacher, including student count, today's attendance stats, and pending leave requests count.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved teacher dashboard stats
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy dữ liệu dashboard giáo viên thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     todayDate:
+ *                       type: integer
+ *                       example: 1784160000
+ *                       description: Start of today in Unix timestamp (seconds)
+ *                     classes:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           classId:
+ *                             type: integer
+ *                             example: 1
+ *                           className:
+ *                             type: string
+ *                             example: Mầm 1
+ *                           stats:
+ *                             type: object
+ *                             properties:
+ *                               totalStudents:
+ *                                 type: integer
+ *                                 example: 15
+ *                               attendance:
+ *                                 type: object
+ *                                 properties:
+ *                                   present:
+ *                                     type: integer
+ *                                     example: 12
+ *                                   absent:
+ *                                     type: integer
+ *                                     example: 1
+ *                                   excused:
+ *                                     type: integer
+ *                                     example: 2
+ *                                   noAttendance:
+ *                                     type: integer
+ *                                     example: 0
+ *                               pendingLeavesCount:
+ *                                 type: integer
+ *                                 example: 1
+ *       401:
+ *         description: Unauthorized - token missing or invalid
+ *       403:
+ *         description: Forbidden - user is not a teacher
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /teacher/profile:
+ *   get:
+ *     summary: Get Teacher Profile
+ *     description: Retrieve detailed profile details of the authenticated teacher.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved teacher profile details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy thông tin hồ sơ giáo viên thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     teacherId:
+ *                       type: integer
+ *                       example: 3
+ *                     username:
+ *                       type: string
+ *                       example: gv_lan
+ *                     avatarUrl:
+ *                       type: string
+ *                       nullable: true
+ *                       example: https://example.com/avatar.jpg
+ *                     fullName:
+ *                       type: string
+ *                       example: Nguyễn Thị Lan
+ *                     phoneNumber:
+ *                       type: string
+ *                       example: 0901234567
+ *                     email:
+ *                       type: string
+ *                       example: lan.nguyen@kindercare.edu.vn
+ *                     dateOfBirth:
+ *                       type: integer
+ *                       example: 642729600
+ *                     gender:
+ *                       type: string
+ *                       example: Nữ
+ *                     idCard:
+ *                       type: string
+ *                       example: 079190001234
+ *                     address:
+ *                       type: string
+ *                       example: 123 Nguyễn Huệ, Quận 1
+ *                     professionalRank:
+ *                       type: string
+ *                       example: Hạng III
+ *                     workStatus:
+ *                       type: string
+ *                       example: Active
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Teacher profile not found
+ *       500:
+ *         description: Internal Server Error
+ * 
+ *   put:
+ *     summary: Update Teacher Profile
+ *     description: Update profile fields of the authenticated teacher.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - fullName
+ *             properties:
+ *               fullName:
+ *                 type: string
+ *                 example: Nguyễn Thị Lan
+ *               phoneNumber:
+ *                 type: string
+ *                 example: 0901234567
+ *               email:
+ *                 type: string
+ *                 example: lan.nguyen@kindercare.edu.vn
+ *               dateOfBirth:
+ *                 type: integer
+ *                 example: 642729600
+ *               gender:
+ *                 type: string
+ *                 example: Nữ
+ *               idCard:
+ *                 type: string
+ *                 example: 079190001234
+ *               address:
+ *                 type: string
+ *                 example: 123 Nguyễn Huệ, Quận 1
+ *               avatarUrl:
+ *                 type: string
+ *                 example: https://example.com/new-avatar.jpg
+ *     responses:
+ *       200:
+ *         description: Successfully updated teacher profile details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Cập nhật thông tin hồ sơ giáo viên thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     teacherId:
+ *                       type: integer
+ *                       example: 3
+ *                     username:
+ *                       type: string
+ *                       example: gv_lan
+ *                     avatarUrl:
+ *                       type: string
+ *                       example: https://example.com/new-avatar.jpg
+ *                     fullName:
+ *                       type: string
+ *                       example: Nguyễn Thị Lan
+ *                     phoneNumber:
+ *                       type: string
+ *                       example: 0901234567
+ *                     email:
+ *                       type: string
+ *                       example: lan.nguyen@kindercare.edu.vn
+ *                     dateOfBirth:
+ *                       type: integer
+ *                       example: 642729600
+ *                     gender:
+ *                       type: string
+ *                       example: Nữ
+ *                     idCard:
+ *                       type: string
+ *                       example: 079190001234
+ *                     address:
+ *                       type: string
+ *                       example: 123 Nguyễn Huệ, Quận 1
+ *                     professionalRank:
+ *                       type: string
+ *                       example: Hạng III
+ *                     workStatus:
+ *                       type: string
+ *                       example: Active
+ *       400:
+ *         description: Bad Request - Validation failed
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /teacher/leave-requests:
+ *   get:
+ *     summary: Get Leave Requests
+ *     description: Retrieve all leave requests submitted for students in the classes taught by this teacher.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [Pending, Approved, Rejected]
+ *         description: Filter leave requests by status
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved the list of leave requests
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách đơn phép thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       requestId:
+ *                         type: integer
+ *                         example: 5
+ *                       studentId:
+ *                         type: integer
+ *                         example: 1
+ *                       studentName:
+ *                         type: string
+ *                         example: Nguyễn Minh Khang
+ *                       className:
+ *                         type: string
+ *                         example: Mầm 1
+ *                       parentId:
+ *                         type: integer
+ *                         example: 4
+ *                       parentName:
+ *                         type: string
+ *                         example: Nguyễn Anh Tuấn
+ *                       fromDate:
+ *                         type: integer
+ *                         example: 1783987200
+ *                       toDate:
+ *                         type: integer
+ *                         example: 1784073600
+ *                       reason:
+ *                         type: string
+ *                         example: Bé bị sốt phát ban cần nghỉ ngơi
+ *                       evidenceUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://example.com/evidence.jpg
+ *                       status:
+ *                         type: string
+ *                         example: Pending
+ *                       isMealFeeDeducted:
+ *                         type: integer
+ *                         example: 0
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /teacher/leave-requests/{requestId}/status:
+ *   put:
+ *     summary: Approve or Reject a Leave Request
+ *     description: Update the status of a specific student leave request to either 'Approved' or 'Rejected'. Teachers can only update status for students in their assigned classes.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the leave request
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [Approved, Rejected, Đã duyệt, Không duyệt]
+ *                 example: Approved
+ *     responses:
+ *       200:
+ *         description: Successfully updated leave request status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Cập nhật trạng thái đơn phép thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     requestId:
+ *                       type: string
+ *                       example: "5"
+ *                     status:
+ *                       type: string
+ *                       example: Approved
+ *       400:
+ *         description: Bad Request - Validation failed
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Teacher is not assigned to the student's class
+ *       404:
+ *         description: Leave request not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /teacher/attendance/quick:
+ *   post:
+ *     summary: Submit quick attendance
+ *     description: Submit or update attendance records in bulk for students in a specific class on a target date.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - classId
+ *               - attendanceData
+ *             properties:
+ *               classId:
+ *                 type: integer
+ *                 example: 1
+ *               date:
+ *                 type: integer
+ *                 description: Unix timestamp in seconds (start of the day). Defaults to today if not provided.
+ *                 example: 1784160000
+ *               attendanceData:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - studentId
+ *                     - status
+ *                   properties:
+ *                     studentId:
+ *                       type: integer
+ *                       example: 1
+ *                     status:
+ *                       type: string
+ *                       enum: [Present, Absent, Excused, Có mặt, Vắng, Phép]
+ *                       example: Present
+ *                     checkInTime:
+ *                       type: integer
+ *                       nullable: true
+ *                       example: 1784187000
+ *                     checkOutTime:
+ *                       type: integer
+ *                       nullable: true
+ *                       example: 1784221200
+ *                     pickedUpBy:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Nguyễn Anh Tuấn
+ *     responses:
+ *       200:
+ *         description: Successfully recorded attendance in bulk
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Điểm danh nhanh thành công
+ *       400:
+ *         description: Bad Request - Validation failed or student not in class
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Teacher is not assigned to the class
+ *       500:
+ *         description: Internal Server Error
+ */
