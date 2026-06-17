@@ -23,6 +23,9 @@ router.put(
   teacherController.updateLeaveRequestStatus
 );
 
+// Classes
+router.get('/classes', teacherController.getClasses);
+
 // Attendance
 router.get(
   '/classes/:classId/students',
