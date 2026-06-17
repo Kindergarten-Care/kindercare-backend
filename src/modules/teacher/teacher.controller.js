@@ -208,3 +208,42 @@ export const submitQuickAttendance = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Get detailed student list for a class with attendance and leave status for a date
+ */
+export const getClassStudents = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId } = req.params;
+    const { date } = req.query;
+
+    const numericClassId = Number(classId);
+
+    // Security check: Check if teacher teaches this class
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền xem danh sách học sinh của lớp này');
+    }
+
+    // Calculate target date timestamp (seconds) at start of day
+    let targetTimestamp;
+    if (date) {
+      const d = new Date(Number(date) * 1000);
+      d.setHours(0, 0, 0, 0);
+      targetTimestamp = Math.floor(d.getTime() / 1000);
+    } else {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      targetTimestamp = Math.floor(today.getTime() / 1000);
+    }
+
+    const students = await teacherService.getClassStudentsAttendance(numericClassId, targetTimestamp);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, students, 'Lấy danh sách học sinh kèm trạng thái điểm danh thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
