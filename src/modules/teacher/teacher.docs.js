@@ -490,3 +490,96 @@
  *       500:
  *         description: Internal Server Error
  */
+
+/**
+ * @swagger
+ * /teacher/classes/{classId}/students:
+ *   get:
+ *     summary: Get detailed student list with attendance and leave status
+ *     description: Retrieve all active students in a specific class with their attendance records and any active leave requests for a target date.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: classId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the class
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: integer
+ *         description: Unix timestamp in seconds (start of the day) to query attendance. Defaults to today.
+ *         example: 1784160000
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved the list of students with attendance status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách học sinh kèm trạng thái điểm danh thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       studentId:
+ *                         type: integer
+ *                         example: 1
+ *                       fullName:
+ *                         type: string
+ *                         example: Nguyễn Minh Khang
+ *                       avatarUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://example.com/avatar.png
+ *                       status:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Present
+ *                       checkInTime:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 1784187000
+ *                       checkOutTime:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 1784221200
+ *                       healthNote:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Bé có biểu hiện hơi mệt buổi sáng
+ *                       leaveRequest:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           requestId:
+ *                             type: integer
+ *                             example: 5
+ *                           status:
+ *                             type: string
+ *                             example: Approved
+ *                           reason:
+ *                             type: string
+ *                             example: Bé bị sốt cần nghỉ ngơi
+ *       400:
+ *         description: Bad Request - Validation failed
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Teacher is not assigned to the class
+ *       500:
+ *         description: Internal Server Error
+ */

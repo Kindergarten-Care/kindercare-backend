@@ -24,6 +24,11 @@ router.put(
 );
 
 // Attendance
+router.get(
+  '/classes/:classId/students',
+  teacherValidation.validateGetClassStudents,
+  teacherController.getClassStudents
+);
 router.post('/attendance/quick', teacherValidation.validateQuickAttendance, teacherController.submitQuickAttendance);
 
 export default router;

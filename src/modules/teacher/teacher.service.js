@@ -274,3 +274,75 @@ export const isStudentInClass = async (studentId, classId) => {
   const [rows] = await pool.query(query, [studentId, classId]);
   return rows.length > 0;
 };
+
+/**
+ * Get student details of a class with attendance status and active leave request for a specific date
+ * @param {number} classId
+ * @param {number} dateTimestamp
+ * @returns {Promise<Array>} List of students with attendance and leave status
+ */
+export const getClassStudentsAttendance = async (classId, dateTimestamp) => {
+  const query = `
+    SELECT 
+      s.StudentID AS studentId,
+      s.FullName AS fullName,
+      s.AvatarURL AS avatarUrl,
+      a.Status AS status,
+      a.CheckInTime AS checkInTime,
+      a.CheckOutTime AS checkOutTime,
+      (
+        SELECT lr.RequestID
+        FROM LeaveRequests lr
+        WHERE lr.StudentID = s.StudentID AND ? BETWEEN lr.FromDate AND lr.ToDate
+        ORDER BY lr.RequestID DESC
+        LIMIT 1
+      ) AS leaveRequestId,
+      (
+        SELECT lr.Status
+        FROM LeaveRequests lr
+        WHERE lr.StudentID = s.StudentID AND ? BETWEEN lr.FromDate AND lr.ToDate
+        ORDER BY lr.RequestID DESC
+        LIMIT 1
+      ) AS leaveRequestStatus,
+      (
+        SELECT lr.Reason
+        FROM LeaveRequests lr
+        WHERE lr.StudentID = s.StudentID AND ? BETWEEN lr.FromDate AND lr.ToDate
+        ORDER BY lr.RequestID DESC
+        LIMIT 1
+      ) AS leaveRequestReason,
+      (
+        SELECT da.TeacherNote
+        FROM DailyActivities da
+        WHERE da.StudentID = s.StudentID AND da.ActivityDate = ?
+        LIMIT 1
+      ) AS healthNote
+    FROM Students s
+    LEFT JOIN Attendances a ON s.StudentID = a.StudentID AND a.AttendanceDate = ?
+    WHERE s.ClassID = ? AND s.EnrollmentStatus = 'Active'
+    ORDER BY s.FullName
+  `;
+  const [rows] = await pool.query(query, [
+    dateTimestamp,
+    dateTimestamp,
+    dateTimestamp,
+    dateTimestamp,
+    dateTimestamp,
+    classId
+  ]);
+
+  return rows.map(row => ({
+    studentId: row.studentId,
+    fullName: row.fullName,
+    avatarUrl: row.avatarUrl,
+    status: row.status || null,
+    checkInTime: row.checkInTime ? Number(row.checkInTime) : null,
+    checkOutTime: row.checkOutTime ? Number(row.checkOutTime) : null,
+    healthNote: row.healthNote || null,
+    leaveRequest: row.leaveRequestId ? {
+      requestId: row.leaveRequestId,
+      status: row.leaveRequestStatus,
+      reason: row.leaveRequestReason
+    } : null
+  }));
+};
