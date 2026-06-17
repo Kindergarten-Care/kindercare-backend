@@ -7,7 +7,10 @@ import pool from '../../config/db.js';
  */
 export const getTeacherClasses = async (teacherId) => {
   const query = `
-    SELECT ct.ClassID AS classId, c.ClassName AS className
+    SELECT 
+      ct.ClassID AS classId, 
+      c.ClassName AS className,
+      (SELECT COUNT(*) FROM Students s WHERE s.ClassID = c.ClassID AND s.EnrollmentStatus = 'Active') AS studentCount
     FROM ClassTeachers ct
     JOIN Classes c ON ct.ClassID = c.ClassID
     WHERE ct.TeacherID = ?

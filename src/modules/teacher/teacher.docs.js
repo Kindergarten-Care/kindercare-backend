@@ -7,6 +7,54 @@
 
 /**
  * @swagger
+ * /teacher/classes:
+ *   get:
+ *     summary: Get Teacher Classes
+ *     description: Retrieve all classes assigned to the logged-in teacher, including the count of active students in each class.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved the list of assigned classes
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách lớp học của giáo viên thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       classId:
+ *                         type: integer
+ *                         example: 1
+ *                       className:
+ *                         type: string
+ *                         example: Mầm 1
+ *                       studentCount:
+ *                         type: integer
+ *                         example: 15
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - User is not a teacher
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
  * /teacher/dashboard:
  *   get:
  *     summary: Get Teacher Dashboard statistics

@@ -247,3 +247,20 @@ export const getClassStudents = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Get all classes assigned to the logged-in teacher
+ */
+export const getClasses = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const classes = await teacherService.getTeacherClasses(teacherId);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, classes, 'Lấy danh sách lớp học của giáo viên thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
