@@ -34,14 +34,33 @@ export const getClassDashboardStats = async (classId, todayTimestamp) => {
 
   const attendanceQuery = `
     SELECT 
-      SUM(CASE WHEN a.Status IN ('Present', 'Có mặt') THEN 1 ELSE 0 END) AS presentCount,
-      SUM(CASE WHEN a.Status IN ('Absent', 'Vắng', 'Vắng không phép') THEN 1 ELSE 0 END) AS absentCount,
-      SUM(CASE WHEN a.Status IN ('Excused', 'Vắng có phép', 'Phép') THEN 1 ELSE 0 END) AS excusedCount
-    FROM Students s
-    LEFT JOIN Attendances a ON s.StudentID = a.StudentID AND a.AttendanceDate = ?
-    WHERE s.ClassID = ? AND s.EnrollmentStatus = "Active"
+      SUM(CASE WHEN resolved_status IN ('Present', 'Có mặt') THEN 1 ELSE 0 END) AS presentCount,
+      SUM(CASE WHEN resolved_status IN ('Absent', 'Vắng', 'Vắng không phép') THEN 1 ELSE 0 END) AS absentCount,
+      SUM(CASE WHEN resolved_status IN ('Excused', 'Vắng có phép', 'Phép') THEN 1 ELSE 0 END) AS excusedCount
+    FROM (
+      SELECT 
+        s.StudentID,
+        COALESCE(a.Status, (
+          SELECT CASE 
+            WHEN lr.Status = 'Approved' THEN 'Excused'
+            WHEN lr.Status = 'Rejected' THEN 'Absent'
+            ELSE NULL 
+          END
+          FROM LeaveRequests lr
+          WHERE lr.StudentID = s.StudentID AND ? BETWEEN lr.FromDate AND lr.ToDate
+          ORDER BY lr.RequestID DESC
+          LIMIT 1
+        )) AS resolved_status
+      FROM Students s
+      LEFT JOIN Attendances a ON s.StudentID = a.StudentID AND a.AttendanceDate = ?
+      WHERE s.ClassID = ? AND s.EnrollmentStatus = "Active"
+    ) AS student_resolved
   `;
-  const [attendanceResult] = await pool.query(attendanceQuery, [todayTimestamp, classId]);
+  const [attendanceResult] = await pool.query(attendanceQuery, [
+    todayTimestamp,
+    todayTimestamp,
+    classId
+  ]);
   const present = Number(attendanceResult[0]?.presentCount || 0);
   const absent = Number(attendanceResult[0]?.absentCount || 0);
   const excused = Number(attendanceResult[0]?.excusedCount || 0);
@@ -157,6 +176,7 @@ export const getLeaveRequestsForTeacher = async (teacherId, status) => {
   let query = `
     SELECT 
       lr.RequestID AS requestId,
+      s.ClassID AS classId,
       lr.StudentID AS studentId,
       s.FullName AS studentName,
       c.ClassName AS className,
@@ -290,7 +310,17 @@ export const getClassStudentsAttendance = async (classId, dateTimestamp) => {
       s.StudentID AS studentId,
       s.FullName AS fullName,
       s.AvatarURL AS avatarUrl,
-      a.Status AS status,
+      COALESCE(a.Status, (
+        SELECT CASE 
+          WHEN lr.Status = 'Approved' THEN 'Excused'
+          WHEN lr.Status = 'Rejected' THEN 'Absent'
+          ELSE NULL 
+        END
+        FROM LeaveRequests lr
+        WHERE lr.StudentID = s.StudentID AND ? BETWEEN lr.FromDate AND lr.ToDate
+        ORDER BY lr.RequestID DESC
+        LIMIT 1
+      )) AS status,
       a.CheckInTime AS checkInTime,
       a.CheckOutTime AS checkOutTime,
       (
@@ -326,6 +356,7 @@ export const getClassStudentsAttendance = async (classId, dateTimestamp) => {
     ORDER BY s.FullName
   `;
   const [rows] = await pool.query(query, [
+    dateTimestamp,
     dateTimestamp,
     dateTimestamp,
     dateTimestamp,
