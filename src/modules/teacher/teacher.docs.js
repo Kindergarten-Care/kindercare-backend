@@ -55,6 +55,83 @@
 
 /**
  * @swagger
+ * /teacher/classes/{classId}/menu:
+ *   get:
+ *     summary: Get Class Meal Menu
+ *     description: Retrieve the meal menu for a specific class on a target date. Teachers can only view the menu for classes they are assigned to.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: classId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the class
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: integer
+ *         description: Unix timestamp in seconds (start of the day) to query. Defaults to today.
+ *         example: 1784160000
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved the class meal menu
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy thực đơn lớp học thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       menuId:
+ *                         type: integer
+ *                         example: 1
+ *                       classId:
+ *                         type: integer
+ *                         example: 1
+ *                       menuDate:
+ *                         type: integer
+ *                         example: 1784160000
+ *                       mealType:
+ *                         type: string
+ *                         example: Bữa trưa
+ *                       dishName:
+ *                         type: string
+ *                         example: Cơm + canh + thịt
+ *                       calories:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 450
+ *                       nutritionalDetails:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Giàu protein và vitamin
+ *       400:
+ *         description: Bad Request - Validation failed
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Teacher is not assigned to the class
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
  * /teacher/dashboard:
  *   get:
  *     summary: Get Teacher Dashboard statistics
