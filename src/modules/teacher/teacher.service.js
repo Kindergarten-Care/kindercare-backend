@@ -405,3 +405,29 @@ export const getClassMenu = async (classId, dateTimestamp) => {
   return rows;
 };
 
+/**
+ * Upsert eating status for a student on a specific date in DailyActivities
+ * @param {number} studentId 
+ * @param {number} dateTimestamp 
+ * @param {string} eatingStatus 
+ */
+export const upsertStudentMealLog = async (studentId, dateTimestamp, eatingStatus) => {
+  const checkQuery = 'SELECT ActivityID FROM DailyActivities WHERE StudentID = ? AND ActivityDate = ?';
+  const [rows] = await pool.query(checkQuery, [studentId, dateTimestamp]);
+
+  if (rows.length > 0) {
+    const updateQuery = `
+      UPDATE DailyActivities
+      SET EatingStatus = ?
+      WHERE StudentID = ? AND ActivityDate = ?
+    `;
+    await pool.query(updateQuery, [eatingStatus, studentId, dateTimestamp]);
+  } else {
+    const insertQuery = `
+      INSERT INTO DailyActivities (StudentID, ActivityDate, EatingStatus)
+      VALUES (?, ?, ?)
+    `;
+    await pool.query(insertQuery, [studentId, dateTimestamp, eatingStatus]);
+  }
+};
+

@@ -708,3 +708,71 @@
  *       500:
  *         description: Internal Server Error
  */
+
+/**
+ * @swagger
+ * /teacher/attendance/meals:
+ *   post:
+ *     summary: Submit quick meal logs
+ *     description: Submit or update meal intake status in bulk for students in a specific class on a target date.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - classId
+ *               - mealData
+ *             properties:
+ *               classId:
+ *                 type: integer
+ *                 example: 1
+ *               date:
+ *                 type: integer
+ *                 description: Unix timestamp in seconds (start of the day). Defaults to today if not provided.
+ *                 example: 1784160000
+ *               mealData:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - studentId
+ *                     - eatingStatus
+ *                   properties:
+ *                     studentId:
+ *                       type: integer
+ *                       example: 1
+ *                     eatingStatus:
+ *                       type: string
+ *                       enum: [Ăn hết, Ăn chậm, Không ăn, Ăn ngoan]
+ *                       example: Ăn hết
+ *     responses:
+ *       200:
+ *         description: Successfully recorded meal logs in bulk
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Ghi nhận bữa ăn thành công
+ *       400:
+ *         description: Bad Request - Validation failed or student not in class
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Teacher is not assigned to the class
+ *       500:
+ *         description: Internal Server Error
+ */

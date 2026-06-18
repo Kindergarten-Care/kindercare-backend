@@ -31,12 +31,13 @@ router.get(
   teacherController.getClassMenu
 );
 
-// Attendance
+// Attendance & Meals
 router.get(
   '/classes/:classId/students',
   teacherValidation.validateGetClassStudents,
   teacherController.getClassStudents
 );
 router.post('/attendance/quick', teacherValidation.validateQuickAttendance, teacherController.submitQuickAttendance);
+router.post('/attendance/meals', teacherValidation.validateQuickMealLogs, teacherController.submitQuickMealLogs);
 
 export default router;
