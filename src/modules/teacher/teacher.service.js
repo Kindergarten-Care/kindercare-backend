@@ -392,3 +392,28 @@ export const getClassStudentsAttendance = async (classId, dateTimestamp) => {
     } : null
   }));
 };
+
+/**
+ * Get class meal menu for a specific date
+ * @param {number} classId 
+ * @param {number} dateTimestamp Unix timestamp (seconds) for start of day
+ * @returns {Promise<Array>} List of menu items
+ */
+export const getClassMenu = async (classId, dateTimestamp) => {
+  const query = `
+    SELECT 
+      MenuID AS menuId,
+      ClassID AS classId,
+      MenuDate AS menuDate,
+      MealType AS mealType,
+      DishName AS dishName,
+      Calories AS calories,
+      NutritionalDetails AS nutritionalDetails
+    FROM Menus
+    WHERE ClassID = ? AND MenuDate = ?
+    ORDER BY MenuID
+  `;
+  const [rows] = await pool.query(query, [classId, dateTimestamp]);
+  return rows;
+};
+
