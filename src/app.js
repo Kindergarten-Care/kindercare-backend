@@ -1,4 +1,6 @@
 import express from 'express';
+import { createServer } from 'http';
+import { initSocket } from './config/socket.js';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
@@ -42,7 +44,10 @@ app.use(errorConverter);
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
+const server = createServer(app);
+initSocket(server);
+
+server.listen(PORT, () => {
     logger.info(`=============================================`);
     logger.info(`🚀 Server is running on http://localhost:${PORT}`);
     logger.info(`=============================================`);

@@ -287,6 +287,18 @@ export const upsertAttendance = async (studentId, date, status, checkInTime = nu
 };
 
 /**
+ * Delete attendance record for a student on a specific date
+ * @param {number} studentId 
+ * @param {number} date 
+ * @returns {Promise<boolean>} True if deleted
+ */
+export const deleteAttendance = async (studentId, date) => {
+  const query = 'DELETE FROM Attendances WHERE StudentID = ? AND AttendanceDate = ?';
+  const [result] = await pool.query(query, [studentId, date]);
+  return result.affectedRows > 0;
+};
+
+/**
  * Check if a student belongs to a specific class
  * @param {number} studentId 
  * @param {number} classId 

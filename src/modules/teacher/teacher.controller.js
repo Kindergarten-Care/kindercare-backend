@@ -2,6 +2,8 @@ import * as teacherService from './teacher.service.js';
 import ApiResponse from '../../utils/ApiResponse.js';
 import httpStatus from 'http-status';
 import ApiError from '../../utils/ApiError.js';
+import { getIO } from '../../config/socket.js';
+import logger from '../../config/logger.js';
 
 /**
  * Get Teacher Dashboard stats
@@ -136,6 +138,57 @@ export const updateLeaveRequestStatus = async (req, res, next) => {
 
     await teacherService.updateLeaveRequestStatus(requestId, dbStatus, teacherId);
 
+    // Auto-upsert attendance records for each date in the leave request range
+    // Approved → 'Excused' (Vắng phép), Rejected → 'Absent' (Không phép)
+    if (dbStatus === 'Approved' || dbStatus === 'Rejected') {
+      const attendanceStatus = dbStatus === 'Approved' ? 'Excused' : 'Absent';
+      const fromDate = Number(leaveRequest.FromDate);
+      const toDate = Number(leaveRequest.ToDate);
+      const studentId = leaveRequest.StudentID;
+      const classId = leaveRequest.classId;
+
+      // Calculate each day's timestamp (86400 seconds per day)
+      const ONE_DAY = 86400;
+      for (let dateTs = fromDate; dateTs <= toDate; dateTs += ONE_DAY) {
+        await teacherService.upsertAttendance(studentId, dateTs, attendanceStatus);
+
+        // Fetch updated stats and broadcast real-time update
+        try {
+          const stats = await teacherService.getClassDashboardStats(classId, dateTs);
+          const pendingLeavesCount = await teacherService.getPendingLeaveRequestsCount(classId);
+          const io = getIO();
+          
+          io.emit('attendanceStatsUpdated', {
+            classId,
+            date: dateTs,
+            stats: {
+              totalStudents: stats.totalStudents,
+              attendance: {
+                present: stats.present,
+                absent: stats.absent,
+                excused: stats.excused,
+                noAttendance: stats.noAttendance,
+              },
+              pendingLeavesCount,
+            },
+          });
+          logger.info(`📢 Real-time stats emitted for class ${classId} on date ${dateTs}`);
+        } catch (socketError) {
+          logger.error('Failed to emit real-time attendance stats: %s', socketError.message);
+        }
+      }
+    } else if (dbStatus === 'Pending') {
+      // Revert attendance records if changed back to Pending
+      const fromDate = Number(leaveRequest.FromDate);
+      const toDate = Number(leaveRequest.ToDate);
+      const studentId = leaveRequest.StudentID;
+
+      const ONE_DAY = 86400;
+      for (let dateTs = fromDate; dateTs <= toDate; dateTs += ONE_DAY) {
+        await teacherService.deleteAttendance(studentId, dateTs);
+      }
+    }
+
     res.status(httpStatus.OK).json(
       new ApiResponse(
         httpStatus.OK,
@@ -196,6 +249,31 @@ export const submitQuickAttendance = async (req, res, next) => {
         checkOutTime || null,
         pickedUpBy || null
       );
+    }
+
+    // Broadcast updated stats for the class in real-time
+    try {
+      const stats = await teacherService.getClassDashboardStats(classId, targetTimestamp);
+      const pendingLeavesCount = await teacherService.getPendingLeaveRequestsCount(classId);
+      const io = getIO();
+
+      io.emit('attendanceStatsUpdated', {
+        classId,
+        date: targetTimestamp,
+        stats: {
+          totalStudents: stats.totalStudents,
+          attendance: {
+            present: stats.present,
+            absent: stats.absent,
+            excused: stats.excused,
+            noAttendance: stats.noAttendance,
+          },
+          pendingLeavesCount,
+        },
+      });
+      logger.info(`📢 Real-time stats emitted for class ${classId} on date ${targetTimestamp} (quick attendance)`);
+    } catch (socketError) {
+      logger.error('Failed to emit real-time attendance stats: %s', socketError.message);
     }
 
     res.status(httpStatus.OK).json(
