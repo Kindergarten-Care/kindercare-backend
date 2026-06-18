@@ -37,5 +37,52 @@ export const getChildrenByParentId = async (parentId) => {
     WHERE sp.ParentID = ?
   `;
   const [rows] = await pool.query(query, [parentId]);
-  return rows;
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  // Extract unique, non-null class IDs
+  const classIds = [...new Set(rows.map(r => r.classId).filter(id => id !== null))];
+
+  let teachers = [];
+  if (classIds.length > 0) {
+    const placeholders = classIds.map(() => '?').join(',');
+    const [teacherRows] = await pool.query(
+      `SELECT 
+        ct.ClassID AS classId,
+        t.TeacherID AS teacherId,
+        t.FullName AS fullName,
+        t.PhoneNumber AS phoneNumber,
+        t.Email AS email,
+        ct.RoleInClass AS roleInClass
+       FROM ClassTeachers ct
+       JOIN Teachers t ON ct.TeacherID = t.TeacherID
+       WHERE ct.ClassID IN (${placeholders})`,
+      classIds
+    );
+    teachers = teacherRows;
+  }
+
+  // Map teachers by classId
+  const teachersByClass = {};
+  for (const teacher of teachers) {
+    if (!teachersByClass[teacher.classId]) {
+      teachersByClass[teacher.classId] = [];
+    }
+    teachersByClass[teacher.classId].push({
+      teacherId: teacher.teacherId,
+      fullName: teacher.fullName,
+      phoneNumber: teacher.phoneNumber,
+      email: teacher.email,
+      roleInClass: teacher.roleInClass
+    });
+  }
+
+  // Attach teachers to each child
+  return rows.map(child => ({
+    ...child,
+    teachers: teachersByClass[child.classId] || []
+  }));
 };
+
