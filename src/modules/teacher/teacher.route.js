@@ -25,6 +25,11 @@ router.put(
 
 // Classes
 router.get('/classes', teacherController.getClasses);
+router.get(
+  '/classes/:classId/menu',
+  teacherValidation.validateGetClassMenu,
+  teacherController.getClassMenu
+);
 
 // Attendance
 router.get(
