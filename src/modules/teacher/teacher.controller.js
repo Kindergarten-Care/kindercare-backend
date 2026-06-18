@@ -13,10 +13,9 @@ export const getDashboard = async (req, res, next) => {
     // Get assigned classes
     const classes = await teacherService.getTeacherClasses(teacherId);
 
-    // Calculate today's start timestamp (seconds)
+    // Calculate today's start timestamp (seconds) in UTC midnight of the local day
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayTimestamp = Math.floor(today.getTime() / 1000);
+    const todayTimestamp = Math.floor(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / 1000);
 
     const classesStats = [];
     for (const cls of classes) {
@@ -163,16 +162,14 @@ export const submitQuickAttendance = async (req, res, next) => {
       throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền điểm danh cho lớp này');
     }
 
-    // Calculate target date timestamp (seconds) at start of day
+    // Calculate target date timestamp (seconds) at start of day in UTC
     let targetTimestamp;
     if (date) {
-      const d = new Date(date * 1000);
-      d.setHours(0, 0, 0, 0);
-      targetTimestamp = Math.floor(d.getTime() / 1000);
+      const d = new Date(Number(date) * 1000);
+      targetTimestamp = Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 1000);
     } else {
       const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      targetTimestamp = Math.floor(today.getTime() / 1000);
+      targetTimestamp = Math.floor(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / 1000);
     }
 
     // Perform upsert for each student
@@ -226,16 +223,14 @@ export const getClassStudents = async (req, res, next) => {
       throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền xem danh sách học sinh của lớp này');
     }
 
-    // Calculate target date timestamp (seconds) at start of day
+    // Calculate target date timestamp (seconds) at start of day in UTC
     let targetTimestamp;
     if (date) {
       const d = new Date(Number(date) * 1000);
-      d.setHours(0, 0, 0, 0);
-      targetTimestamp = Math.floor(d.getTime() / 1000);
+      targetTimestamp = Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 1000);
     } else {
       const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      targetTimestamp = Math.floor(today.getTime() / 1000);
+      targetTimestamp = Math.floor(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / 1000);
     }
 
     const students = await teacherService.getClassStudentsAttendance(numericClassId, targetTimestamp);
