@@ -86,3 +86,27 @@ export const getChildrenByParentId = async (parentId) => {
   }));
 };
 
+/**
+ * Get parent profile by ParentID
+ * @param {number} parentId
+ * @returns {Promise<Object|null>} Parent profile
+ */
+export const getParentProfileById = async (parentId) => {
+  const query = `
+    SELECT 
+      ParentID AS parentId,
+      FullName AS fullName,
+      PhoneNumber AS phoneNumber,
+      Email AS email,
+      IDCard AS idCard,
+      Job AS job,
+      Address AS address,
+      AvatarURL AS avatarUrl
+    FROM Parents
+    WHERE ParentID = ?
+  `;
+  const [rows] = await pool.query(query, [parentId]);
+  return rows.length > 0 ? rows[0] : null;
+};
+
+
