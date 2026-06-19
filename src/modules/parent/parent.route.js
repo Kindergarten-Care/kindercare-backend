@@ -10,5 +10,8 @@ router.get('/children', authenticate, authorize(4), parentController.getMyChildr
 // Get profile of the logged-in parent
 router.get('/profile', authenticate, authorize(4), parentController.getMyProfile);
 
+// Get health records of a child
+router.get('/children/:studentId/health-records', authenticate, authorize(4), parentController.getChildHealthRecords);
+
 export default router;
 

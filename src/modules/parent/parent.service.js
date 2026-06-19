@@ -109,4 +109,43 @@ export const getParentProfileById = async (parentId) => {
   return rows.length > 0 ? rows[0] : null;
 };
 
+/**
+ * Get health records of a child by StudentID
+ * @param {number} studentId
+ * @returns {Promise<Array>} List of health records
+ */
+export const getHealthRecordsByStudentId = async (studentId) => {
+  const query = `
+    SELECT 
+      RecordID AS recordId,
+      StudentID AS studentId,
+      TermPeriod AS termPeriod,
+      Height AS height,
+      Weight AS weight,
+      BMI AS bmi
+    FROM HealthRecords
+    WHERE StudentID = ?
+    ORDER BY TermPeriod DESC
+  `;
+  const [rows] = await pool.query(query, [studentId]);
+  return rows;
+};
+
+/**
+ * Check if a parent is associated with a child
+ * @param {number} parentId
+ * @param {number} studentId
+ * @returns {Promise<boolean>} True if parent is associated with child
+ */
+export const isParentOfStudent = async (parentId, studentId) => {
+  const query = `
+    SELECT 1 
+    FROM StudentParents 
+    WHERE ParentID = ? AND StudentID = ?
+  `;
+  const [rows] = await pool.query(query, [parentId, studentId]);
+  return rows.length > 0;
+};
+
+
 
