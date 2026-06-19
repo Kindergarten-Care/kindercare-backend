@@ -113,6 +113,9 @@
  *                             email:
  *                               type: string
  *                               example: lan.nguyen@kindercare.edu.vn
+ *                             gender:
+ *                               type: string
+ *                               example: Nữ
  *                             roleInClass:
  *                               type: string
  *                               example: Lead

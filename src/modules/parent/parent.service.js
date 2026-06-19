@@ -55,6 +55,7 @@ export const getChildrenByParentId = async (parentId) => {
         t.FullName AS fullName,
         t.PhoneNumber AS phoneNumber,
         t.Email AS email,
+        t.Gender AS gender,
         ct.RoleInClass AS roleInClass
        FROM ClassTeachers ct
        JOIN Teachers t ON ct.TeacherID = t.TeacherID
@@ -75,6 +76,7 @@ export const getChildrenByParentId = async (parentId) => {
       fullName: teacher.fullName,
       phoneNumber: teacher.phoneNumber,
       email: teacher.email,
+      gender: teacher.gender,
       roleInClass: teacher.roleInClass
     });
   }
