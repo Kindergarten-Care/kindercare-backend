@@ -189,3 +189,68 @@
  *         description: Internal Server Error
  */
 
+/**
+ * @swagger
+ * /parent/children/{studentId}/health-records:
+ *   get:
+ *     summary: Get health records of a child
+ *     description: Retrieve all developmental health records (height, weight, BMI, term period) of a child associated with the authenticated parent.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the student
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved child health records
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách chỉ số sức khỏe của bé thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       recordId:
+ *                         type: integer
+ *                         example: 1
+ *                       studentId:
+ *                         type: integer
+ *                         example: 19
+ *                       termPeriod:
+ *                         type: string
+ *                         example: 2026-04
+ *                       height:
+ *                         type: string
+ *                         example: "130.00"
+ *                       weight:
+ *                         type: string
+ *                         example: "28.00"
+ *                       bmi:
+ *                         type: string
+ *                         example: "16.60"
+ *       401:
+ *         description: Unauthorized - token missing or invalid
+ *       403:
+ *         description: Forbidden - user is not a parent or is not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+

@@ -55,8 +55,41 @@ const getMyProfile = async (req, res, next) => {
   }
 };
 
+const getChildHealthRecords = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { studentId } = req.params;
+
+    // Double check authorization (safety check)
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    // Verify parent has access to this student
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin của học sinh này');
+    }
+
+    const records = await parentService.getHealthRecordsByStudentId(studentId);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        records,
+        'Lấy danh sách chỉ số sức khỏe của bé thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyChildren,
   getMyProfile,
+  getChildHealthRecords,
 };
+
 
