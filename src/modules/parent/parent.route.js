@@ -7,4 +7,8 @@ const router = express.Router();
 // Get children of the logged-in parent
 router.get('/children', authenticate, authorize(4), parentController.getMyChildren);
 
+// Get profile of the logged-in parent
+router.get('/profile', authenticate, authorize(4), parentController.getMyProfile);
+
 export default router;
+
