@@ -149,5 +149,152 @@ export const isParentOfStudent = async (parentId, studentId) => {
   return rows.length > 0;
 };
 
+/**
+ * Create a new leave request for a child
+ * @param {number} studentId
+ * @param {number} parentId
+ * @param {number} fromDate
+ * @param {number} toDate
+ * @param {string} reason
+ * @param {string|null} evidenceUrl
+ * @param {string|null} parentNotes
+ * @returns {Promise<Object>} Created leave request
+ */
+export const createLeaveRequest = async (
+  studentId,
+  parentId,
+  fromDate,
+  toDate,
+  reason,
+  evidenceUrl,
+  parentNotes
+) => {
+  const insertQuery = `
+    INSERT INTO LeaveRequests (StudentID, ParentID, FromDate, ToDate, Reason, EvidenceURL, Status, ParentNotes)
+    VALUES (?, ?, ?, ?, ?, ?, 'Pending', ?)
+  `;
+  const [result] = await pool.query(insertQuery, [
+    studentId,
+    parentId,
+    fromDate,
+    toDate,
+    reason,
+    evidenceUrl,
+    parentNotes
+  ]);
+
+  const requestId = result.insertId;
+
+  // Retrieve the newly created leave request to return it
+  const selectQuery = `
+    SELECT 
+      RequestID AS requestId,
+      StudentID AS studentId,
+      ParentID AS parentId,
+      FromDate AS fromDate,
+      ToDate AS toDate,
+      Reason AS reason,
+      EvidenceURL AS evidenceUrl,
+      Status AS status,
+      ApproverID AS approverId,
+      IsMealFeeDeducted AS isMealFeeDeducted,
+      ParentNotes AS parentNotes
+    FROM LeaveRequests
+    WHERE RequestID = ?
+  `;
+  const [rows] = await pool.query(selectQuery, [requestId]);
+  return rows[0];
+};
+
+/**
+ * Create a new medication request for a child
+ * @param {number} studentId
+ * @param {number} parentId
+ * @param {number} requestDate
+ * @param {string} medicineDetails
+ * @param {string} dosage
+ * @param {string|null} medicineImageUrl
+ * @returns {Promise<Object>} Created medication request
+ */
+export const createMedicationRequest = async (
+  studentId,
+  parentId,
+  requestDate,
+  medicineDetails,
+  dosage,
+  medicineImageUrl
+) => {
+  const insertQuery = `
+    INSERT INTO MedicationRequests (StudentID, ParentID, RequestDate, MedicineDetails, Dosage, MedicineImageURL, Status)
+    VALUES (?, ?, ?, ?, ?, ?, 'Pending')
+  `;
+  const [result] = await pool.query(insertQuery, [
+    studentId,
+    parentId,
+    requestDate,
+    medicineDetails,
+    dosage,
+    medicineImageUrl
+  ]);
+
+  const medRequestId = result.insertId;
+
+  // Retrieve the newly created medication request to return it
+  const selectQuery = `
+    SELECT 
+      MedRequestID AS medRequestId,
+      StudentID AS studentId,
+      ParentID AS parentId,
+      RequestDate AS requestDate,
+      MedicineDetails AS medicineDetails,
+      Dosage AS dosage,
+      MedicineImageURL AS medicineImageUrl,
+      Status AS status,
+      TeacherNote AS teacherNote
+    FROM MedicationRequests
+    WHERE MedRequestID = ?
+  `;
+  const [rows] = await pool.query(selectQuery, [medRequestId]);
+  return rows[0];
+};
+
+/**
+ * Get attendance records of a child by StudentID
+ * @param {number} studentId
+ * @param {number|null} startDate - Start date timestamp in seconds
+ * @param {number|null} endDate - End date timestamp in seconds
+ * @returns {Promise<Array>} List of attendance records
+ */
+export const getStudentAttendance = async (studentId, startDate, endDate) => {
+  let query = `
+    SELECT 
+      AttendanceID AS attendanceId,
+      StudentID AS studentId,
+      AttendanceDate AS attendanceDate,
+      Status AS status,
+      CheckInTime AS checkInTime,
+      CheckOutTime AS checkOutTime,
+      PickedUpBy AS pickedUpBy
+    FROM Attendances
+    WHERE StudentID = ?
+  `;
+  const params = [studentId];
+
+  if (startDate !== null && startDate !== undefined) {
+    query += ' AND AttendanceDate >= ?';
+    params.push(startDate);
+  }
+
+  if (endDate !== null && endDate !== undefined) {
+    query += ' AND AttendanceDate <= ?';
+    params.push(endDate);
+  }
+
+  query += ' ORDER BY AttendanceDate DESC';
+
+  const [rows] = await pool.query(query, params);
+  return rows;
+};
+
 
 
