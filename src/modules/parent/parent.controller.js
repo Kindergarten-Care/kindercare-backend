@@ -166,7 +166,7 @@ const createMedicationRequest = async (req, res, next) => {
       throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền thực hiện hành động này');
     }
 
-    const { studentId, requestDate, medicineDetails, dosage } = req.body;
+    const { studentId, requestDate, medicineDetails, dosage, frequency, timeToTake, parentNote } = req.body;
 
     // Validation
     if (!studentId || !requestDate || !medicineDetails || !dosage) {
@@ -193,6 +193,9 @@ const createMedicationRequest = async (req, res, next) => {
     const studentIdVal = parseInt(studentId, 10);
     const medicineDetailsVal = medicineDetails.trim();
     const dosageVal = dosage.trim();
+    const frequencyVal = frequency ? frequency.trim() : null;
+    const timeToTakeVal = timeToTake ? timeToTake.trim() : null;
+    const parentNoteVal = parentNote ? parentNote.trim() : null;
 
     const newRequest = await parentService.createMedicationRequest(
       studentIdVal,
@@ -200,7 +203,10 @@ const createMedicationRequest = async (req, res, next) => {
       requestDateVal,
       medicineDetailsVal,
       dosageVal,
-      medicineImageUrlVal
+      medicineImageUrlVal,
+      frequencyVal,
+      timeToTakeVal,
+      parentNoteVal
     );
 
     logger.info(`Parent ID ${parentId} created Medication Request ID ${newRequest.medRequestId} for Student ID ${studentId}`);

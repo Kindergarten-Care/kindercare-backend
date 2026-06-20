@@ -214,6 +214,9 @@ export const createLeaveRequest = async (
  * @param {string} medicineDetails
  * @param {string} dosage
  * @param {string|null} medicineImageUrl
+ * @param {string|null} frequency
+ * @param {string|null} timeToTake
+ * @param {string|null} parentNote
  * @returns {Promise<Object>} Created medication request
  */
 export const createMedicationRequest = async (
@@ -222,11 +225,14 @@ export const createMedicationRequest = async (
   requestDate,
   medicineDetails,
   dosage,
-  medicineImageUrl
+  medicineImageUrl,
+  frequency,
+  timeToTake,
+  parentNote
 ) => {
   const insertQuery = `
-    INSERT INTO MedicationRequests (StudentID, ParentID, RequestDate, MedicineDetails, Dosage, MedicineImageURL, Status)
-    VALUES (?, ?, ?, ?, ?, ?, 'Pending')
+    INSERT INTO MedicationRequests (StudentID, ParentID, RequestDate, MedicineDetails, Dosage, MedicineImageURL, Status, Frequency, TimeToTake, ParentNote)
+    VALUES (?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?)
   `;
   const [result] = await pool.query(insertQuery, [
     studentId,
@@ -234,7 +240,10 @@ export const createMedicationRequest = async (
     requestDate,
     medicineDetails,
     dosage,
-    medicineImageUrl
+    medicineImageUrl,
+    frequency,
+    timeToTake,
+    parentNote
   ]);
 
   const medRequestId = result.insertId;
@@ -250,7 +259,10 @@ export const createMedicationRequest = async (
       Dosage AS dosage,
       MedicineImageURL AS medicineImageUrl,
       Status AS status,
-      TeacherNote AS teacherNote
+      TeacherNote AS teacherNote,
+      Frequency AS frequency,
+      TimeToTake AS timeToTake,
+      ParentNote AS parentNote
     FROM MedicationRequests
     WHERE MedRequestID = ?
   `;
