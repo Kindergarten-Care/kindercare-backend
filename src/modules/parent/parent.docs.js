@@ -256,4 +256,293 @@
  *         description: Internal Server Error
  */
 
+/**
+ * @swagger
+ * /parent/leave-requests:
+ *   post:
+ *     summary: Create a leave request
+ *     description: Submit a new leave request for a child. Only accessible by parents associated with the child.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - studentId
+ *               - fromDate
+ *               - toDate
+ *               - reason
+ *             properties:
+ *               studentId:
+ *                 type: integer
+ *                 description: ID of the child student
+ *                 example: 19
+ *               fromDate:
+ *                 type: integer
+ *                 description: Start date of leave as Unix timestamp in seconds
+ *                 example: 1781827200
+ *               toDate:
+ *                 type: integer
+ *                 description: End date of leave as Unix timestamp in seconds
+ *                 example: 1781913599
+ *               reason:
+ *                 type: string
+ *                 description: Category of leave (e.g., Bệnh/Ốm, Việc gia đình, Du lịch / nghỉ phép, Khám bệnh định kỳ, Bé đi tiêm chủng định kỳ, Lý do khác)
+ *                 example: Bệnh/Ốm
+ *               evidenceUrl:
+ *                 type: string
+ *                 nullable: true
+ *                 description: URL to medical certificate or other supporting documents
+ *                 example: null
+ *               parentNotes:
+ *                 type: string
+ *                 nullable: true
+ *                 description: Detailed notes or messages from the parent
+ *                 example: Bé Khang bị sốt nhẹ từ đêm qua, gia đình xin phép thầy Huy cho bé nghỉ hôm nay để theo dõi thêm ạ.
+ *     responses:
+ *       201:
+ *         description: Leave request successfully created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 201
+ *                 message:
+ *                   type: string
+ *                   example: Tạo đơn xin nghỉ phép thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     requestId:
+ *                       type: integer
+ *                       example: 22
+ *                     studentId:
+ *                       type: integer
+ *                       example: 19
+ *                     parentId:
+ *                       type: integer
+ *                       example: 6
+ *                     fromDate:
+ *                       type: integer
+ *                       example: 1781827200
+ *                     toDate:
+ *                       type: integer
+ *                       example: 1781913599
+ *                     reason:
+ *                       type: string
+ *                       example: Bệnh/Ốm
+ *                     evidenceUrl:
+ *                       type: string
+ *                       nullable: true
+ *                       example: null
+ *                     status:
+ *                       type: string
+ *                       example: Pending
+ *                     approverId:
+ *                       type: integer
+ *                       nullable: true
+ *                       example: null
+ *                     isMealFeeDeducted:
+ *                       type: integer
+ *                       example: 0
+ *                     parentNotes:
+ *                       type: string
+ *                       example: Bé Khang bị sốt nhẹ từ đêm qua, gia đình xin phép thầy Huy cho bé nghỉ hôm nay để theo dõi thêm ạ.
+ *       400:
+ *         description: Bad Request - invalid or missing parameters
+ *       401:
+ *         description: Unauthorized - token missing or invalid
+ *       403:
+ *         description: Forbidden - user is not a parent or is not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/medication-requests:
+ *   post:
+ *     summary: Create a medication request
+ *     description: Submit medication details and dosage instructions for a child. Only accessible by parents associated with the child.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - studentId
+ *               - requestDate
+ *               - medicineDetails
+ *               - dosage
+ *             properties:
+ *               studentId:
+ *                 type: integer
+ *                 description: ID of the child student
+ *                 example: 26
+ *               requestDate:
+ *                 type: integer
+ *                 description: Date of the request as Unix timestamp in seconds
+ *                 example: 1778803200
+ *               medicineDetails:
+ *                 type: string
+ *                 description: Detailed name and description of the medicine
+ *                 example: Men tiêu hóa BioGaia
+ *               dosage:
+ *                 type: string
+ *                 description: Instructions on dosage and timing
+ *                 example: Nhỏ 5 giọt vào sữa xế
+ *     responses:
+ *       201:
+ *         description: Medication request successfully created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 201
+ *                 message:
+ *                   type: string
+ *                   example: Tạo dặn dò thuốc thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     medRequestId:
+ *                       type: integer
+ *                       example: 2
+ *                     studentId:
+ *                       type: integer
+ *                       example: 26
+ *                     parentId:
+ *                       type: integer
+ *                       example: 6
+ *                     requestDate:
+ *                       type: integer
+ *                       example: 1778803200
+ *                     medicineDetails:
+ *                       type: string
+ *                       example: Men tiêu hóa BioGaia
+ *                     dosage:
+ *                       type: string
+ *                       example: Nhỏ 5 giọt vào sữa xế
+ *                     status:
+ *                       type: string
+ *                       example: Pending
+ *                     teacherNote:
+ *                       type: string
+ *                       nullable: true
+ *                       example: null
+ *       400:
+ *         description: Bad Request - invalid or missing parameters
+ *       401:
+ *         description: Unauthorized - token missing or invalid
+ *       403:
+ *         description: Forbidden - user is not a parent or is not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/attendance:
+ *   get:
+ *     summary: Get attendance records of a child
+ *     description: Retrieve all attendance history (check-in/out times, status, pickup information) of a child. Only accessible by parents associated with the child.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the child student
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: integer
+ *         description: Start date filter as Unix timestamp in seconds
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: integer
+ *         description: End date filter as Unix timestamp in seconds
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved child attendance records
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy thông tin điểm danh của bé thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       attendanceId:
+ *                         type: integer
+ *                         example: 1
+ *                       studentId:
+ *                         type: integer
+ *                         example: 20
+ *                       attendanceDate:
+ *                         type: integer
+ *                         example: 1778803200
+ *                       status:
+ *                         type: string
+ *                         example: Present
+ *                       checkInTime:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 1778830200
+ *                       checkOutTime:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 1778862600
+ *                       pickedUpBy:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Bà nội
+ *       400:
+ *         description: Bad Request - invalid parameters
+ *       401:
+ *         description: Unauthorized - token missing or invalid
+ *       403:
+ *         description: Forbidden - user is not a parent or is not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+
+
+
 
