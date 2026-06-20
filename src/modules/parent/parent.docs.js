@@ -403,8 +403,23 @@
  *                 example: Men tiêu hóa BioGaia
  *               dosage:
  *                 type: string
- *                 description: Instructions on dosage and timing
- *                 example: Nhỏ 5 giọt vào sữa xế
+ *                 description: Instructions on dosage
+ *                 example: Nhỏ 5 giọt
+ *               frequency:
+ *                 type: string
+ *                 description: Frequency of taking the medicine per day
+ *                 nullable: true
+ *                 example: 2 lần
+ *               timeToTake:
+ *                 type: string
+ *                 description: Specific timing to take the medicine (e.g. Sau ăn sáng, Sau ăn trưa)
+ *                 nullable: true
+ *                 example: Sau ăn trưa
+ *               parentNote:
+ *                 type: string
+ *                 description: General note or instructions for the teacher
+ *                 nullable: true
+ *                 example: Tất cả thuốc để trong ba lô
  *     responses:
  *       201:
  *         description: Medication request successfully created
@@ -442,7 +457,7 @@
  *                       example: Men tiêu hóa BioGaia
  *                     dosage:
  *                       type: string
- *                       example: Nhỏ 5 giọt vào sữa xế
+ *                       example: Nhỏ 5 giọt
  *                     status:
  *                       type: string
  *                       example: Pending
@@ -450,6 +465,18 @@
  *                       type: string
  *                       nullable: true
  *                       example: null
+ *                     frequency:
+ *                       type: string
+ *                       nullable: true
+ *                       example: 2 lần
+ *                     timeToTake:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Sau ăn trưa
+ *                     parentNote:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Tất cả thuốc để trong ba lô
  *       400:
  *         description: Bad Request - invalid or missing parameters
  *       401:
