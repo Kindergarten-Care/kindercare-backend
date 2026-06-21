@@ -276,6 +276,68 @@ const getChildAttendance = async (req, res, next) => {
   }
 };
 
+const getChildLeaveRequests = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { studentId } = req.params;
+
+    // Double check authorization (safety check)
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    // Verify parent has access to this student
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin nghỉ phép của học sinh này');
+    }
+
+    const records = await parentService.getLeaveRequestsByStudentId(parseInt(studentId, 10));
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        records,
+        'Lấy danh sách đơn xin nghỉ phép của bé thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getChildMedicationRequests = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { studentId } = req.params;
+
+    // Double check authorization (safety check)
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    // Verify parent has access to this student
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin dặn dò thuốc của học sinh này');
+    }
+
+    const records = await parentService.getMedicationRequestsByStudentId(parseInt(studentId, 10));
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        records,
+        'Lấy danh sách dặn dò thuốc của bé thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyChildren,
   getMyProfile,
@@ -283,6 +345,8 @@ export default {
   createLeaveRequest,
   createMedicationRequest,
   getChildAttendance,
+  getChildLeaveRequests,
+  getChildMedicationRequests,
 };
 
 

@@ -569,6 +569,174 @@
  *         description: Internal Server Error
  */
 
+/**
+ * @swagger
+ * /parent/children/{studentId}/leave-requests:
+ *   get:
+ *     summary: Get leave requests of a child
+ *     description: Retrieve all leave request history of a child. Only accessible by parents associated with the child.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the child student
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved child leave requests
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách đơn xin nghỉ phép của bé thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       requestId:
+ *                         type: integer
+ *                         example: 1
+ *                       studentId:
+ *                         type: integer
+ *                         example: 19
+ *                       parentId:
+ *                         type: integer
+ *                         example: 6
+ *                       fromDate:
+ *                         type: integer
+ *                         example: 1782172800
+ *                       toDate:
+ *                         type: integer
+ *                         example: 1782431999
+ *                       reason:
+ *                         type: string
+ *                         example: Lý do khác
+ *                       evidenceUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://media.kindercare.app/parents/student-leave-evidences/evidence.jpg
+ *                       status:
+ *                         type: string
+ *                         example: Pending
+ *                       approverId:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: null
+ *                       isMealFeeDeducted:
+ *                         type: integer
+ *                         example: 0
+ *                       parentNotes:
+ *                         type: string
+ *                         example: Thèm thuốc quá nên nghỉ học. Yêu cầu nhà trường mua thuốc cho bé uống.
+ *       401:
+ *         description: Unauthorized - token missing or invalid
+ *       403:
+ *         description: Forbidden - user is not a parent or is not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/medication-requests:
+ *   get:
+ *     summary: Get medication requests of a child
+ *     description: Retrieve all medication request history (medicine, dosage, status, note, etc.) of a child. Only accessible by parents associated with the child.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the child student
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved child medication requests
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách dặn dò thuốc của bé thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       medRequestId:
+ *                         type: integer
+ *                         example: 1
+ *                       studentId:
+ *                         type: integer
+ *                         example: 19
+ *                       parentId:
+ *                         type: integer
+ *                         example: 6
+ *                       requestDate:
+ *                         type: integer
+ *                         example: 1778803200
+ *                       medicineDetails:
+ *                         type: string
+ *                         example: Men tiêu hóa BioGaia
+ *                       dosage:
+ *                         type: string
+ *                         example: Nhỏ 5 giọt
+ *                       medicineImageUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://media.kindercare.app/parents/student-medication-requests/medicine.jpg
+ *                       status:
+ *                         type: string
+ *                         example: Pending
+ *                       teacherNote:
+ *                         type: string
+ *                         nullable: true
+ *                         example: null
+ *                       frequency:
+ *                         type: string
+ *                         nullable: true
+ *                         example: 2 lần
+ *                       timeToTake:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Sau ăn trưa
+ *                       parentNote:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Tất cả thuốc để trong ba lô
+ *       401:
+ *         description: Unauthorized - token missing or invalid
+ *       403:
+ *         description: Forbidden - user is not a parent or is not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
 
 
 
