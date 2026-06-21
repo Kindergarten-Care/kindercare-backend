@@ -169,9 +169,10 @@ export const createLeaveRequest = async (
   evidenceUrl,
   parentNotes
 ) => {
+  const createdAt = Math.floor(Date.now() / 1000);
   const insertQuery = `
-    INSERT INTO LeaveRequests (StudentID, ParentID, FromDate, ToDate, Reason, EvidenceURL, Status, ParentNotes)
-    VALUES (?, ?, ?, ?, ?, ?, 'Pending', ?)
+    INSERT INTO LeaveRequests (StudentID, ParentID, FromDate, ToDate, Reason, EvidenceURL, Status, ParentNotes, CreatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, 'Pending', ?, ?)
   `;
   const [result] = await pool.query(insertQuery, [
     studentId,
@@ -180,7 +181,8 @@ export const createLeaveRequest = async (
     toDate,
     reason,
     evidenceUrl,
-    parentNotes
+    parentNotes,
+    createdAt
   ]);
 
   const requestId = result.insertId;
@@ -198,13 +200,43 @@ export const createLeaveRequest = async (
       Status AS status,
       ApproverID AS approverId,
       IsMealFeeDeducted AS isMealFeeDeducted,
-      ParentNotes AS parentNotes
+      ParentNotes AS parentNotes,
+      CreatedAt AS createdAt
     FROM LeaveRequests
     WHERE RequestID = ?
   `;
   const [rows] = await pool.query(selectQuery, [requestId]);
   return rows[0];
 };
+
+/**
+ * Get leave requests of a child by StudentID
+ * @param {number} studentId
+ * @returns {Promise<Array>} List of leave requests
+ */
+export const getLeaveRequestsByStudentId = async (studentId) => {
+  const query = `
+    SELECT 
+      RequestID AS requestId,
+      StudentID AS studentId,
+      ParentID AS parentId,
+      FromDate AS fromDate,
+      ToDate AS toDate,
+      Reason AS reason,
+      EvidenceURL AS evidenceUrl,
+      Status AS status,
+      ApproverID AS approverId,
+      IsMealFeeDeducted AS isMealFeeDeducted,
+      ParentNotes AS parentNotes,
+      CreatedAt AS createdAt
+    FROM LeaveRequests
+    WHERE StudentID = ?
+    ORDER BY CreatedAt DESC, RequestID DESC
+  `;
+  const [rows] = await pool.query(query, [studentId]);
+  return rows;
+};
+
 
 /**
  * Create a new medication request for a child

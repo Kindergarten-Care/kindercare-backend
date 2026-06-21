@@ -276,6 +276,37 @@ const getChildAttendance = async (req, res, next) => {
   }
 };
 
+const getChildLeaveRequests = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { studentId } = req.params;
+
+    // Double check authorization (safety check)
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    // Verify parent has access to this student
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin của học sinh này');
+    }
+
+    const requests = await parentService.getLeaveRequestsByStudentId(parseInt(studentId, 10));
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        requests,
+        'Lấy danh sách đơn xin nghỉ phép thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyChildren,
   getMyProfile,
@@ -283,6 +314,7 @@ export default {
   createLeaveRequest,
   createMedicationRequest,
   getChildAttendance,
+  getChildLeaveRequests,
 };
 
 

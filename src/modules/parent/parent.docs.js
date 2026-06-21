@@ -358,8 +358,95 @@
  *                     parentNotes:
  *                       type: string
  *                       example: Bé Khang bị sốt nhẹ từ đêm qua, gia đình xin phép thầy Huy cho bé nghỉ hôm nay để theo dõi thêm ạ.
+ *                     createdAt:
+ *                       type: integer
+ *                       example: 1781827200
  *       400:
  *         description: Bad Request - invalid or missing parameters
+ *       401:
+ *         description: Unauthorized - token missing or invalid
+ *       403:
+ *         description: Forbidden - user is not a parent or is not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/leave-requests:
+ *   get:
+ *     summary: Get leave requests of a child
+ *     description: Retrieve all leave request records of a child associated with the authenticated parent.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the child student
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved child leave requests
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách đơn xin nghỉ phép thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       requestId:
+ *                         type: integer
+ *                         example: 11
+ *                       studentId:
+ *                         type: integer
+ *                         example: 19
+ *                       parentId:
+ *                         type: integer
+ *                         example: 6
+ *                       fromDate:
+ *                         type: integer
+ *                         example: 1782345600
+ *                       toDate:
+ *                         type: integer
+ *                         example: 1782691199
+ *                       reason:
+ *                         type: string
+ *                         example: Khám sức khỏe
+ *                       evidenceUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: null
+ *                       status:
+ *                         type: string
+ *                         example: Pending
+ *                       approverId:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: null
+ *                       isMealFeeDeducted:
+ *                         type: integer
+ *                         example: 0
+ *                       parentNotes:
+ *                         type: string
+ *                         example: Phụ huynh báo nghỉ với lý do: Khám sức khỏe
+ *                       createdAt:
+ *                         type: integer
+ *                         example: 1781740800
  *       401:
  *         description: Unauthorized - token missing or invalid
  *       403:
