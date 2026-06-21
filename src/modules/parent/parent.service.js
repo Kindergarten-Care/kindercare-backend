@@ -169,9 +169,10 @@ export const createLeaveRequest = async (
   evidenceUrl,
   parentNotes
 ) => {
+  const createdAt = Math.floor(Date.now() / 1000);
   const insertQuery = `
-    INSERT INTO LeaveRequests (StudentID, ParentID, FromDate, ToDate, Reason, EvidenceURL, Status, ParentNotes)
-    VALUES (?, ?, ?, ?, ?, ?, 'Pending', ?)
+    INSERT INTO LeaveRequests (StudentID, ParentID, FromDate, ToDate, Reason, EvidenceURL, Status, ParentNotes, CreatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, 'Pending', ?, ?)
   `;
   const [result] = await pool.query(insertQuery, [
     studentId,
@@ -180,7 +181,8 @@ export const createLeaveRequest = async (
     toDate,
     reason,
     evidenceUrl,
-    parentNotes
+    parentNotes,
+    createdAt
   ]);
 
   const requestId = result.insertId;
@@ -198,7 +200,8 @@ export const createLeaveRequest = async (
       Status AS status,
       ApproverID AS approverId,
       IsMealFeeDeducted AS isMealFeeDeducted,
-      ParentNotes AS parentNotes
+      ParentNotes AS parentNotes,
+      CreatedAt AS createdAt
     FROM LeaveRequests
     WHERE RequestID = ?
   `;
@@ -224,10 +227,11 @@ export const getLeaveRequestsByStudentId = async (studentId) => {
       Status AS status,
       ApproverID AS approverId,
       IsMealFeeDeducted AS isMealFeeDeducted,
-      ParentNotes AS parentNotes
+      ParentNotes AS parentNotes,
+      CreatedAt AS createdAt
     FROM LeaveRequests
     WHERE StudentID = ?
-    ORDER BY FromDate DESC, RequestID DESC
+    ORDER BY CreatedAt DESC, RequestID DESC
   `;
   const [rows] = await pool.query(query, [studentId]);
   return rows;
