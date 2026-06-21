@@ -17,6 +17,11 @@ router.put('/profile', teacherValidation.validateUpdateProfile, teacherControlle
 
 // Leave Requests
 router.get('/leave-requests', teacherController.getLeaveRequests);
+router.get(
+  '/leave-requests/:requestId',
+  teacherValidation.validateGetLeaveRequestDetail,
+  teacherController.getLeaveRequestDetail
+);
 router.put(
   '/leave-requests/:requestId/status',
   teacherValidation.validateUpdateLeaveRequestStatus,
@@ -31,12 +36,13 @@ router.get(
   teacherController.getClassMenu
 );
 
-// Attendance
+// Attendance & Meals
 router.get(
   '/classes/:classId/students',
   teacherValidation.validateGetClassStudents,
   teacherController.getClassStudents
 );
 router.post('/attendance/quick', teacherValidation.validateQuickAttendance, teacherController.submitQuickAttendance);
+router.post('/attendance/meals', teacherValidation.validateQuickMealLogs, teacherController.submitQuickMealLogs);
 
 export default router;

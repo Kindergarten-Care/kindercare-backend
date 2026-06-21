@@ -179,6 +179,7 @@ export const getLeaveRequestsForTeacher = async (teacherId, status) => {
       s.ClassID AS classId,
       lr.StudentID AS studentId,
       s.FullName AS studentName,
+      s.AvatarURL AS studentAvatar,
       c.ClassName AS className,
       lr.ParentID AS parentId,
       p.FullName AS parentName,
@@ -187,7 +188,9 @@ export const getLeaveRequestsForTeacher = async (teacherId, status) => {
       lr.Reason AS reason,
       lr.EvidenceURL AS evidenceUrl,
       lr.Status AS status,
-      lr.IsMealFeeDeducted AS isMealFeeDeducted
+      lr.IsMealFeeDeducted AS isMealFeeDeducted,
+      lr.ParentNotes AS parentNotes,
+      lr.CreatedAt AS createdAt
     FROM LeaveRequests lr
     JOIN Students s ON lr.StudentID = s.StudentID
     JOIN Classes c ON s.ClassID = c.ClassID
@@ -209,7 +212,46 @@ export const getLeaveRequestsForTeacher = async (teacherId, status) => {
 };
 
 /**
- * Get detailed leave request by ID
+ * Get detailed leave request by ID and TeacherID
+ * @param {number} requestId 
+ * @param {number} teacherId 
+ * @returns {Promise<Object|null>} Detailed leave request
+ */
+export const getLeaveRequestDetail = async (requestId, teacherId) => {
+  const query = `
+    SELECT 
+      lr.RequestID AS requestId,
+      s.ClassID AS classId,
+      lr.StudentID AS studentId,
+      s.FullName AS studentName,
+      s.AvatarURL AS studentAvatar,
+      s.DateOfBirth AS studentDob,
+      s.Gender AS studentGender,
+      c.ClassName AS className,
+      lr.ParentID AS parentId,
+      p.FullName AS parentName,
+      p.PhoneNumber AS parentPhone,
+      lr.FromDate AS fromDate,
+      lr.ToDate AS toDate,
+      lr.Reason AS reason,
+      lr.EvidenceURL AS evidenceUrl,
+      lr.Status AS status,
+      lr.IsMealFeeDeducted AS isMealFeeDeducted,
+      lr.ParentNotes AS parentNotes,
+      lr.CreatedAt AS createdAt
+    FROM LeaveRequests lr
+    JOIN Students s ON lr.StudentID = s.StudentID
+    JOIN Classes c ON s.ClassID = c.ClassID
+    JOIN ClassTeachers ct ON c.ClassID = ct.ClassID
+    LEFT JOIN Parents p ON lr.ParentID = p.ParentID
+    WHERE lr.RequestID = ? AND ct.TeacherID = ?
+  `;
+  const [rows] = await pool.query(query, [requestId, teacherId]);
+  return rows[0] || null;
+};
+
+/**
+ * Get leave request by ID (internal use)
  * @param {number} requestId 
  * @returns {Promise<Object|null>} Leave request with student's ClassID
  */
@@ -349,13 +391,20 @@ export const getClassStudentsAttendance = async (classId, dateTimestamp) => {
         FROM DailyActivities da
         WHERE da.StudentID = s.StudentID AND da.ActivityDate = ?
         LIMIT 1
-      ) AS healthNote
+      ) AS healthNote,
+      (
+        SELECT da.EatingStatus
+        FROM DailyActivities da
+        WHERE da.StudentID = s.StudentID AND da.ActivityDate = ?
+        LIMIT 1
+      ) AS eatingStatus
     FROM Students s
     LEFT JOIN Attendances a ON s.StudentID = a.StudentID AND a.AttendanceDate = ?
     WHERE s.ClassID = ? AND s.EnrollmentStatus = 'Active'
     ORDER BY s.FullName
   `;
   const [rows] = await pool.query(query, [
+    dateTimestamp,
     dateTimestamp,
     dateTimestamp,
     dateTimestamp,
@@ -373,6 +422,7 @@ export const getClassStudentsAttendance = async (classId, dateTimestamp) => {
     checkInTime: row.checkInTime ? Number(row.checkInTime) : null,
     checkOutTime: row.checkOutTime ? Number(row.checkOutTime) : null,
     healthNote: row.healthNote || null,
+    eatingStatus: row.eatingStatus || null,
     leaveRequest: row.leaveRequestId ? {
       requestId: row.leaveRequestId,
       status: row.leaveRequestStatus,
@@ -403,5 +453,31 @@ export const getClassMenu = async (classId, dateTimestamp) => {
   `;
   const [rows] = await pool.query(query, [classId, dateTimestamp]);
   return rows;
+};
+
+/**
+ * Upsert eating status for a student on a specific date in DailyActivities
+ * @param {number} studentId 
+ * @param {number} dateTimestamp 
+ * @param {string} eatingStatus 
+ */
+export const upsertStudentMealLog = async (studentId, dateTimestamp, eatingStatus) => {
+  const checkQuery = 'SELECT ActivityID FROM DailyActivities WHERE StudentID = ? AND ActivityDate = ?';
+  const [rows] = await pool.query(checkQuery, [studentId, dateTimestamp]);
+
+  if (rows.length > 0) {
+    const updateQuery = `
+      UPDATE DailyActivities
+      SET EatingStatus = ?
+      WHERE StudentID = ? AND ActivityDate = ?
+    `;
+    await pool.query(updateQuery, [eatingStatus, studentId, dateTimestamp]);
+  } else {
+    const insertQuery = `
+      INSERT INTO DailyActivities (StudentID, ActivityDate, EatingStatus)
+      VALUES (?, ?, ?)
+    `;
+    await pool.query(insertQuery, [studentId, dateTimestamp, eatingStatus]);
+  }
 };
 

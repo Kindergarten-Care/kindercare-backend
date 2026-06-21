@@ -98,6 +98,19 @@ export const validateUpdateLeaveRequestStatus = (req, res, next) => {
 };
 
 /**
+ * Validate leave request detail
+ */
+export const validateGetLeaveRequestDetail = (req, res, next) => {
+  const { requestId } = req.params;
+
+  if (!requestId || isNaN(Number(requestId))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'requestId phải là một số hợp lệ'));
+  }
+
+  next();
+};
+
+/**
  * Validate class student list input parameters
  */
 export const validateGetClassStudents = (req, res, next) => {
@@ -135,6 +148,40 @@ export const validateGetClassMenu = (req, res, next) => {
     const numericDate = Number(date);
     if (isNaN(numericDate) || numericDate < 0) {
       return next(new ApiError(httpStatus.BAD_REQUEST, 'Ngày lọc (date) phải là một số nguyên Unix timestamp hợp lệ'));
+    }
+  }
+
+  next();
+};
+
+/**
+ * Validate quick meal logs submission
+ */
+export const validateQuickMealLogs = (req, res, next) => {
+  const { classId, date, mealData } = req.body;
+
+  if (!classId || isNaN(Number(classId))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId là bắt buộc và phải là số hợp lệ'));
+  }
+
+  if (date !== undefined && date !== null) {
+    const numericDate = Number(date);
+    if (isNaN(numericDate) || numericDate < 0) {
+      return next(new ApiError(httpStatus.BAD_REQUEST, 'Ngày (date) phải là một số nguyên Unix timestamp hợp lệ'));
+    }
+  }
+
+  if (!Array.isArray(mealData)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'mealData phải là một mảng dữ liệu bữa ăn'));
+  }
+
+  for (let i = 0; i < mealData.length; i++) {
+    const item = mealData[i];
+    if (!item.studentId || isNaN(Number(item.studentId))) {
+      return next(new ApiError(httpStatus.BAD_REQUEST, `Phần tử thứ ${i + 1} trong mealData phải có studentId hợp lệ`));
+    }
+    if (!item.eatingStatus || typeof item.eatingStatus !== 'string') {
+      return next(new ApiError(httpStatus.BAD_REQUEST, `Phần tử thứ ${i + 1} trong mealData phải có eatingStatus hợp lệ`));
     }
   }
 
