@@ -237,7 +237,6 @@ export const getLeaveRequestsByStudentId = async (studentId) => {
   return rows;
 };
 
-
 /**
  * Create a new medication request for a child
  * @param {number} studentId
@@ -300,6 +299,34 @@ export const createMedicationRequest = async (
   `;
   const [rows] = await pool.query(selectQuery, [medRequestId]);
   return rows[0];
+};
+
+/**
+ * Get medication requests of a child by StudentID
+ * @param {number} studentId
+ * @returns {Promise<Array>} List of medication requests
+ */
+export const getMedicationRequestsByStudentId = async (studentId) => {
+  const query = `
+    SELECT 
+      MedRequestID AS medRequestId,
+      StudentID AS studentId,
+      ParentID AS parentId,
+      RequestDate AS requestDate,
+      MedicineDetails AS medicineDetails,
+      Dosage AS dosage,
+      MedicineImageURL AS medicineImageUrl,
+      Status AS status,
+      TeacherNote AS teacherNote,
+      Frequency AS frequency,
+      TimeToTake AS timeToTake,
+      ParentNote AS parentNote
+    FROM MedicationRequests
+    WHERE StudentID = ?
+    ORDER BY RequestDate DESC, MedRequestID DESC
+  `;
+  const [rows] = await pool.query(query, [studentId]);
+  return rows;
 };
 
 /**
