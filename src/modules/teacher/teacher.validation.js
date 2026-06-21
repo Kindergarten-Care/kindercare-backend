@@ -98,6 +98,19 @@ export const validateUpdateLeaveRequestStatus = (req, res, next) => {
 };
 
 /**
+ * Validate leave request detail
+ */
+export const validateGetLeaveRequestDetail = (req, res, next) => {
+  const { requestId } = req.params;
+
+  if (!requestId || isNaN(Number(requestId))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'requestId phải là một số hợp lệ'));
+  }
+
+  next();
+};
+
+/**
  * Validate class student list input parameters
  */
 export const validateGetClassStudents = (req, res, next) => {

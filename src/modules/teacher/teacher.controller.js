@@ -108,6 +108,28 @@ export const getLeaveRequests = async (req, res, next) => {
 };
 
 /**
+ * Get details of a specific leave request
+ */
+export const getLeaveRequestDetail = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { requestId } = req.params;
+
+    const leaveRequest = await teacherService.getLeaveRequestDetail(requestId, teacherId);
+
+    if (!leaveRequest) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy đơn xin nghỉ phép hoặc bạn không có quyền xem đơn này');
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, leaveRequest, 'Lấy chi tiết đơn phép thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Approve or Reject a Leave Request
  */
 export const updateLeaveRequestStatus = async (req, res, next) => {

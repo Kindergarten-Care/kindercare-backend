@@ -471,6 +471,114 @@
 
 /**
  * @swagger
+ * /teacher/leave-requests/{requestId}:
+ *   get:
+ *     summary: Get Leave Request Detail
+ *     description: Retrieve detailed information about a specific leave request submitted for a student in the classes taught by this teacher.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the leave request
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved the leave request detail
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy chi tiết đơn phép thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     requestId:
+ *                       type: integer
+ *                       example: 5
+ *                     studentId:
+ *                       type: integer
+ *                       example: 1
+ *                     studentName:
+ *                       type: string
+ *                       example: Nguyễn Minh Khang
+ *                     studentAvatar:
+ *                       type: string
+ *                       nullable: true
+ *                       example: https://example.com/avatar.jpg
+ *                     studentDob:
+ *                       type: integer
+ *                       nullable: true
+ *                       example: 1612137600
+ *                     studentGender:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Nam
+ *                     className:
+ *                       type: string
+ *                       example: Mầm 1
+ *                     parentId:
+ *                       type: integer
+ *                       example: 4
+ *                     parentName:
+ *                       type: string
+ *                       example: Nguyễn Anh Tuấn
+ *                     parentPhone:
+ *                       type: string
+ *                       nullable: true
+ *                       example: 0901234567
+ *                     fromDate:
+ *                       type: integer
+ *                       example: 1783987200
+ *                     toDate:
+ *                       type: integer
+ *                       example: 1784073600
+ *                     reason:
+ *                       type: string
+ *                       example: Bé bị sốt phát ban cần nghỉ ngơi
+ *                     evidenceUrl:
+ *                       type: string
+ *                       nullable: true
+ *                       example: https://example.com/evidence.jpg
+ *                     status:
+ *                       type: string
+ *                       example: Pending
+ *                     isMealFeeDeducted:
+ *                       type: integer
+ *                       example: 0
+ *                     parentNotes:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Mong cô giáo thông cảm
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         description: Bad Request - Validation failed
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Leave request not found or not assigned to this teacher
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
  * /teacher/leave-requests/{requestId}/status:
  *   put:
  *     summary: Approve or Reject a Leave Request
