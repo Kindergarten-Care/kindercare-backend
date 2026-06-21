@@ -17,6 +17,12 @@ router.get('/children/:studentId/health-records', authenticate, authorize(4), pa
 // Get attendance records of a child
 router.get('/children/:studentId/attendance', authenticate, authorize(4), parentController.getChildAttendance);
 
+// Get leave requests of a child
+router.get('/children/:studentId/leave-requests', authenticate, authorize(4), parentController.getChildLeaveRequests);
+
+// Get medication requests of a child
+router.get('/children/:studentId/medication-requests', authenticate, authorize(4), parentController.getChildMedicationRequests);
+
 // Create a leave request for a child (with optional image evidence)
 router.post('/leave-requests', authenticate, authorize(4), upload.single('evidence'), parentController.createLeaveRequest);
 
