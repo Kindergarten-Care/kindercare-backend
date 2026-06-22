@@ -226,8 +226,6 @@ export const getLeaveRequestDetail = async (requestId, teacherId) => {
       lr.StudentID AS studentId,
       s.FullName AS studentName,
       s.AvatarURL AS studentAvatar,
-      s.DateOfBirth AS studentDob,
-      s.Gender AS studentGender,
       c.ClassName AS className,
       lr.ParentID AS parentId,
       p.FullName AS parentName,

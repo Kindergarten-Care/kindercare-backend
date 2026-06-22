@@ -533,14 +533,6 @@
  *                       type: string
  *                       nullable: true
  *                       example: https://example.com/avatar.jpg
- *                     studentDob:
- *                       type: integer
- *                       nullable: true
- *                       example: 1612137600
- *                     studentGender:
- *                       type: string
- *                       nullable: true
- *                       example: Nam
  *                     className:
  *                       type: string
  *                       example: Mầm 1
