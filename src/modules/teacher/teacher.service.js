@@ -190,6 +190,7 @@ export const getLeaveRequestsForTeacher = async (teacherId, status) => {
       lr.Status AS status,
       lr.IsMealFeeDeducted AS isMealFeeDeducted,
       lr.ParentNotes AS parentNotes,
+      lr.ApproverID AS approverId,
       lr.CreatedAt AS createdAt
     FROM LeaveRequests lr
     JOIN Students s ON lr.StudentID = s.StudentID
@@ -238,6 +239,7 @@ export const getLeaveRequestDetail = async (requestId, teacherId) => {
       lr.Status AS status,
       lr.IsMealFeeDeducted AS isMealFeeDeducted,
       lr.ParentNotes AS parentNotes,
+      lr.ApproverID AS approverId,
       lr.CreatedAt AS createdAt
     FROM LeaveRequests lr
     JOIN Students s ON lr.StudentID = s.StudentID

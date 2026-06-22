@@ -433,6 +433,10 @@
  *                       studentName:
  *                         type: string
  *                         example: Nguyễn Minh Khang
+ *                       studentAvatar:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://example.com/avatar.jpg
  *                       className:
  *                         type: string
  *                         example: Mầm 1
@@ -461,6 +465,17 @@
  *                       isMealFeeDeducted:
  *                         type: integer
  *                         example: 0
+ *                       parentNotes:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Mong cô thông cảm
+ *                       approverId:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 5
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
  *       401:
  *         description: Unauthorized
  *       403:
@@ -562,6 +577,10 @@
  *                       type: string
  *                       nullable: true
  *                       example: Mong cô giáo thông cảm
+ *                     approverId:
+ *                       type: integer
+ *                       nullable: true
+ *                       example: 5
  *                     createdAt:
  *                       type: string
  *                       format: date-time
