@@ -18,7 +18,7 @@ const buildQuery = (identifierType) => {
                r.RoleName,
                COALESCE(a.FullName, pr.FullName, t.FullName, p.FullName) AS FullName,
                (
-                   SELECT JSON_ARRAYAGG(
+                   SELECT CONCAT('[', COALESCE(GROUP_CONCAT(
                        JSON_OBJECT(
                            'studentId', s.StudentID,
                            'fullName', s.FullName,
@@ -27,7 +27,7 @@ const buildQuery = (identifierType) => {
                            'classId', s.ClassID,
                            'className', c.ClassName
                        )
-                   )
+                   ), ''), ']')
                    FROM StudentParents sp
                    JOIN Students s ON sp.StudentID = s.StudentID
                    LEFT JOIN Classes c ON s.ClassID = c.ClassID
@@ -143,6 +143,10 @@ const createLoginHandler = (allowedRoleIds = null, allowedIdentifiers = ['Userna
                 )
             );
         } catch (error) {
+            console.error('Login Error:', error);
+            if (error instanceof AggregateError) {
+                console.error('AggregateError details:', error.errors);
+            }
             next(error);
         }
     };
@@ -157,8 +161,8 @@ const logout = (_req, res) => {
 export default {
     login:          createLoginHandler(),
     loginAdmin:     createLoginHandler([1], ['Username']),
-    loginPrincipal: createLoginHandler([2], ['Username']),
-    loginTeacher:   createLoginHandler([3], ['Username']),
+    loginPrincipal: createLoginHandler([2], ['Username', 'Email', 'Phone']),
+    loginTeacher:   createLoginHandler([3], ['Username', 'Email', 'Phone']),
     loginParent:    createLoginHandler([4], ['Username', 'Email', 'Phone']),
     logout,
 };
