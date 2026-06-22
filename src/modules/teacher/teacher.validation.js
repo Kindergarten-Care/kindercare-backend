@@ -188,3 +188,119 @@ export const validateQuickMealLogs = (req, res, next) => {
   next();
 };
 
+/**
+ * Validate class daily schedule query parameters
+ */
+export const validateGetClassSchedule = (req, res, next) => {
+  const { classId } = req.params;
+  const { date } = req.query;
+
+  const numericClassId = Number(classId);
+  if (isNaN(numericClassId)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId phải là một số nguyên hợp lệ'));
+  }
+
+  if (date !== undefined && date !== null) {
+    const numericDate = Number(date);
+    if (isNaN(numericDate) || numericDate < 0) {
+      return next(new ApiError(httpStatus.BAD_REQUEST, 'Ngày lọc (date) phải là một số nguyên Unix timestamp hợp lệ'));
+    }
+  }
+
+  next();
+};
+
+/**
+ * Validate get medical requests query parameters
+ */
+export const validateGetMedicalRequests = (req, res, next) => {
+  const { classId } = req.params;
+  const { date } = req.query;
+
+  const numericClassId = Number(classId);
+  if (isNaN(numericClassId)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId phải là một số nguyên hợp lệ'));
+  }
+
+  if (date !== undefined && date !== null) {
+    const numericDate = Number(date);
+    if (isNaN(numericDate) || numericDate < 0) {
+      return next(new ApiError(httpStatus.BAD_REQUEST, 'Ngày lọc (date) phải là một số nguyên Unix timestamp hợp lệ'));
+    }
+  }
+
+  next();
+};
+
+/**
+ * Validate update medical request status
+ */
+export const validateUpdateMedicalRequest = (req, res, next) => {
+  const { requestId } = req.params;
+  const { status, teacherNote } = req.body;
+
+  if (!requestId || isNaN(Number(requestId))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'requestId phải là một số hợp lệ'));
+  }
+
+  const validStatuses = ['Pending', 'Approved', 'Rejected', 'Completed', 'Chờ duyệt', 'Đã duyệt', 'Không duyệt', 'Đã hoàn thành'];
+  if (status && (typeof status !== 'string' || !validStatuses.includes(status))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'Trạng thái dặn dò y tế không hợp lệ'));
+  }
+
+  if (teacherNote !== undefined && teacherNote !== null && typeof teacherNote !== 'string') {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'Ghi chú của giáo viên phải là chuỗi ký tự'));
+  }
+
+  next();
+};
+
+/**
+ * Validate create newsfeed post
+ */
+export const validateCreateNewsfeed = (req, res, next) => {
+  const { classId } = req.params;
+  const { content, mediaUrl } = req.body;
+
+  const numericClassId = Number(classId);
+  if (isNaN(numericClassId)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId phải là một số nguyên hợp lệ'));
+  }
+
+  if (!content || typeof content !== 'string' || content.trim() === '') {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'Nội dung bài viết (content) là bắt buộc và phải là chuỗi ký tự'));
+  }
+
+  if (mediaUrl !== undefined && mediaUrl !== null && typeof mediaUrl !== 'string') {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'Đường dẫn phương tiện (mediaUrl) phải là chuỗi ký tự'));
+  }
+
+  next();
+};
+
+/**
+ * Validate get detailed class students
+ */
+export const validateGetDetailedStudents = (req, res, next) => {
+  const { classId } = req.params;
+
+  const numericClassId = Number(classId);
+  if (isNaN(numericClassId)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId phải là một số nguyên hợp lệ'));
+  }
+
+  next();
+};
+
+/**
+ * Validate update notification read status
+ */
+export const validateUpdateNotificationRead = (req, res, next) => {
+  const { notifId } = req.params;
+
+  if (!notifId || isNaN(Number(notifId))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'notifId phải là một số hợp lệ'));
+  }
+
+  next();
+};
