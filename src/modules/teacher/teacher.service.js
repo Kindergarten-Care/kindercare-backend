@@ -738,3 +738,86 @@ export const markNotificationAsRead = async (notifId, teacherId) => {
   const [result] = await pool.query(query, [notifId, teacherId]);
   return result.affectedRows > 0;
 };
+
+/**
+ * Get class assessments for a specific month
+ */
+export const getClassAssessments = async (classId, month) => {
+  const query = `
+    SELECT 
+      s.StudentID AS studentId,
+      s.FullName AS fullName,
+      s.AvatarURL AS avatarUrl,
+      a.AssessmentID AS assessmentId,
+      a.PhysicalScore AS physicalScore,
+      a.CognitiveScore AS cognitiveScore,
+      a.LanguageScore AS languageScore,
+      a.SocioEmotionalScore AS socioEmotionalScore,
+      a.AestheticScore AS aestheticScore,
+      a.TeacherComment AS teacherComment
+    FROM Students s
+    LEFT JOIN StudentAssessments a ON s.StudentID = a.StudentID AND a.AssessmentMonth = ?
+    WHERE s.ClassID = ? AND s.EnrollmentStatus = 'Active'
+    ORDER BY s.FullName ASC
+  `;
+  const [rows] = await pool.query(query, [month, classId]);
+  
+  return rows.map(row => {
+    let assessment = null;
+    if (row.assessmentId) {
+      assessment = {
+        assessmentId: row.assessmentId,
+        physicalScore: row.physicalScore,
+        cognitiveScore: row.cognitiveScore,
+        languageScore: row.languageScore,
+        socioEmotionalScore: row.socioEmotionalScore,
+        aestheticScore: row.aestheticScore,
+        teacherComment: row.teacherComment
+      };
+    }
+    
+    return {
+      studentId: row.studentId,
+      fullName: row.fullName,
+      avatarUrl: row.avatarUrl,
+      assessment
+    };
+  });
+};
+
+/**
+ * Upsert student assessment for a specific month
+ */
+export const upsertStudentAssessment = async (studentId, month, physicalScore, cognitiveScore, languageScore, socioEmotionalScore, aestheticScore, teacherComment) => {
+  // Try to find if an assessment already exists
+  const [existing] = await pool.query(
+    'SELECT AssessmentID FROM StudentAssessments WHERE StudentID = ? AND AssessmentMonth = ?', 
+    [studentId, month]
+  );
+  
+  if (existing.length > 0) {
+    const assessmentId = existing[0].AssessmentID;
+    const updateQuery = `
+      UPDATE StudentAssessments
+      SET PhysicalScore = ?, CognitiveScore = ?, LanguageScore = ?, 
+          SocioEmotionalScore = ?, AestheticScore = ?, TeacherComment = ?
+      WHERE AssessmentID = ?
+    `;
+    await pool.query(updateQuery, [
+      physicalScore, cognitiveScore, languageScore, 
+      socioEmotionalScore, aestheticScore, teacherComment, 
+      assessmentId
+    ]);
+  } else {
+    const insertQuery = `
+      INSERT INTO StudentAssessments (
+        StudentID, AssessmentMonth, PhysicalScore, CognitiveScore, 
+        LanguageScore, SocioEmotionalScore, AestheticScore, TeacherComment
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    await pool.query(insertQuery, [
+      studentId, month, physicalScore, cognitiveScore, 
+      languageScore, socioEmotionalScore, aestheticScore, teacherComment
+    ]);
+  }
+};

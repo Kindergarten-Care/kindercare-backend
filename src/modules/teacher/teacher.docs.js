@@ -370,6 +370,100 @@
  *       500:
  *         description: Internal Server Error
  * 
+ * /api/teacher/classes/{classId}/assessments:
+ *   get:
+ *     summary: Get student assessments (Phiếu bé ngoan) for a class
+ *     description: Retrieve all student assessments for a specific class in a specific month.
+ *     tags: [Teacher - Assessments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: classId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Class ID
+ *       - in: query
+ *         name: month
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Assessment month in MM-YYYY format (e.g. 05-2026)
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved student assessments
+ *       400:
+ *         description: Bad Request
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Teacher not assigned to class
+ * 
+ *   post:
+ *     summary: Submit student assessments
+ *     description: Upsert (insert or update) assessments for multiple students in a class. This will also send a push notification to the parents.
+ *     tags: [Teacher - Assessments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: classId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Class ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - month
+ *               - assessments
+ *             properties:
+ *               month:
+ *                 type: string
+ *                 example: 05-2026
+ *               assessments:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - studentId
+ *                   properties:
+ *                     studentId:
+ *                       type: integer
+ *                       example: 1
+ *                     physicalScore:
+ *                       type: integer
+ *                       example: 5
+ *                     cognitiveScore:
+ *                       type: integer
+ *                       example: 4
+ *                     languageScore:
+ *                       type: integer
+ *                       example: 5
+ *                     socioEmotionalScore:
+ *                       type: integer
+ *                       example: 5
+ *                     aestheticScore:
+ *                       type: integer
+ *                       example: 4
+ *                     teacherComment:
+ *                       type: string
+ *                       example: Bé rất ngoan và vâng lời cô
+ *     responses:
+ *       200:
+ *         description: Successfully updated assessments
+ *       400:
+ *         description: Bad Request
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ * 
  *   put:
  *     summary: Update Teacher Profile
  *     description: Update profile fields of the authenticated teacher.

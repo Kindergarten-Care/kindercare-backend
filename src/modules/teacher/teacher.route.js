@@ -88,4 +88,16 @@ router.put(
   teacherController.markAsRead
 );
 
+// Student Assessments (Phiếu bé ngoan)
+router.get(
+  '/classes/:classId/assessments',
+  teacherValidation.validateGetClassAssessments,
+  teacherController.getClassAssessments
+);
+router.post(
+  '/classes/:classId/assessments',
+  teacherValidation.validateSubmitClassAssessments,
+  teacherController.submitClassAssessments
+);
+
 export default router;
