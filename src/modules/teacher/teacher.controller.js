@@ -158,6 +158,26 @@ export const updateLeaveRequestStatus = async (req, res, next) => {
 
     await teacherService.updateLeaveRequestStatus(requestId, dbStatus, teacherId);
 
+    // Push notification to parent
+    if (leaveRequest.ParentID) {
+      const parentIds = await teacherService.getStudentParentsUserIds(leaveRequest.StudentID);
+      for (const parentId of parentIds) {
+        let statusText = '';
+        if (dbStatus === 'Approved') statusText = 'đã được duyệt';
+        if (dbStatus === 'Rejected') statusText = 'bị từ chối';
+        
+        if (statusText) {
+          await teacherService.pushNotification(
+            parentId,
+            'Cập nhật Đơn xin phép',
+            `Đơn xin phép nghỉ học của bé ${statusText}.`,
+            'LeaveRequest',
+            `/leave-requests/${requestId}`
+          );
+        }
+      }
+    }
+
     res.status(httpStatus.OK).json(
       new ApiResponse(
         httpStatus.OK,
@@ -218,6 +238,21 @@ export const submitQuickAttendance = async (req, res, next) => {
         checkOutTime || null,
         pickedUpBy || null
       );
+
+      // Push notification to parent if student is absent or excused
+      if (dbStatus === 'Absent' || dbStatus === 'Excused') {
+        const parentIds = await teacherService.getStudentParentsUserIds(studentId);
+        for (const parentId of parentIds) {
+          const statusText = dbStatus === 'Absent' ? 'Vắng mặt không phép' : 'Vắng mặt có phép';
+          await teacherService.pushNotification(
+            parentId,
+            'Thông báo Điểm danh',
+            `Học sinh vắng mặt ngày hôm nay (${statusText}). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.`,
+            'Attendance',
+            `/attendance/${targetTimestamp}`
+          );
+        }
+      }
     }
 
     res.status(httpStatus.OK).json(
@@ -363,4 +398,220 @@ export const submitQuickMealLogs = async (req, res, next) => {
   }
 };
 
+/**
+ * Get class daily schedule for a date
+ */
+export const getClassSchedule = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId } = req.params;
+    const { date } = req.query;
 
+    const numericClassId = Number(classId);
+
+    // Security check: Check if teacher teaches this class
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền xem lịch trình sinh hoạt của lớp này');
+    }
+
+    // Calculate target date timestamp (seconds) at start of day in UTC
+    let targetTimestamp;
+    if (date) {
+      const d = new Date(Number(date) * 1000);
+      targetTimestamp = Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 1000);
+    } else {
+      const today = new Date();
+      targetTimestamp = Math.floor(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / 1000);
+    }
+
+    const schedule = await teacherService.getClassSchedule(numericClassId, targetTimestamp);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, schedule, 'Lấy lịch trình sinh hoạt lớp học thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get Medical Requests for a class
+ */
+export const getMedicalRequests = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId } = req.params;
+    const { date } = req.query;
+
+    const numericClassId = Number(classId);
+
+    // Security check: Check if teacher teaches this class
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền xem dặn dò y tế của lớp này');
+    }
+
+    let targetTimestamp = null;
+    if (date) {
+      const d = new Date(Number(date) * 1000);
+      targetTimestamp = Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 1000);
+    }
+
+    const requests = await teacherService.getMedicalRequests(numericClassId, targetTimestamp);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, requests, 'Lấy danh sách dặn dò y tế thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Update Medical Request Status
+ */
+export const updateMedicalRequestStatus = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { requestId } = req.params;
+    const { status, teacherNote } = req.body;
+
+    const request = await teacherService.getMedicalRequestById(requestId);
+    if (!request) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy dặn dò y tế');
+    }
+
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, request.classId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền cập nhật dặn dò y tế cho lớp này');
+    }
+
+    await teacherService.updateMedicalRequestStatus(requestId, status, teacherNote);
+
+    // Push notification to parent
+    if (request.ParentID) {
+      const parentIds = await teacherService.getStudentParentsUserIds(request.StudentID);
+      for (const parentId of parentIds) {
+        await teacherService.pushNotification(
+          parentId,
+          'Cập nhật Dặn dò y tế',
+          `Giáo viên đã cập nhật trạng thái dặn dò y tế thành: ${status}. Ghi chú: ${teacherNote || ''}`,
+          'Health',
+          `/medical-requests/${requestId}`
+        );
+      }
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Cập nhật dặn dò y tế thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Create a Newsfeed post
+ */
+export const createNewsfeed = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId } = req.params;
+    const { content, mediaUrl } = req.body;
+
+    const numericClassId = Number(classId);
+
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền tạo nhật ký cho lớp này');
+    }
+
+    const postId = await teacherService.createNewsfeedPost(numericClassId, teacherId, content, mediaUrl);
+
+    // Push notification to all parents in the class
+    const parentIds = await teacherService.getClassParentsUserIds(numericClassId);
+    for (const parentId of parentIds) {
+      await teacherService.pushNotification(
+        parentId,
+        'Bài đăng mới từ lớp học',
+        'Cô giáo vừa đăng một hoạt động mới của lớp. Hãy vào xem nhé!',
+        'Newsfeed',
+        `/newsfeed/${postId}`
+      );
+    }
+
+    res.status(httpStatus.CREATED).json(
+      new ApiResponse(httpStatus.CREATED, { postId }, 'Tạo bài đăng nhật ký thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get detailed students for a class
+ */
+export const getDetailedClassStudents = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId } = req.params;
+    const numericClassId = Number(classId);
+
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền xem thông tin chi tiết lớp này');
+    }
+
+    const students = await teacherService.getClassDetailedStudents(numericClassId);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK, 
+        { classId: numericClassId, totalStudents: students.length, students }, 
+        'Lấy danh sách chi tiết học sinh thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get Notifications for Teacher
+ */
+export const getNotifications = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const notifications = await teacherService.getTeacherNotifications(teacherId);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, notifications, 'Lấy danh sách thông báo thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Mark Notification as Read
+ */
+export const markAsRead = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { notifId } = req.params;
+
+    const numericNotifId = Number(notifId);
+
+    const success = await teacherService.markNotificationAsRead(numericNotifId, teacherId);
+    if (!success) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy thông báo hoặc thông báo này không thuộc về bạn');
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Đã đánh dấu thông báo là đã đọc')
+    );
+  } catch (error) {
+    next(error);
+  }
+};

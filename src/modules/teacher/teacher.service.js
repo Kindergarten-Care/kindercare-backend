@@ -226,8 +226,6 @@ export const getLeaveRequestDetail = async (requestId, teacherId) => {
       lr.StudentID AS studentId,
       s.FullName AS studentName,
       s.AvatarURL AS studentAvatar,
-      s.DateOfBirth AS studentDob,
-      s.Gender AS studentGender,
       c.ClassName AS className,
       lr.ParentID AS parentId,
       p.FullName AS parentName,
@@ -483,3 +481,260 @@ export const upsertStudentMealLog = async (studentId, dateTimestamp, eatingStatu
   }
 };
 
+/**
+ * Get daily schedule of a class on a target date
+ * @param {number} classId 
+ * @param {number} dateTimestamp Unix timestamp (seconds) for start of day
+ * @returns {Promise<Array>} List of daily schedule items
+ */
+export const getClassSchedule = async (classId, dateTimestamp) => {
+  const query = `
+    SELECT 
+      DailyScheduleID AS dailyScheduleId,
+      ClassID AS classId,
+      ScheduleDate AS scheduleDate,
+      StartTime AS startTime,
+      EndTime AS endTime,
+      ActivityName AS activityName,
+      Details AS details,
+      Location AS location,
+      ActivityType AS activityType,
+      Status AS status
+    FROM DailySchedules
+    WHERE ClassID = ? AND ScheduleDate = ?
+    ORDER BY StartTime ASC
+  `;
+  const [rows] = await pool.query(query, [classId, dateTimestamp]);
+  return rows;
+};
+
+/**
+ * Push a notification to a user
+ */
+export const pushNotification = async (userId, title, message, type = 'System', actionLink = null) => {
+  const query = `
+    INSERT INTO Notifications (UserID, Title, Message, Type, ActionLink)
+    VALUES (?, ?, ?, ?, ?)
+  `;
+  await pool.query(query, [userId, title, message, type, actionLink]);
+};
+
+/**
+ * Get parent UserIDs for a specific class
+ */
+export const getClassParentsUserIds = async (classId) => {
+  const query = `
+    SELECT DISTINCT sp.ParentID AS userId
+    FROM StudentParents sp
+    JOIN Students s ON sp.StudentID = s.StudentID
+    WHERE s.ClassID = ? AND s.EnrollmentStatus = 'Active'
+  `;
+  const [rows] = await pool.query(query, [classId]);
+  return rows.map(r => r.userId);
+};
+
+/**
+ * Get parent UserIDs for a specific student
+ */
+export const getStudentParentsUserIds = async (studentId) => {
+  const query = `
+    SELECT ParentID AS userId
+    FROM StudentParents
+    WHERE StudentID = ?
+  `;
+  const [rows] = await pool.query(query, [studentId]);
+  return rows.map(r => r.userId);
+};
+
+/**
+ * Get medical requests for a class
+ */
+export const getMedicalRequests = async (classId, dateTimestamp) => {
+  let query = `
+    SELECT 
+      mr.MedRequestID AS requestId,
+      mr.StudentID AS studentId,
+      s.FullName AS studentName,
+      s.AvatarURL AS studentAvatar,
+      mr.ParentID AS parentId,
+      p.FullName AS parentName,
+      mr.RequestDate AS requestDate,
+      mr.MedicineDetails AS medicineDetails,
+      mr.Dosage AS dosage,
+      mr.Status AS status,
+      mr.TeacherNote AS teacherNote
+    FROM MedicationRequests mr
+    JOIN Students s ON mr.StudentID = s.StudentID
+    LEFT JOIN Parents p ON mr.ParentID = p.ParentID
+    WHERE s.ClassID = ?
+  `;
+  const params = [classId];
+
+  if (dateTimestamp) {
+    query += ' AND mr.RequestDate = ?';
+    params.push(dateTimestamp);
+  }
+
+  query += ' ORDER BY mr.MedRequestID DESC';
+
+  const [rows] = await pool.query(query, params);
+  return rows;
+};
+
+/**
+ * Get single medical request by ID
+ */
+export const getMedicalRequestById = async (requestId) => {
+  const query = `
+    SELECT 
+      mr.*, s.ClassID AS classId 
+    FROM MedicationRequests mr
+    JOIN Students s ON mr.StudentID = s.StudentID
+    WHERE mr.MedRequestID = ?
+  `;
+  const [rows] = await pool.query(query, [requestId]);
+  return rows[0] || null;
+};
+
+/**
+ * Update medical request status
+ */
+export const updateMedicalRequestStatus = async (requestId, status, teacherNote) => {
+  let query = 'UPDATE MedicationRequests SET Status = ?';
+  const params = [status];
+
+  if (teacherNote !== undefined) {
+    query += ', TeacherNote = ?';
+    params.push(teacherNote);
+  }
+
+  query += ' WHERE MedRequestID = ?';
+  params.push(requestId);
+
+  const [result] = await pool.query(query, params);
+  return result.affectedRows > 0;
+};
+
+/**
+ * Create a newsfeed post
+ */
+export const createNewsfeedPost = async (classId, teacherId, content, mediaUrl) => {
+  const query = `
+    INSERT INTO Newsfeeds (ClassID, TeacherID, Content, MediaURL)
+    VALUES (?, ?, ?, ?)
+  `;
+  const [result] = await pool.query(query, [classId, teacherId, content, mediaUrl || null]);
+  return result.insertId;
+};
+
+/**
+ * Get detailed students for a class
+ */
+export const getClassDetailedStudents = async (classId) => {
+  const query = `
+    SELECT 
+      s.StudentID AS studentId,
+      s.FullName AS fullName,
+      s.DateOfBirth AS dateOfBirth,
+      s.Gender AS gender,
+      s.Allergies AS allergies,
+      s.AvatarURL AS avatarUrl,
+      (
+        SELECT JSON_OBJECT(
+          'height', hr.Height,
+          'weight', hr.Weight,
+          'bmi', hr.BMI
+        )
+        FROM HealthRecords hr
+        WHERE hr.StudentID = s.StudentID
+        ORDER BY hr.RecordID DESC
+        LIMIT 1
+      ) AS healthRecord,
+      (
+        SELECT JSON_ARRAYAGG(
+          JSON_OBJECT(
+            'parentId', p.ParentID,
+            'fullName', p.FullName,
+            'phone', p.PhoneNumber,
+            'email', p.Email,
+            'relationship', sp.Relationship,
+            'isPrimary', sp.IsPrimary
+          )
+        )
+        FROM StudentParents sp
+        JOIN Parents p ON sp.ParentID = p.ParentID
+        WHERE sp.StudentID = s.StudentID
+      ) AS parents
+    FROM Students s
+    WHERE s.ClassID = ? AND s.EnrollmentStatus = 'Active'
+    ORDER BY s.FullName
+  `;
+  const [rows] = await pool.query(query, [classId]);
+  
+  // Post-process to calculate BMI if not present in DB
+  return rows.map(row => {
+    let health = row.healthRecord;
+    if (typeof health === 'string') {
+      health = JSON.parse(health);
+    }
+    
+    let parents = row.parents;
+    if (typeof parents === 'string') {
+      parents = JSON.parse(parents);
+    }
+
+    if (health && health.height && health.weight && !health.bmi) {
+      // Height might be in cm or meters. Usually height in health records is in cm. Let's assume cm.
+      const heightInMeters = Number(health.height) / 100;
+      const weight = Number(health.weight);
+      if (heightInMeters > 0) {
+        health.bmi = parseFloat((weight / (heightInMeters * heightInMeters)).toFixed(2));
+      }
+    }
+
+    return {
+      studentId: row.studentId,
+      fullName: row.fullName,
+      dateOfBirth: row.dateOfBirth ? Number(row.dateOfBirth) : null,
+      gender: row.gender,
+      allergies: row.allergies,
+      avatarUrl: row.avatarUrl,
+      health: health || null,
+      parents: parents || []
+    };
+  });
+};
+
+/**
+ * Get notifications for a teacher
+ */
+export const getTeacherNotifications = async (teacherId) => {
+  const query = `
+    SELECT 
+      NotifID AS notifId,
+      Title AS title,
+      Message AS message,
+      Type AS type,
+      ActionLink AS actionLink,
+      IsRead AS isRead,
+      CreatedAt AS createdAt
+    FROM Notifications
+    WHERE UserID = ?
+    ORDER BY NotifID DESC
+  `;
+  const [rows] = await pool.query(query, [teacherId]);
+  return rows.map(r => ({ ...r, isRead: !!r.isRead }));
+};
+
+/**
+ * Mark notification as read
+ */
+export const markNotificationAsRead = async (notifId, teacherId) => {
+  const query = `
+    UPDATE Notifications
+    SET IsRead = 1
+    WHERE NotifID = ? AND UserID = ?
+  `;
+  const [result] = await pool.query(query, [notifId, teacherId]);
+  return result.affectedRows > 0;
+};

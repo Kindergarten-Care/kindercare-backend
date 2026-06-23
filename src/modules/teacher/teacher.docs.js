@@ -132,6 +132,95 @@
 
 /**
  * @swagger
+ * /teacher/classes/{classId}/schedule:
+ *   get:
+ *     summary: Get Class Daily Schedule
+ *     description: Retrieve the daily activity schedule for a specific class on a target date. Teachers can only view the schedule for classes they are assigned to.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: classId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the class
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: integer
+ *         description: Unix timestamp in seconds (start of the day) to query. Defaults to today.
+ *         example: 1784160000
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved the class daily schedule
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy lịch trình sinh hoạt lớp học thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       dailyScheduleId:
+ *                         type: integer
+ *                         example: 1
+ *                       classId:
+ *                         type: integer
+ *                         example: 1
+ *                       scheduleDate:
+ *                         type: integer
+ *                         example: 1784160000
+ *                       startTime:
+ *                         type: integer
+ *                         example: 1784187000
+ *                       endTime:
+ *                         type: integer
+ *                         example: 1784188800
+ *                       activityName:
+ *                         type: string
+ *                         example: Đón bé & Chào hỏi
+ *                       details:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Đón trẻ tại cổng trường A
+ *                       location:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Cổng A
+ *                       activityType:
+ *                         type: string
+ *                         enum: [pickup, meal, study, nap, play, dropoff, other]
+ *                         example: pickup
+ *                       status:
+ *                         type: string
+ *                         enum: [Chưa diễn ra, Đang diễn ra, Xong]
+ *                         example: Xong
+ *       400:
+ *         description: Bad Request - Validation failed
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Teacher is not assigned to the class
+ *       500:
+ *         description: Internal Server Error
+ */
+
+
+/**
+ * @swagger
  * /teacher/dashboard:
  *   get:
  *     summary: Get Teacher Dashboard statistics
@@ -533,14 +622,6 @@
  *                       type: string
  *                       nullable: true
  *                       example: https://example.com/avatar.jpg
- *                     studentDob:
- *                       type: integer
- *                       nullable: true
- *                       example: 1612137600
- *                     studentGender:
- *                       type: string
- *                       nullable: true
- *                       example: Nam
  *                     className:
  *                       type: string
  *                       example: Mầm 1

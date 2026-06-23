@@ -35,6 +35,12 @@ router.get(
   teacherValidation.validateGetClassMenu,
   teacherController.getClassMenu
 );
+router.get(
+  '/classes/:classId/schedule',
+  teacherValidation.validateGetClassSchedule,
+  teacherController.getClassSchedule
+);
+
 
 // Attendance & Meals
 router.get(
@@ -44,5 +50,42 @@ router.get(
 );
 router.post('/attendance/quick', teacherValidation.validateQuickAttendance, teacherController.submitQuickAttendance);
 router.post('/attendance/meals', teacherValidation.validateQuickMealLogs, teacherController.submitQuickMealLogs);
+
+// Medical Requests
+router.get(
+  '/classes/:classId/medical-requests',
+  teacherValidation.validateGetMedicalRequests,
+  teacherController.getMedicalRequests
+);
+router.put(
+  '/medical-requests/:requestId',
+  teacherValidation.validateUpdateMedicalRequest,
+  teacherController.updateMedicalRequestStatus
+);
+
+// Newsfeed
+router.post(
+  '/classes/:classId/newsfeed',
+  teacherValidation.validateCreateNewsfeed,
+  teacherController.createNewsfeed
+);
+
+// Detailed Students
+router.get(
+  '/classes/:classId/detailed-students',
+  teacherValidation.validateGetDetailedStudents,
+  teacherController.getDetailedClassStudents
+);
+
+// Notifications
+router.get(
+  '/notifications',
+  teacherController.getNotifications
+);
+router.put(
+  '/notifications/:notifId/read',
+  teacherValidation.validateUpdateNotificationRead,
+  teacherController.markAsRead
+);
 
 export default router;
