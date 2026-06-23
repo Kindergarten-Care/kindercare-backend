@@ -16,23 +16,7 @@ const buildQuery = (identifierType) => {
     const baseSelect = `
         SELECT u.UserID, u.Username, u.PasswordHash, u.RoleID, u.fcm_token, u.Status,
                r.RoleName,
-               COALESCE(a.FullName, pr.FullName, t.FullName, p.FullName) AS FullName,
-               (
-                   SELECT JSON_ARRAYAGG(
-                       JSON_OBJECT(
-                           'studentId', s.StudentID,
-                           'fullName', s.FullName,
-                           'relationship', sp.Relationship,
-                           'avatarUrl', s.AvatarURL,
-                           'classId', s.ClassID,
-                           'className', c.ClassName
-                       )
-                   )
-                   FROM StudentParents sp
-                   JOIN Students s ON sp.StudentID = s.StudentID
-                   LEFT JOIN Classes c ON s.ClassID = c.ClassID
-                   WHERE sp.ParentID = p.ParentID
-               ) AS Children
+               COALESCE(a.FullName, pr.FullName, t.FullName, p.FullName) AS FullName
         FROM Users u
         LEFT JOIN Roles r ON u.RoleID = r.RoleID
         LEFT JOIN Admins a ON u.RoleID = 1 AND u.UserID = a.AdminID

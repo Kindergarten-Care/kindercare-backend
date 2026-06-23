@@ -29,7 +29,8 @@ const options = {
       },
     },
   },
-  apis: ['./src/modules/**/*.js'],
+  // Thêm đường dẫn tới thư mục src/schemas/ để Swagger quét định nghĩa schema
+  apis: ['./src/modules/**/*.js', './src/schemas/**/*.js', './docs/*.docs.js', './routes/*.js'],
 };
 
 const specs = swaggerJsdoc(options);

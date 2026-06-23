@@ -383,3 +383,82 @@
  *       401:
  *         description: Invalid or expired token
  */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     AuthLoginRequest:
+ *       type: object
+ *       required:
+ *         - identifier
+ *         - password
+ *       properties:
+ *         identifier:
+ *           type: string
+ *           description: Username, email, or phone number
+ *           example: admin_it
+ *         password:
+ *           type: string
+ *           example: password123
+ *     AuthUser:
+ *       type: object
+ *       properties:
+ *         userId:
+ *           type: integer
+ *           example: 1
+ *         username:
+ *           type: string
+ *           example: admin_it
+ *         roleId:
+ *           type: integer
+ *           example: 1
+ *         roleName:
+ *           type: string
+ *           example: Admin
+ *         fcmToken:
+ *           type: string
+ *           nullable: true
+ *           example: null
+ *         fullName:
+ *           type: string
+ *           nullable: true
+ *           example: John Doe
+ *     AuthLoginData:
+ *       type: object
+ *       properties:
+ *         token:
+ *           type: string
+ *           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *         user:
+ *           $ref: '#/components/schemas/AuthUser'
+ *     AuthLoginResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *         statusCode:
+ *           type: integer
+ *           example: 200
+ *         message:
+ *           type: string
+ *           example: Login successful
+ *         data:
+ *           $ref: '#/components/schemas/AuthLoginData'
+ *     AuthLogoutResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *         statusCode:
+ *           type: integer
+ *           example: 200
+ *         message:
+ *           type: string
+ *           example: Logout successful
+ *         data:
+ *           nullable: true
+ *           example: null
+ */

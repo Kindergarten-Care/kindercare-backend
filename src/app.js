@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import routes from './routes/index.js';
+import pool from './config/db.js';
 import { errorConverter, errorHandler } from './middlewares/error.middleware.js';
 import ApiError from './utils/ApiError.js';
 import httpStatus from 'http-status';
@@ -30,6 +31,14 @@ if (process.env.NODE_ENV !== 'production') {
 
 app.use('/api/v1', routes);
 
+app.get('/', (_req, res) => {
+    res.status(httpStatus.OK).json({
+        success: true,
+        message: 'KinderCare Backend is running. Use /api/v1/teacher/classes/{classId}/students/detailed',
+        apiBase: '/api/v1',
+    });
+});
+
 if (process.env.NODE_ENV !== 'production') {
     app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 }
@@ -42,10 +51,21 @@ app.use(errorConverter);
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-    logger.info(`=============================================`);
-    logger.info(`🚀 Server is running on http://localhost:${PORT}`);
-    logger.info(`=============================================`);
-});
+const startServer = async () => {
+    try {
+        const [rows] = await pool.query('SELECT 1');
+        console.log('✅ MySQL connected:', rows);
+    } catch (err) {
+        console.error('❌ MySQL connection error:', err.message);
+    }
+
+    app.listen(PORT, () => {
+        logger.info(`=============================================`);
+        logger.info(`🚀 Server is running on http://localhost:${PORT}`);
+        logger.info(`=============================================`);
+    });
+};
+
+startServer();
 
 export default app;
