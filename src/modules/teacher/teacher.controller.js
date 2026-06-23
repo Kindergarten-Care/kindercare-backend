@@ -615,3 +615,99 @@ export const markAsRead = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Get class student assessments for a specific month
+ */
+export const getClassAssessments = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId } = req.params;
+    const { month } = req.query;
+
+    const numericClassId = Number(classId);
+
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền xem dữ liệu của lớp này');
+    }
+
+    const students = await teacherService.getClassAssessments(numericClassId, month);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK, 
+        { classId: numericClassId, month, students }, 
+        'Lấy danh sách đánh giá học sinh thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Submit or update class assessments (Phiếu bé ngoan)
+ */
+export const submitClassAssessments = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId } = req.params;
+    const { month, assessments } = req.body;
+
+    const numericClassId = Number(classId);
+
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền thao tác trên lớp này');
+    }
+
+    // Process each assessment
+    for (const item of assessments) {
+      const { 
+        studentId, 
+        physicalScore, 
+        cognitiveScore, 
+        languageScore, 
+        socioEmotionalScore, 
+        aestheticScore, 
+        teacherComment 
+      } = item;
+
+      // Verify student is indeed enrolled in this class
+      const isInClass = await teacherService.isStudentInClass(studentId, numericClassId);
+      if (!isInClass) {
+        throw new ApiError(httpStatus.BAD_REQUEST, `Học sinh với ID ${studentId} không thuộc lớp ${numericClassId}`);
+      }
+
+      await teacherService.upsertStudentAssessment(
+        studentId, 
+        month, 
+        physicalScore, 
+        cognitiveScore, 
+        languageScore, 
+        socioEmotionalScore, 
+        aestheticScore, 
+        teacherComment
+      );
+
+      // Push notification to parents
+      const parentIds = await teacherService.getStudentParentsUserIds(studentId);
+      for (const parentId of parentIds) {
+        await teacherService.pushNotification(
+          parentId,
+          'Cập nhật Phiếu Bé Ngoan',
+          `Giáo viên đã cập nhật Phiếu Bé Ngoan / Đánh giá tháng ${month} của bé.`,
+          'StudentAssessment',
+          `/students/${studentId}/assessments?month=${month}`
+        );
+      }
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Cập nhật phiếu bé ngoan thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};

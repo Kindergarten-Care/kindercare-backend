@@ -304,3 +304,61 @@ export const validateUpdateNotificationRead = (req, res, next) => {
 
   next();
 };
+
+/**
+ * Validate get class assessments query parameters
+ */
+export const validateGetClassAssessments = (req, res, next) => {
+  const { classId } = req.params;
+  const { month } = req.query;
+
+  if (!classId || isNaN(Number(classId))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId phải là một số nguyên hợp lệ'));
+  }
+
+  if (!month || !/^(0[1-9]|1[0-2])-\d{4}$/.test(month)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'Tháng (month) là bắt buộc và phải có định dạng MM-YYYY (VD: 05-2026)'));
+  }
+
+  next();
+};
+
+/**
+ * Validate submit class assessments
+ */
+export const validateSubmitClassAssessments = (req, res, next) => {
+  const { classId } = req.params;
+  const { month, assessments } = req.body;
+
+  if (!classId || isNaN(Number(classId))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId phải là một số nguyên hợp lệ'));
+  }
+
+  if (!month || !/^(0[1-9]|1[0-2])-\d{4}$/.test(month)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'Tháng (month) là bắt buộc và phải có định dạng MM-YYYY'));
+  }
+
+  if (!Array.isArray(assessments) || assessments.length === 0) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'assessments phải là một mảng không rỗng'));
+  }
+
+  for (let i = 0; i < assessments.length; i++) {
+    const item = assessments[i];
+    if (!item.studentId || isNaN(Number(item.studentId))) {
+      return next(new ApiError(httpStatus.BAD_REQUEST, `Phần tử thứ ${i + 1} trong assessments phải có studentId hợp lệ`));
+    }
+    
+    // Helper to validate score
+    const isValidScore = (score) => score === undefined || score === null || (typeof score === 'number' && score >= 1 && score <= 10);
+    
+    if (!isValidScore(item.physicalScore) || 
+        !isValidScore(item.cognitiveScore) || 
+        !isValidScore(item.languageScore) || 
+        !isValidScore(item.socioEmotionalScore) || 
+        !isValidScore(item.aestheticScore)) {
+      return next(new ApiError(httpStatus.BAD_REQUEST, `Điểm số tại phần tử thứ ${i + 1} phải là số nguyên từ 1 đến 10`));
+    }
+  }
+
+  next();
+};
