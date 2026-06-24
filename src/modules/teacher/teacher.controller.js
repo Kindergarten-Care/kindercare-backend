@@ -711,3 +711,78 @@ export const submitClassAssessments = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Get all available reward badges
+ */
+export const getRewardBadges = async (req, res, next) => {
+  try {
+    const badges = await teacherService.getRewardBadges();
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, badges, 'Lấy danh sách huy hiệu thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get Weekly Rewards for a class
+ */
+export const getWeeklyRewards = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId } = req.params;
+    const { weekNumber, year } = req.query;
+
+    const numericClassId = Number(classId);
+
+    // Security check
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập lớp này');
+    }
+
+    const currentWeek = weekNumber ? Number(weekNumber) : 1; // Simplification, you might calculate real week
+    const currentYear = year ? Number(year) : new Date().getFullYear();
+
+    const rewards = await teacherService.getWeeklyRewards(numericClassId, currentWeek, currentYear);
+    
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, rewards, 'Lấy danh sách đánh giá tuần thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Batch award Weekly Rewards
+ */
+export const awardWeeklyRewards = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId } = req.params;
+    const { weekNumber, year, awards } = req.body;
+
+    const numericClassId = Number(classId);
+
+    // Security check
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền thực hiện trên lớp này');
+    }
+
+    const currentWeek = weekNumber ? Number(weekNumber) : 1;
+    const currentYear = year ? Number(year) : new Date().getFullYear();
+
+    await teacherService.awardWeeklyRewards(numericClassId, currentWeek, currentYear, awards);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Phát phiếu bé ngoan thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+

@@ -821,3 +821,81 @@ export const upsertStudentAssessment = async (studentId, month, physicalScore, c
     ]);
   }
 };
+
+/**
+ * Get all available reward badges
+ */
+export const getRewardBadges = async () => {
+  const query = `
+    SELECT 
+      BadgeID AS badgeId,
+      BadgeName AS badgeName,
+      BadgeImageURL AS badgeImageUrl,
+      CriteriaType AS criteriaType
+    FROM RewardBadges
+  `;
+  const [rows] = await pool.query(query);
+  return rows;
+};
+
+/**
+ * Get weekly rewards awarded to a class for a specific week and year
+ */
+export const getWeeklyRewards = async (classId, weekNumber, year) => {
+  const query = `
+    SELECT 
+      w.RewardID AS rewardId,
+      w.StudentID AS studentId,
+      w.WeekNumber AS weekNumber,
+      w.Year AS year,
+      w.TeacherNote AS teacherNote,
+      w.DateAwarded AS dateAwarded,
+      s.FullName AS studentName,
+      s.AvatarURL AS avatarUrl
+    FROM WeeklyRewards w
+    JOIN Students s ON w.StudentID = s.StudentID
+    WHERE s.ClassID = ? AND w.WeekNumber = ? AND w.Year = ?
+  `;
+  const [rows] = await pool.query(query, [classId, weekNumber, year]);
+  return rows;
+};
+
+/**
+ * Batch award weekly rewards (Phiếu bé ngoan) to students
+ * @param {Array<{studentId: number, teacherNote: string}>} awards
+ */
+export const awardWeeklyRewards = async (classId, weekNumber, year, awards) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    for (const award of awards) {
+      // 1. Insert into WeeklyRewards
+      const insertReward = `
+        INSERT INTO WeeklyRewards (StudentID, WeekNumber, Year, TeacherNote, DateAwarded)
+        VALUES (?, ?, ?, ?, ?)
+      `;
+      await connection.query(insertReward, [
+        award.studentId, weekNumber, year, award.teacherNote || '', timestamp
+      ]);
+
+      // 2. Also insert a badge into StudentBadges (Assume BadgeID = 1 is Phiếu bé ngoan)
+      // Usually "Phiếu bé ngoan cuối tuần" badge is BadgeID 1
+      const insertBadge = `
+        INSERT INTO StudentBadges (StudentID, BadgeID, DateEarned)
+        VALUES (?, 1, ?)
+      `;
+      await connection.query(insertBadge, [award.studentId, timestamp]);
+    }
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+

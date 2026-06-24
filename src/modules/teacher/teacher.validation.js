@@ -362,3 +362,59 @@ export const validateSubmitClassAssessments = (req, res, next) => {
 
   next();
 };
+
+/**
+ * Validate get weekly rewards query parameters
+ */
+export const validateGetWeeklyRewards = (req, res, next) => {
+  const { classId } = req.params;
+  const { weekNumber, year } = req.query;
+
+  if (!classId || isNaN(Number(classId))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId phải là một số nguyên hợp lệ'));
+  }
+
+  if (weekNumber && isNaN(Number(weekNumber))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'weekNumber phải là một số hợp lệ'));
+  }
+
+  if (year && isNaN(Number(year))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'year phải là một số hợp lệ'));
+  }
+
+  next();
+};
+
+/**
+ * Validate award weekly rewards payload
+ */
+export const validateAwardWeeklyRewards = (req, res, next) => {
+  const { classId } = req.params;
+  const { weekNumber, year, awards } = req.body;
+
+  if (!classId || isNaN(Number(classId))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId phải là một số nguyên hợp lệ'));
+  }
+
+  if (weekNumber && isNaN(Number(weekNumber))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'weekNumber phải là một số hợp lệ'));
+  }
+
+  if (year && isNaN(Number(year))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'year phải là một số hợp lệ'));
+  }
+
+  if (!Array.isArray(awards) || awards.length === 0) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'awards phải là một mảng không rỗng chứa học sinh nhận thưởng'));
+  }
+
+  for (let i = 0; i < awards.length; i++) {
+    const award = awards[i];
+    if (!award.studentId || isNaN(Number(award.studentId))) {
+      return next(new ApiError(httpStatus.BAD_REQUEST, `studentId tại phần tử ${i + 1} không hợp lệ`));
+    }
+  }
+
+  next();
+};
+
