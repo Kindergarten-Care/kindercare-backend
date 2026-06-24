@@ -1078,3 +1078,73 @@
  *       500:
  *         description: Internal Server Error
  */
+/**
+ * @swagger
+ * /teacher/classes/{classId}/medical-requests:
+ *   get:
+ *     summary: Get Medical Requests
+ *     description: Retrieve all medical requests for a specific class, optionally filtered by date.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: classId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Class ID
+ *       - in: query
+ *         name: date
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Filter by date (timestamp in seconds)
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved medical requests
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ * 
+ * /teacher/medical-requests/{requestId}:
+ *   put:
+ *     summary: Update Medical Request Status
+ *     description: Update the status and teacher note for a specific medical request.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Medical Request ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [Pending, Administered, Cancelled]
+ *               teacherNote:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Successfully updated medical request
+ *       400:
+ *         description: Bad Request
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Not Found
+ */

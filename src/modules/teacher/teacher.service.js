@@ -561,6 +561,10 @@ export const getMedicalRequests = async (classId, dateTimestamp) => {
       mr.RequestDate AS requestDate,
       mr.MedicineDetails AS medicineDetails,
       mr.Dosage AS dosage,
+        mr.Frequency AS frequency,
+        mr.TimeToTake AS timeToTake,
+        mr.ParentNote AS parentNote,
+        mr.MedicineImageURL AS medicineImageUrl,
       mr.Status AS status,
       mr.TeacherNote AS teacherNote
     FROM MedicationRequests mr
