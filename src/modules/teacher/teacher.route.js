@@ -100,4 +100,19 @@ router.post(
   teacherController.submitClassAssessments
 );
 
+// Reward Badges
+router.get('/reward-badges', teacherController.getRewardBadges);
+
+// Weekly Rewards
+router.get(
+  '/classes/:classId/weekly-rewards',
+  teacherValidation.validateGetWeeklyRewards,
+  teacherController.getWeeklyRewards
+);
+router.post(
+  '/classes/:classId/weekly-rewards',
+  teacherValidation.validateAwardWeeklyRewards,
+  teacherController.awardWeeklyRewards
+);
+
 export default router;
