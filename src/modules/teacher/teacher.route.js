@@ -69,6 +69,10 @@ router.post(
   teacherValidation.validateCreateNewsfeed,
   teacherController.createNewsfeed
 );
+router.get(
+  '/classes/:classId/newsfeed',
+  teacherController.getNewsfeeds
+);
 
 // Detailed Students
 router.get(
