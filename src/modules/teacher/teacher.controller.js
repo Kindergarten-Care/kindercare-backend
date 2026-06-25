@@ -550,6 +550,31 @@ export const createNewsfeed = async (req, res, next) => {
 };
 
 /**
+ * Get class newsfeeds
+ */
+export const getNewsfeeds = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId } = req.params;
+
+    const numericClassId = Number(classId);
+
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền xem nhật ký của lớp này');
+    }
+
+    const newsfeeds = await teacherService.getNewsfeeds(numericClassId);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, newsfeeds, 'Lấy danh sách nhật ký thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get detailed students for a class
  */
 export const getDetailedClassStudents = async (req, res, next) => {

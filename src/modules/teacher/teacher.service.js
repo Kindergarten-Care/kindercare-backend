@@ -632,6 +632,21 @@ export const createNewsfeedPost = async (classId, teacherId, content, mediaUrl) 
 };
 
 /**
+ * Get newsfeeds for a class
+ */
+export const getNewsfeeds = async (classId) => {
+  const query = `
+    SELECT n.*, u.FullName as TeacherName, u.Avatar as TeacherAvatar 
+    FROM Newsfeeds n
+    LEFT JOIN Users u ON n.TeacherID = u.UserID
+    WHERE n.ClassID = ?
+    ORDER BY n.PostedAt DESC
+  `;
+  const [rows] = await pool.query(query, [classId]);
+  return rows;
+};
+
+/**
  * Get detailed students for a class
  */
 export const getClassDetailedStudents = async (classId) => {
