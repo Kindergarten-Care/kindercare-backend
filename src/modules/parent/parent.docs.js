@@ -361,12 +361,73 @@
  *                     createdAt:
  *                       type: integer
  *                       example: 1781827200
+ *                     updatedTime:
+ *                       type: integer
+ *                       nullable: true
+ *                       example: null
  *       400:
  *         description: Bad Request - invalid or missing parameters
  *       401:
  *         description: Unauthorized - token missing or invalid
  *       403:
  *         description: Forbidden - user is not a parent or is not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/leave-requests/{requestId}/cancel:
+ *   patch:
+ *     summary: Cancel a pending leave request
+ *     description: Cancel a leave request that is currently in "Pending" status. Only accessible by the parent who created it.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the leave request to cancel
+ *     responses:
+ *       200:
+ *         description: Leave request successfully cancelled
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Hủy đơn xin nghỉ phép thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     requestId:
+ *                       type: integer
+ *                       example: 22
+ *                     status:
+ *                       type: string
+ *                       example: Cancelled
+ *                     updatedTime:
+ *                       type: integer
+ *                       example: 1781827200
+ *       400:
+ *         description: Bad Request - request is not in Pending status
+ *       401:
+ *         description: Unauthorized - token missing or invalid
+ *       403:
+ *         description: Forbidden - user is not a parent or did not create this request
+ *       404:
+ *         description: Not Found - leave request not found
  *       500:
  *         description: Internal Server Error
  */
@@ -443,10 +504,14 @@
  *                         example: 0
  *                       parentNotes:
  *                         type: string
- *                         example: Phụ huynh báo nghỉ với lý do: Khám sức khỏe
+ *                         example: 'Phụ huynh báo nghỉ với lý do: Khám sức khỏe'
  *                       createdAt:
  *                         type: integer
  *                         example: 1781740800
+ *                       updatedTime:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: null
  *       401:
  *         description: Unauthorized - token missing or invalid
  *       403:
@@ -564,12 +629,75 @@
  *                       type: string
  *                       nullable: true
  *                       example: Tất cả thuốc để trong ba lô
+ *                     updatedTime:
+ *                       type: integer
+ *                       nullable: true
+ *                       example: null
  *       400:
  *         description: Bad Request - invalid or missing parameters
  *       401:
  *         description: Unauthorized - token missing or invalid
  *       403:
  *         description: Forbidden - user is not a parent or is not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/medication-requests/{medRequestId}/cancel:
+ *   patch:
+ *     summary: Cancel a pending medication request group
+ *     description: Cancel all pending medication requests in the group associated with the given medRequestId. Only accessible by the parent who created it.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: medRequestId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of one of the medication requests in the group to cancel
+ *     responses:
+ *       200:
+ *         description: Medication request group successfully cancelled
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Hủy dặn dò thuốc thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       medRequestId:
+ *                         type: integer
+ *                         example: 2
+ *                       status:
+ *                         type: string
+ *                         example: Cancelled
+ *                       updatedTime:
+ *                         type: integer
+ *                         example: 1778803200
+ *       400:
+ *         description: Bad Request - request is not in Pending status
+ *       401:
+ *         description: Unauthorized - token missing or invalid
+ *       403:
+ *         description: Forbidden - user is not a parent or did not create this request
+ *       404:
+ *         description: Not Found - medication request not found
  *       500:
  *         description: Internal Server Error
  */
@@ -729,6 +857,13 @@
  *                       parentNotes:
  *                         type: string
  *                         example: Thèm thuốc quá nên nghỉ học. Yêu cầu nhà trường mua thuốc cho bé uống.
+ *                       createdAt:
+ *                         type: integer
+ *                         example: 1781740800
+ *                       updatedTime:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: null
  *       401:
  *         description: Unauthorized - token missing or invalid
  *       403:
@@ -816,6 +951,10 @@
  *                         type: string
  *                         nullable: true
  *                         example: Tất cả thuốc để trong ba lô
+ *                       updatedTime:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: null
  *       401:
  *         description: Unauthorized - token missing or invalid
  *       403:

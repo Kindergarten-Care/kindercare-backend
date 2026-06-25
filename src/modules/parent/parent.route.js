@@ -29,5 +29,11 @@ router.post('/leave-requests', authenticate, authorize(4), upload.single('eviden
 // Create a medication request for a child (with optional prescription image)
 router.post('/medication-requests', authenticate, authorize(4), upload.single('medicineImage'), parentController.createMedicationRequest);
 
+// Cancel a leave request
+router.patch('/leave-requests/:requestId/cancel', authenticate, authorize(4), parentController.cancelLeaveRequest);
+
+// Cancel a medication request
+router.patch('/medication-requests/:medRequestId/cancel', authenticate, authorize(4), parentController.cancelMedicationRequest);
+
 export default router;
 

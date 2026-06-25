@@ -1,4 +1,6 @@
 import pool from '../../config/db.js';
+import ApiError from '../../utils/ApiError.js';
+import httpStatus from 'http-status';
 
 /**
  * Get all children of a parent by ParentID
@@ -201,7 +203,8 @@ export const createLeaveRequest = async (
       ApproverID AS approverId,
       IsMealFeeDeducted AS isMealFeeDeducted,
       ParentNotes AS parentNotes,
-      CreatedAt AS createdAt
+      CreatedAt AS createdAt,
+      UpdatedTime AS updatedTime
     FROM LeaveRequests
     WHERE RequestID = ?
   `;
@@ -228,7 +231,8 @@ export const getLeaveRequestsByStudentId = async (studentId) => {
       ApproverID AS approverId,
       IsMealFeeDeducted AS isMealFeeDeducted,
       ParentNotes AS parentNotes,
-      CreatedAt AS createdAt
+      CreatedAt AS createdAt,
+      UpdatedTime AS updatedTime
     FROM LeaveRequests
     WHERE StudentID = ?
     ORDER BY CreatedAt DESC, RequestID DESC
@@ -293,7 +297,8 @@ export const createMedicationRequest = async (
       TeacherNote AS teacherNote,
       Frequency AS frequency,
       TimeToTake AS timeToTake,
-      ParentNote AS parentNote
+      ParentNote AS parentNote,
+      UpdatedTime AS updatedTime
     FROM MedicationRequests
     WHERE MedRequestID = ?
   `;
@@ -320,7 +325,8 @@ export const getMedicationRequestsByStudentId = async (studentId) => {
       TeacherNote AS teacherNote,
       Frequency AS frequency,
       TimeToTake AS timeToTake,
-      ParentNote AS parentNote
+      ParentNote AS parentNote,
+      UpdatedTime AS updatedTime
     FROM MedicationRequests
     WHERE StudentID = ?
     ORDER BY RequestDate DESC, MedRequestID DESC
@@ -365,6 +371,101 @@ export const getStudentAttendance = async (studentId, startDate, endDate) => {
 
   const [rows] = await pool.query(query, params);
   return rows;
+};
+
+/**
+ * Cancel a pending leave request
+ * @param {number} requestId
+ * @param {number} parentId
+ * @returns {Promise<Object>} Updated leave request
+ */
+export const cancelLeaveRequest = async (requestId, parentId) => {
+  const [rows] = await pool.query('SELECT ParentID, Status FROM LeaveRequests WHERE RequestID = ?', [requestId]);
+  if (rows.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy đơn xin nghỉ học');
+  }
+  const request = rows[0];
+  if (request.ParentID !== parentId) {
+    throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền hủy đơn xin nghỉ học này');
+  }
+  if (request.Status !== 'Pending') {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Chỉ có thể hủy đơn xin nghỉ học ở trạng thái Chờ phản hồi');
+  }
+
+  await pool.query(
+    'UPDATE LeaveRequests SET Status = \'Cancelled\' WHERE RequestID = ?',
+    [requestId]
+  );
+
+  // Return the updated request
+  const selectQuery = `
+    SELECT 
+      RequestID AS requestId,
+      StudentID AS studentId,
+      ParentID AS parentId,
+      FromDate AS fromDate,
+      ToDate AS toDate,
+      Reason AS reason,
+      EvidenceURL AS evidenceUrl,
+      Status AS status,
+      ApproverID AS approverId,
+      IsMealFeeDeducted AS isMealFeeDeducted,
+      ParentNotes AS parentNotes,
+      CreatedAt AS createdAt,
+      UpdatedTime AS updatedTime
+    FROM LeaveRequests
+    WHERE RequestID = ?
+  `;
+  const [updatedRows] = await pool.query(selectQuery, [requestId]);
+  return updatedRows[0];
+};
+
+/**
+ * Cancel a pending medication request group (by RequestDate)
+ * @param {number} medRequestId
+ * @param {number} parentId
+ * @returns {Promise<Array>} List of updated medication requests in the group
+ */
+export const cancelMedicationRequest = async (medRequestId, parentId) => {
+  const [rows] = await pool.query('SELECT StudentID, ParentID, RequestDate, Status FROM MedicationRequests WHERE MedRequestID = ?', [medRequestId]);
+  if (rows.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy dặn dò thuốc');
+  }
+  const request = rows[0];
+  if (request.ParentID !== parentId) {
+    throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền hủy dặn dò thuốc này');
+  }
+  if (request.Status !== 'Pending') {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Chỉ có thể hủy dặn dò thuốc ở trạng thái Chờ phản hồi');
+  }
+
+  // Cancel all pending requests in the group
+  await pool.query(
+    'UPDATE MedicationRequests SET Status = \'Cancelled\' WHERE StudentID = ? AND ParentID = ? AND RequestDate = ? AND Status = \'Pending\'',
+    [request.StudentID, parentId, request.RequestDate]
+  );
+
+  // Return all medication requests for this group
+  const selectQuery = `
+    SELECT 
+      MedRequestID AS medRequestId,
+      StudentID AS studentId,
+      ParentID AS parentId,
+      RequestDate AS requestDate,
+      MedicineDetails AS medicineDetails,
+      Dosage AS dosage,
+      MedicineImageURL AS medicineImageUrl,
+      Status AS status,
+      TeacherNote AS teacherNote,
+      Frequency AS frequency,
+      TimeToTake AS timeToTake,
+      ParentNote AS parentNote,
+      UpdatedTime AS updatedTime
+    FROM MedicationRequests
+    WHERE StudentID = ? AND ParentID = ? AND RequestDate = ?
+  `;
+  const [updatedRows] = await pool.query(selectQuery, [request.StudentID, parentId, request.RequestDate]);
+  return updatedRows;
 };
 
 

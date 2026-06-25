@@ -338,6 +338,58 @@ const getChildMedicationRequests = async (req, res, next) => {
   }
 };
 
+const cancelLeaveRequest = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { requestId } = req.params;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền thực hiện hành động này');
+    }
+
+    const updatedRequest = await parentService.cancelLeaveRequest(parseInt(requestId, 10), parentId);
+
+    logger.info(`Parent ID ${parentId} cancelled Leave Request ID ${requestId}`);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        updatedRequest,
+        'Hủy đơn xin nghỉ phép thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const cancelMedicationRequest = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { medRequestId } = req.params;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền thực hiện hành động này');
+    }
+
+    const updatedRequests = await parentService.cancelMedicationRequest(parseInt(medRequestId, 10), parentId);
+
+    logger.info(`Parent ID ${parentId} cancelled Medication Request ID ${medRequestId} group`);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        updatedRequests,
+        'Hủy dặn dò thuốc thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyChildren,
   getMyProfile,
@@ -347,6 +399,8 @@ export default {
   getChildAttendance,
   getChildLeaveRequests,
   getChildMedicationRequests,
+  cancelLeaveRequest,
+  cancelMedicationRequest,
 };
 
 
