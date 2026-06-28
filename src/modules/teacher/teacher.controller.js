@@ -379,10 +379,11 @@ export const submitQuickMealLogs = async (req, res, next) => {
 
     // Perform upsert for each student's meal status
     for (const item of mealData) {
-      const { studentId, eatingStatus } = item;
+      const studentId = Number(item.studentId);
+      const { eatingStatus } = item;
 
       // Verify student is indeed enrolled in this class
-      const isInClass = await teacherService.isStudentInClass(studentId, classId);
+      const isInClass = await teacherService.isStudentInClass(studentId, Number(classId));
       if (!isInClass) {
         throw new ApiError(httpStatus.BAD_REQUEST, `Học sinh với ID ${studentId} không thuộc lớp ${classId}`);
       }
@@ -421,8 +422,9 @@ export const submitQuickActivities = async (req, res, next) => {
     }
 
     for (const item of activityData) {
-      const { studentId, sleepingStatus, hygieneStatus, teacherNote } = item;
-      const isInClass = await teacherService.isStudentInClass(studentId, classId);
+      const studentId = Number(item.studentId);
+      const { sleepingStatus, hygieneStatus, teacherNote } = item;
+      const isInClass = await teacherService.isStudentInClass(studentId, Number(classId));
       if (!isInClass) {
         throw new ApiError(httpStatus.BAD_REQUEST, `Học sinh với ID ${studentId} không thuộc lớp ${classId}`);
       }
