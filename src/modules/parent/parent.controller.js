@@ -338,6 +338,292 @@ const getChildMedicationRequests = async (req, res, next) => {
   }
 };
 
+const cancelLeaveRequest = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { requestId } = req.params;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền thực hiện hành động này');
+    }
+
+    const updatedRequest = await parentService.cancelLeaveRequest(parseInt(requestId, 10), parentId);
+
+    logger.info(`Parent ID ${parentId} cancelled Leave Request ID ${requestId}`);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        updatedRequest,
+        'Hủy đơn xin nghỉ phép thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const cancelMedicationRequest = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { medRequestId } = req.params;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền thực hiện hành động này');
+    }
+
+    const updatedRequests = await parentService.cancelMedicationRequest(parseInt(medRequestId, 10), parentId);
+
+    logger.info(`Parent ID ${parentId} cancelled Medication Request ID ${medRequestId} group`);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        updatedRequests,
+        'Hủy dặn dò thuốc thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getChildAssessments = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { studentId } = req.params;
+    const { month } = req.query;
+
+    // Double check authorization (safety check)
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    // Verify parent has access to this student
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin đánh giá của học sinh này');
+    }
+
+    // Validate month format (MM-YYYY) if provided
+    if (month) {
+      const monthRegex = /^(0[1-9]|1[0-2])-\d{4}$/;
+      if (!monthRegex.test(month)) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Định dạng tháng không hợp lệ (yêu cầu MM-YYYY)');
+      }
+    }
+
+    const assessments = await parentService.getStudentAssessments(
+      parseInt(studentId, 10),
+      month || null
+    );
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        assessments,
+        'Lấy danh sách đánh giá của bé thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getChildDailySchedule = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { studentId } = req.params;
+    const { date } = req.query;
+
+    // Double check authorization (safety check)
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    // Verify parent has access to this student
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin thời khóa biểu của học sinh này');
+    }
+
+    let targetTimestamp;
+    if (date) {
+      targetTimestamp = parseInt(date, 10);
+      if (isNaN(targetTimestamp)) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'date phải là số nguyên hợp lệ (timestamp tính bằng giây)');
+      }
+    } else {
+      // Default to current time
+      targetTimestamp = Math.floor(Date.now() / 1000);
+    }
+
+    // Calculate UTC midnight of the target timestamp's local day
+    const targetDateObj = new Date(targetTimestamp * 1000);
+    const midnightSeconds = Math.floor(Date.UTC(
+      targetDateObj.getFullYear(),
+      targetDateObj.getMonth(),
+      targetDateObj.getDate()
+    ) / 1000);
+
+    const schedule = await parentService.getStudentDailySchedule(
+      parseInt(studentId, 10),
+      midnightSeconds
+    );
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        schedule,
+        'Lấy thời khóa biểu ngày của bé thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getChildDailyLessons = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { studentId } = req.params;
+    const { date } = req.query;
+
+    // Double check authorization (safety check)
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    // Verify parent has access to this student
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin bài học của học sinh này');
+    }
+
+    let targetTimestamp;
+    if (date) {
+      targetTimestamp = parseInt(date, 10);
+      if (isNaN(targetTimestamp)) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'date phải là số nguyên hợp lệ (timestamp tính bằng giây)');
+      }
+    } else {
+      // Default to current time
+      targetTimestamp = Math.floor(Date.now() / 1000);
+    }
+
+    // Calculate UTC midnight of the target timestamp's local day
+    const targetDateObj = new Date(targetTimestamp * 1000);
+    const midnightSeconds = Math.floor(Date.UTC(
+      targetDateObj.getFullYear(),
+      targetDateObj.getMonth(),
+      targetDateObj.getDate()
+    ) / 1000);
+
+    const lessons = await parentService.getStudentDailyLessons(
+      parseInt(studentId, 10),
+      midnightSeconds
+    );
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        lessons,
+        'Lấy danh sách bài học ngày của bé thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getChildDailyAlbums = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { studentId } = req.params;
+    const { date } = req.query;
+
+    // Double check authorization (safety check)
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    // Verify parent has access to this student
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin album ảnh của học sinh này');
+    }
+
+    let targetTimestamp;
+    if (date) {
+      targetTimestamp = parseInt(date, 10);
+      if (isNaN(targetTimestamp)) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'date phải là số nguyên hợp lệ (timestamp tính bằng giây)');
+      }
+    } else {
+      // Default to current time
+      targetTimestamp = Math.floor(Date.now() / 1000);
+    }
+
+    // Calculate UTC midnight of the target timestamp's local day
+    const targetDateObj = new Date(targetTimestamp * 1000);
+    const midnightSeconds = Math.floor(Date.UTC(
+      targetDateObj.getFullYear(),
+      targetDateObj.getMonth(),
+      targetDateObj.getDate()
+    ) / 1000);
+
+    const albums = await parentService.getStudentDailyAlbums(
+      parseInt(studentId, 10),
+      midnightSeconds
+    );
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        albums,
+        'Lấy danh sách album ảnh ngày của bé thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getQrToken = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { studentId } = req.params;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền thực hiện hành động này');
+    }
+
+    if (!studentId) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'studentId là bắt buộc');
+    }
+
+    const studentIdVal = parseInt(studentId, 10);
+    if (isNaN(studentIdVal)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'studentId phải là số hợp lệ');
+    }
+
+    const result = await parentService.generateQrToken(parentId, studentIdVal);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, result, 'Tạo mã QR điểm danh thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyChildren,
   getMyProfile,
@@ -347,6 +633,17 @@ export default {
   getChildAttendance,
   getChildLeaveRequests,
   getChildMedicationRequests,
+  cancelLeaveRequest,
+  cancelMedicationRequest,
+  getChildAssessments,
+  getChildDailySchedule,
+  getChildDailyLessons,
+  getChildDailyAlbums,
+  getQrToken,
 };
+
+
+
+
 
 

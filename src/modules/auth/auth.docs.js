@@ -64,10 +64,6 @@
  *                         roleName:
  *                           type: string
  *                           example: Admin
- *                         fcmToken:
- *                           type: string
- *                           nullable: true
- *                           example: null
  *                         fullName:
  *                           type: string
  *                           nullable: true

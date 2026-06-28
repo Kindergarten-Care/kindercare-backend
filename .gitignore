@@ -22,3 +22,8 @@ lerna-debug.log*
 # temp directory
 .temp
 .tmp
+
+# Firebase Admin SDK credentials
+kindercare-adminsdk-test.json
+kindercare-adminsdk.json
+
