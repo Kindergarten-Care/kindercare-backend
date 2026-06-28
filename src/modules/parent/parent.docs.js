@@ -261,7 +261,7 @@
  * /parent/leave-requests:
  *   post:
  *     summary: Create a leave request
- *     description: Submit a new leave request for a child. Only accessible by parents associated with the child.
+ *     description: Submit a new leave request for a child. Only accessible by parents associated with the child. After creation, a push notification is automatically sent to all teachers of the child's class.
  *     tags: [Parent]
  *     security:
  *       - bearerAuth: []
@@ -434,98 +434,10 @@
 
 /**
  * @swagger
- * /parent/children/{studentId}/leave-requests:
- *   get:
- *     summary: Get leave requests of a child
- *     description: Retrieve all leave request records of a child associated with the authenticated parent.
- *     tags: [Parent]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: studentId
- *         required: true
- *         schema:
- *           type: integer
- *         description: ID of the child student
- *     responses:
- *       200:
- *         description: Successfully retrieved child leave requests
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 statusCode:
- *                   type: integer
- *                   example: 200
- *                 message:
- *                   type: string
- *                   example: Lấy danh sách đơn xin nghỉ phép thành công
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       requestId:
- *                         type: integer
- *                         example: 11
- *                       studentId:
- *                         type: integer
- *                         example: 19
- *                       parentId:
- *                         type: integer
- *                         example: 6
- *                       fromDate:
- *                         type: integer
- *                         example: 1782345600
- *                       toDate:
- *                         type: integer
- *                         example: 1782691199
- *                       reason:
- *                         type: string
- *                         example: Khám sức khỏe
- *                       evidenceUrl:
- *                         type: string
- *                         nullable: true
- *                         example: null
- *                       status:
- *                         type: string
- *                         example: Pending
- *                       approverId:
- *                         type: integer
- *                         nullable: true
- *                         example: null
- *                       isMealFeeDeducted:
- *                         type: integer
- *                         example: 0
- *                       parentNotes:
- *                         type: string
- *                         example: 'Phụ huynh báo nghỉ với lý do: Khám sức khỏe'
- *                       createdAt:
- *                         type: integer
- *                         example: 1781740800
- *                       updatedTime:
- *                         type: integer
- *                         nullable: true
- *                         example: null
- *       401:
- *         description: Unauthorized - token missing or invalid
- *       403:
- *         description: Forbidden - user is not a parent or is not associated with this child
- *       500:
- *         description: Internal Server Error
- */
-
-/**
- * @swagger
  * /parent/medication-requests:
  *   post:
  *     summary: Create a medication request
- *     description: Submit medication details and dosage instructions for a child. Only accessible by parents associated with the child.
+ *     description: Submit medication details and dosage instructions for a child. Only accessible by parents associated with the child. After creation, a push notification is automatically sent to all teachers of the child's class.
  *     tags: [Parent]
  *     security:
  *       - bearerAuth: []
@@ -1320,9 +1232,64 @@
  *         description: Internal Server Error
  */
 
-
-
-
+/**
+ * @swagger
+ * /parent/children/{studentId}/qr-token:
+ *   get:
+ *     summary: Generate QR attendance token for a child
+ *     description: Generate a signed JWT (HS256) to be displayed as a QR code for teacher attendance scanning. Token expires in 60 seconds. Frontend should refresh every 60 seconds.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the child student
+ *         example: 19
+ *     responses:
+ *       200:
+ *         description: QR token generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Tạo mã QR điểm danh thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     token:
+ *                       type: string
+ *                       description: Signed JWT string to be rendered as QR code
+ *                       example: eyJhbGciOiJIUzI1NiJ9...
+ *                     expiresAt:
+ *                       type: integer
+ *                       description: Token expiry as Unix timestamp in seconds
+ *                       example: 1719532860
+ *                     ttl:
+ *                       type: integer
+ *                       description: Time-to-live in seconds
+ *                       example: 60
+ *       400:
+ *         description: Bad Request - invalid studentId
+ *       401:
+ *         description: Unauthorized - token missing or invalid
+ *       403:
+ *         description: Forbidden - student does not belong to this parent
+ *       500:
+ *         description: Internal Server Error
+ */
 
 
 
