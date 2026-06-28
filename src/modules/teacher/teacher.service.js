@@ -387,13 +387,15 @@ export const getClassStudentsAttendance = async (classId, dateTimestamp) => {
         LIMIT 1
       ) AS leaveRequestReason,
       da.TeacherNote AS healthNote,
-      da.EatingStatus AS eatingStatus,
-      da.SleepingStatus AS sleepingStatus,
+      da.BreakfastStatus AS breakfastStatus,
+      da.LunchStatus AS lunchStatus,
+      da.SnackStatus AS snackStatus,
+      da.NapStatus AS napStatus,
       da.HygieneStatus AS hygieneStatus,
       da.TeacherNote AS teacherNote
     FROM Students s
     LEFT JOIN Attendances a ON s.StudentID = a.StudentID AND a.AttendanceDate = ?
-    LEFT JOIN DailyActivities da ON s.StudentID = da.StudentID AND da.ActivityDate = ?
+    LEFT JOIN DailyActivities da ON s.StudentID = da.StudentID AND da.LogDate = FROM_UNIXTIME(?, '%Y-%m-%d')
     WHERE s.ClassID = ? AND s.EnrollmentStatus = 'Active'
     ORDER BY s.FullName
   `;
@@ -415,8 +417,10 @@ export const getClassStudentsAttendance = async (classId, dateTimestamp) => {
     checkInTime: row.checkInTime ? Number(row.checkInTime) : null,
     checkOutTime: row.checkOutTime ? Number(row.checkOutTime) : null,
     healthNote: row.healthNote || null,
-    eatingStatus: row.eatingStatus || null,
-    sleepingStatus: row.sleepingStatus || null,
+    breakfastStatus: row.breakfastStatus || null,
+    lunchStatus: row.lunchStatus || null,
+    snackStatus: row.snackStatus || null,
+    napStatus: row.napStatus || null,
     hygieneStatus: row.hygieneStatus || null,
     teacherNote: row.teacherNote || null,
     leaveRequest: row.leaveRequestId ? {
@@ -455,38 +459,53 @@ export const getClassMenu = async (classId, dateTimestamp) => {
  * Upsert daily activity status for a student on a specific date
  */
 export const upsertDailyActivity = async (studentId, dateTimestamp, data) => {
-  const { eatingStatus, sleepingStatus, hygieneStatus, teacherNote } = data;
-  const checkQuery = 'SELECT ActivityID FROM DailyActivities WHERE StudentID = ? AND ActivityDate = ?';
-  const [rows] = await pool.query(checkQuery, [studentId, dateTimestamp]);
+  const { breakfastStatus, lunchStatus, snackStatus, napStatus, hygieneStatus, teacherNote, recordedBy } = data;
+  
+  // Convert UNIX timestamp to YYYY-MM-DD string
+  const dateObj = new Date(dateTimestamp * 1000);
+  const logDate = dateObj.toISOString().split('T')[0];
+
+  const checkQuery = 'SELECT ActivityID FROM DailyActivities WHERE StudentID = ? AND LogDate = ?';
+  const [rows] = await pool.query(checkQuery, [studentId, logDate]);
 
   if (rows.length > 0) {
     const updateFields = [];
     const updateValues = [];
-    if (eatingStatus !== undefined) { updateFields.push('EatingStatus = ?'); updateValues.push(eatingStatus); }
-    if (sleepingStatus !== undefined) { updateFields.push('SleepingStatus = ?'); updateValues.push(sleepingStatus); }
+    if (breakfastStatus !== undefined) { updateFields.push('BreakfastStatus = ?'); updateValues.push(breakfastStatus); }
+    if (lunchStatus !== undefined) { updateFields.push('LunchStatus = ?'); updateValues.push(lunchStatus); }
+    if (snackStatus !== undefined) { updateFields.push('SnackStatus = ?'); updateValues.push(snackStatus); }
+    if (napStatus !== undefined) { updateFields.push('NapStatus = ?'); updateValues.push(napStatus); }
     if (hygieneStatus !== undefined) { updateFields.push('HygieneStatus = ?'); updateValues.push(hygieneStatus); }
     if (teacherNote !== undefined) { updateFields.push('TeacherNote = ?'); updateValues.push(teacherNote); }
+    if (recordedBy !== undefined) { updateFields.push('RecordedBy = ?'); updateValues.push(recordedBy); }
+
+    updateFields.push('UpdatedAt = ?');
+    updateValues.push(Math.floor(Date.now() / 1000));
 
     if (updateFields.length > 0) {
       const updateQuery = `
         UPDATE DailyActivities
         SET ${updateFields.join(', ')}
-        WHERE StudentID = ? AND ActivityDate = ?
+        WHERE StudentID = ? AND LogDate = ?
       `;
-      updateValues.push(studentId, dateTimestamp);
+      updateValues.push(studentId, logDate);
       await pool.query(updateQuery, updateValues);
     }
   } else {
     const insertQuery = `
-      INSERT INTO DailyActivities (StudentID, ActivityDate, EatingStatus, SleepingStatus, HygieneStatus, TeacherNote)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO DailyActivities (StudentID, LogDate, BreakfastStatus, LunchStatus, SnackStatus, NapStatus, HygieneStatus, TeacherNote, RecordedBy, UpdatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     await pool.query(insertQuery, [
-      studentId, dateTimestamp, 
-      eatingStatus || null, 
-      sleepingStatus || null, 
+      studentId, logDate, 
+      breakfastStatus || null, 
+      lunchStatus || null, 
+      snackStatus || null,
+      napStatus || null,
       hygieneStatus || null, 
-      teacherNote || null
+      teacherNote || null,
+      recordedBy || null,
+      Math.floor(Date.now() / 1000)
     ]);
   }
 };

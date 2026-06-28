@@ -380,7 +380,7 @@ export const submitQuickMealLogs = async (req, res, next) => {
     // Perform upsert for each student's meal status
     for (const item of mealData) {
       const studentId = Number(item.studentId);
-      const { eatingStatus } = item;
+      const { breakfastStatus, lunchStatus, snackStatus } = item;
 
       // Verify student is indeed enrolled in this class
       const isInClass = await teacherService.isStudentInClass(studentId, Number(classId));
@@ -388,7 +388,12 @@ export const submitQuickMealLogs = async (req, res, next) => {
         throw new ApiError(httpStatus.BAD_REQUEST, `Học sinh với ID ${studentId} không thuộc lớp ${classId}`);
       }
 
-      await teacherService.upsertDailyActivity(studentId, targetTimestamp, { eatingStatus });
+      await teacherService.upsertDailyActivity(studentId, targetTimestamp, { 
+        breakfastStatus, 
+        lunchStatus, 
+        snackStatus,
+        recordedBy: teacherId
+      });
     }
 
     res.status(httpStatus.OK).json(
@@ -423,16 +428,17 @@ export const submitQuickActivities = async (req, res, next) => {
 
     for (const item of activityData) {
       const studentId = Number(item.studentId);
-      const { sleepingStatus, hygieneStatus, teacherNote } = item;
+      const { napStatus, hygieneStatus, teacherNote } = item;
       const isInClass = await teacherService.isStudentInClass(studentId, Number(classId));
       if (!isInClass) {
         throw new ApiError(httpStatus.BAD_REQUEST, `Học sinh với ID ${studentId} không thuộc lớp ${classId}`);
       }
 
       await teacherService.upsertDailyActivity(studentId, targetTimestamp, { 
-        sleepingStatus, 
+        napStatus, 
         hygieneStatus, 
-        teacherNote 
+        teacherNote,
+        recordedBy: teacherId
       });
     }
 
