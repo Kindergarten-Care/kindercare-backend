@@ -595,6 +595,35 @@ const getChildDailyAlbums = async (req, res, next) => {
   }
 };
 
+const getQrToken = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { studentId } = req.params;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền thực hiện hành động này');
+    }
+
+    if (!studentId) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'studentId là bắt buộc');
+    }
+
+    const studentIdVal = parseInt(studentId, 10);
+    if (isNaN(studentIdVal)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'studentId phải là số hợp lệ');
+    }
+
+    const result = await parentService.generateQrToken(parentId, studentIdVal);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, result, 'Tạo mã QR điểm danh thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyChildren,
   getMyProfile,
@@ -610,6 +639,7 @@ export default {
   getChildDailySchedule,
   getChildDailyLessons,
   getChildDailyAlbums,
+  getQrToken,
 };
 
 

@@ -1,6 +1,8 @@
 import pool from '../../config/db.js';
 import ApiError from '../../utils/ApiError.js';
 import httpStatus from 'http-status';
+import jwt from 'jsonwebtoken';
+import { randomUUID } from 'crypto';
 
 /**
  * Get all children of a parent by ParentID
@@ -615,6 +617,27 @@ export const getStudentDailyAlbums = async (studentId, targetDate) => {
     ...album,
     photos: photosByAlbum[album.albumId] || []
   }));
+};
+
+export const generateQrToken = async (parentId, studentId) => {
+  const hasAccess = await isParentOfStudent(parentId, studentId);
+  if (!hasAccess) {
+    throw new ApiError(httpStatus.FORBIDDEN, 'Học sinh không thuộc về phụ huynh này');
+  }
+
+  const ttl = parseInt(process.env.QR_TOKEN_TTL || '60', 10);
+  const now = Math.floor(Date.now() / 1000);
+
+  const payload = {
+    sub: String(studentId),
+    iat: now,
+    exp: now + ttl,
+    jti: randomUUID(),
+  };
+
+  const token = jwt.sign(payload, process.env.QR_TOKEN_SECRET, { algorithm: 'HS256' });
+
+  return { token, expiresAt: now + ttl, ttl };
 };
 
 
