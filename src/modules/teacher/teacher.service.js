@@ -939,7 +939,6 @@ export const updateScheduleStatus = async (classId, scheduleId, statusStr) => {
     SET Status = ?, UpdatedAt = UNIX_TIMESTAMP() 
     WHERE DailyScheduleID = ? AND ClassID = ?
   `;
-  const pool = require('../../config/db.js').default || require('../../config/db.js');
   const [result] = await pool.query(query, [statusStr, scheduleId, classId]);
   return result.affectedRows > 0;
 };
