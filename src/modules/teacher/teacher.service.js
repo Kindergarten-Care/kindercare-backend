@@ -386,25 +386,18 @@ export const getClassStudentsAttendance = async (classId, dateTimestamp) => {
         ORDER BY lr.RequestID DESC
         LIMIT 1
       ) AS leaveRequestReason,
-      (
-        SELECT da.TeacherNote
-        FROM DailyActivities da
-        WHERE da.StudentID = s.StudentID AND da.ActivityDate = ?
-        LIMIT 1
-      ) AS healthNote,
-      (
-        SELECT da.EatingStatus
-        FROM DailyActivities da
-        WHERE da.StudentID = s.StudentID AND da.ActivityDate = ?
-        LIMIT 1
-      ) AS eatingStatus
+      da.TeacherNote AS healthNote,
+      da.EatingStatus AS eatingStatus,
+      da.SleepingStatus AS sleepingStatus,
+      da.HygieneStatus AS hygieneStatus,
+      da.TeacherNote AS teacherNote
     FROM Students s
     LEFT JOIN Attendances a ON s.StudentID = a.StudentID AND a.AttendanceDate = ?
+    LEFT JOIN DailyActivities da ON s.StudentID = da.StudentID AND da.ActivityDate = ?
     WHERE s.ClassID = ? AND s.EnrollmentStatus = 'Active'
     ORDER BY s.FullName
   `;
   const [rows] = await pool.query(query, [
-    dateTimestamp,
     dateTimestamp,
     dateTimestamp,
     dateTimestamp,
@@ -423,6 +416,9 @@ export const getClassStudentsAttendance = async (classId, dateTimestamp) => {
     checkOutTime: row.checkOutTime ? Number(row.checkOutTime) : null,
     healthNote: row.healthNote || null,
     eatingStatus: row.eatingStatus || null,
+    sleepingStatus: row.sleepingStatus || null,
+    hygieneStatus: row.hygieneStatus || null,
+    teacherNote: row.teacherNote || null,
     leaveRequest: row.leaveRequestId ? {
       requestId: row.leaveRequestId,
       status: row.leaveRequestStatus,
