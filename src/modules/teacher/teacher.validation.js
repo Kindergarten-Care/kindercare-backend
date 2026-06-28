@@ -441,3 +441,17 @@ export const validateUpdateScheduleStatus = (req, res, next) => {
 
   next();
 };
+
+
+/**
+ * Validate QR scan
+ */
+export const validateScanQR = (req, res, next) => {
+  const { qrToken } = req.body;
+
+  if (!qrToken || typeof qrToken !== 'string') {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'qrToken là bắt buộc và phải là chuỗi'));
+  }
+
+  next();
+};

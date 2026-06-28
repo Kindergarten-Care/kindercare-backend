@@ -890,3 +890,63 @@ export const updateScheduleStatus = async (req, res, next) => {
     next(error);
   }
 };
+
+
+/**
+ * Scan QR for Attendance
+ */
+export const scanQRAttendance = async (req, res, next) => {
+  try {
+    const { qrToken } = req.body;
+    const jwt = (await import('jsonwebtoken')).default || await import('jsonwebtoken');
+    const { qrCache } = await import('../../utils/qrCache.js');
+    
+    const secret = process.env.QR_TOKEN_SECRET || 'default_qr_secret';
+
+    let decoded;
+    try {
+      decoded = jwt.verify(qrToken, secret);
+    } catch (err) {
+      if (err.name === 'TokenExpiredError') {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Mã QR đã hết hạn, yêu cầu phụ huynh làm mới');
+      }
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Mã QR không hợp lệ');
+    }
+
+    const { sub: studentIdStr, jti, exp } = decoded;
+    const studentId = Number(studentIdStr);
+
+    // Check replay attack
+    if (qrCache.has(jti)) {
+      throw new ApiError(httpStatus.CONFLICT, 'Mã QR này đã được sử dụng');
+    }
+
+    const today = new Date();
+    const dateTimestamp = Math.floor(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / 1000);
+    
+    const hours = String(today.getHours()).padStart(2, '0');
+    const minutes = String(today.getMinutes()).padStart(2, '0');
+    const currentTimeStr = `${hours}:${minutes}`;
+
+    try {
+      const result = await teacherService.processQRAttendance(studentId, dateTimestamp, currentTimeStr);
+      if (!result) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy học sinh');
+      }
+
+      // Add to cache to prevent replay
+      qrCache.add(jti, exp);
+
+      res.status(httpStatus.OK).json(
+        new ApiResponse(httpStatus.OK, result, 'Điểm danh thành công')
+      );
+    } catch (dbErr) {
+      if (dbErr.status === 409) {
+        throw new ApiError(httpStatus.CONFLICT, dbErr.message);
+      }
+      throw dbErr;
+    }
+  } catch (error) {
+    next(error);
+  }
+};
