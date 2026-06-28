@@ -68,6 +68,130 @@
  *       401:
  *         description: Unauthorized - missing or invalid token
  * 
+ * /notifications:
+ *   get:
+ *     summary: Lấy danh sách thông báo của người dùng
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Danh sách thông báo
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách thông báo thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       notifId:
+ *                         type: integer
+ *                         example: 1
+ *                       userId:
+ *                         type: integer
+ *                         example: 10
+ *                       title:
+ *                         type: string
+ *                         example: Thông báo điểm danh
+ *                       message:
+ *                         type: string
+ *                         example: Bé Nguyễn Văn A đã được điểm danh vào lúc 07:45
+ *                       type:
+ *                         type: string
+ *                         example: ATTENDANCE
+ *                       isRead:
+ *                         type: integer
+ *                         example: 0
+ *                       isCritical:
+ *                         type: integer
+ *                         example: 0
+ *                       dataPayload:
+ *                         type: object
+ *                         nullable: true
+ *                         example: { "studentId": "123", "type": "ATTENDANCE" }
+ *                       createdAt:
+ *                         type: integer
+ *                         example: 1719532800
+ *                       updatedAt:
+ *                         type: integer
+ *                         example: 1719532800
+ *       401:
+ *         description: Unauthorized
+ *
+ * /notifications/read-all:
+ *   put:
+ *     summary: Đánh dấu tất cả thông báo là đã đọc
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Đã đánh dấu tất cả là đã đọc
+ *       401:
+ *         description: Unauthorized
+ *
+ * /notifications/{id}/read:
+ *   put:
+ *     summary: Đánh dấu một thông báo là đã đọc
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID của thông báo (notifId)
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Đã đánh dấu đã đọc
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Không tìm thấy thông báo
+ *
  * /notifications/firebase-config:
  *   get:
  *     summary: Retrieve Firebase client SDK configuration parameters
