@@ -456,28 +456,42 @@ export const getClassMenu = async (classId, dateTimestamp) => {
 };
 
 /**
- * Upsert eating status for a student on a specific date in DailyActivities
- * @param {number} studentId 
- * @param {number} dateTimestamp 
- * @param {string} eatingStatus 
+ * Upsert daily activity status for a student on a specific date
  */
-export const upsertStudentMealLog = async (studentId, dateTimestamp, eatingStatus) => {
+export const upsertDailyActivity = async (studentId, dateTimestamp, data) => {
+  const { eatingStatus, sleepingStatus, hygieneStatus, teacherNote } = data;
   const checkQuery = 'SELECT ActivityID FROM DailyActivities WHERE StudentID = ? AND ActivityDate = ?';
   const [rows] = await pool.query(checkQuery, [studentId, dateTimestamp]);
 
   if (rows.length > 0) {
-    const updateQuery = `
-      UPDATE DailyActivities
-      SET EatingStatus = ?
-      WHERE StudentID = ? AND ActivityDate = ?
-    `;
-    await pool.query(updateQuery, [eatingStatus, studentId, dateTimestamp]);
+    const updateFields = [];
+    const updateValues = [];
+    if (eatingStatus !== undefined) { updateFields.push('EatingStatus = ?'); updateValues.push(eatingStatus); }
+    if (sleepingStatus !== undefined) { updateFields.push('SleepingStatus = ?'); updateValues.push(sleepingStatus); }
+    if (hygieneStatus !== undefined) { updateFields.push('HygieneStatus = ?'); updateValues.push(hygieneStatus); }
+    if (teacherNote !== undefined) { updateFields.push('TeacherNote = ?'); updateValues.push(teacherNote); }
+
+    if (updateFields.length > 0) {
+      const updateQuery = `
+        UPDATE DailyActivities
+        SET ${updateFields.join(', ')}
+        WHERE StudentID = ? AND ActivityDate = ?
+      `;
+      updateValues.push(studentId, dateTimestamp);
+      await pool.query(updateQuery, updateValues);
+    }
   } else {
     const insertQuery = `
-      INSERT INTO DailyActivities (StudentID, ActivityDate, EatingStatus)
-      VALUES (?, ?, ?)
+      INSERT INTO DailyActivities (StudentID, ActivityDate, EatingStatus, SleepingStatus, HygieneStatus, TeacherNote)
+      VALUES (?, ?, ?, ?, ?, ?)
     `;
-    await pool.query(insertQuery, [studentId, dateTimestamp, eatingStatus]);
+    await pool.query(insertQuery, [
+      studentId, dateTimestamp, 
+      eatingStatus || null, 
+      sleepingStatus || null, 
+      hygieneStatus || null, 
+      teacherNote || null
+    ]);
   }
 };
 

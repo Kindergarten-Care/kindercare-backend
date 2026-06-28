@@ -50,6 +50,7 @@ router.get(
 );
 router.post('/attendance/quick', teacherValidation.validateQuickAttendance, teacherController.submitQuickAttendance);
 router.post('/attendance/meals', teacherValidation.validateQuickMealLogs, teacherController.submitQuickMealLogs);
+router.post('/attendance/activities', teacherController.submitQuickActivities);
 
 // Medical Requests
 router.get(

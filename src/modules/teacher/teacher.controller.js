@@ -387,11 +387,55 @@ export const submitQuickMealLogs = async (req, res, next) => {
         throw new ApiError(httpStatus.BAD_REQUEST, `Học sinh với ID ${studentId} không thuộc lớp ${classId}`);
       }
 
-      await teacherService.upsertStudentMealLog(studentId, targetTimestamp, eatingStatus);
+      await teacherService.upsertDailyActivity(studentId, targetTimestamp, { eatingStatus });
     }
 
     res.status(httpStatus.OK).json(
       new ApiResponse(httpStatus.OK, null, 'Ghi nhận bữa ăn thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Mass submit/update student activities for a class (Nap, Hygiene, etc.)
+ */
+export const submitQuickActivities = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId, date, activityData } = req.body;
+
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, classId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền ghi nhận hoạt động cho lớp này');
+    }
+
+    let targetTimestamp;
+    if (date) {
+      const d = new Date(Number(date) * 1000);
+      targetTimestamp = Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 1000);
+    } else {
+      const today = new Date();
+      targetTimestamp = Math.floor(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / 1000);
+    }
+
+    for (const item of activityData) {
+      const { studentId, sleepingStatus, hygieneStatus, teacherNote } = item;
+      const isInClass = await teacherService.isStudentInClass(studentId, classId);
+      if (!isInClass) {
+        throw new ApiError(httpStatus.BAD_REQUEST, `Học sinh với ID ${studentId} không thuộc lớp ${classId}`);
+      }
+
+      await teacherService.upsertDailyActivity(studentId, targetTimestamp, { 
+        sleepingStatus, 
+        hygieneStatus, 
+        teacherNote 
+      });
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Ghi nhận hoạt động thành công')
     );
   } catch (error) {
     next(error);
