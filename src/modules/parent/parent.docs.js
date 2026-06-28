@@ -963,6 +963,367 @@
  *         description: Internal Server Error
  */
 
+/**
+ * @swagger
+ * /parent/children/{studentId}/assessments:
+ *   get:
+ *     summary: Get assessments of a child
+ *     description: Retrieve all monthly assessment logs (physical, cognitive, language, social-emotional, aesthetic scores, and teacher comments) of a child. Only accessible by parents associated with the child.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the child student
+ *       - in: query
+ *         name: month
+ *         required: false
+ *         schema:
+ *           type: string
+ *           pattern: '^(0[1-9]|1[0-2])-\d{4}$'
+ *         description: Month in MM-YYYY format to filter assessments (e.g. 06-2026)
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved child assessments
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách đánh giá của bé thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       assessmentId:
+ *                         type: integer
+ *                         example: 1
+ *                       studentId:
+ *                         type: integer
+ *                         example: 19
+ *                       assessmentMonth:
+ *                         type: string
+ *                         example: 06-2026
+ *                       physicalScore:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 5
+ *                       cognitiveScore:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 4
+ *                       languageScore:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 5
+ *                       socioEmotionalScore:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 4
+ *                       aestheticScore:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 5
+ *                       teacherComment:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Bé tham gia hoạt động hăng hái và phát triển tốt các kỹ năng.
+ *                       createdAt:
+ *                         type: integer
+ *                         example: 1781740800
+ *       400:
+ *         description: Bad Request - invalid studentId or invalid month format (should be MM-YYYY)
+ *       401:
+ *         description: Unauthorized - token missing or invalid
+ *       403:
+ *         description: Forbidden - user is not a parent or is not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/daily-schedule:
+ *   get:
+ *     summary: Get daily schedule of a child's class
+ *     description: Retrieve the daily activity schedule (study, play, meal, nap, pickup/dropoff times, activity details, location, status, etc.) for the class of a given child student. Defaults to the current date if not specified. Only accessible by parents associated with the child.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the child student
+ *       - in: query
+ *         name: date
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Target date represented as a Unix timestamp in seconds. Midnight UTC of the corresponding date will be used. Defaults to the current date.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved child daily schedule
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy thời khóa biểu ngày của bé thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       dailyScheduleId:
+ *                         type: integer
+ *                         example: 1
+ *                       classId:
+ *                         type: integer
+ *                         example: 1
+ *                       scheduleDate:
+ *                         type: integer
+ *                         example: 1784160000
+ *                       startTime:
+ *                         type: integer
+ *                         example: 1784187000
+ *                       endTime:
+ *                         type: integer
+ *                         example: 1784188800
+ *                       activityName:
+ *                         type: string
+ *                         example: Đón bé & Chào hỏi
+ *                       details:
+ *                         type: string
+ *                         nullable: true
+ *                         example: null
+ *                       location:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Cổng A
+ *                       activityType:
+ *                         type: string
+ *                         enum: [pickup, meal, study, nap, play, dropoff, other]
+ *                         example: pickup
+ *                       status:
+ *                         type: string
+ *                         enum: [Chưa diễn ra, Đang diễn ra, Xong]
+ *                         example: Xong
+ *       400:
+ *         description: Bad Request - invalid studentId or invalid date parameter
+ *       401:
+ *         description: Unauthorized - token missing or invalid
+ *       403:
+ *         description: Forbidden - user is not a parent or is not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/daily-lessons:
+ *   get:
+ *     summary: Get daily lessons of a child's class
+ *     description: Retrieve the daily academic lessons (subject name, lesson title, details, icon type, etc.) for the class of a given child student. Defaults to the current date if not specified. Only accessible by parents associated with the child.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the child student
+ *       - in: query
+ *         name: date
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Target date represented as a Unix timestamp in seconds. Midnight UTC of the corresponding date will be used. Defaults to the current date.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved child daily lessons
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách bài học ngày của bé thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       lessonLogId:
+ *                         type: integer
+ *                         example: 1
+ *                       classId:
+ *                         type: integer
+ *                         example: 1
+ *                       lessonDate:
+ *                         type: integer
+ *                         example: 1783987200
+ *                       subjectName:
+ *                         type: string
+ *                         example: TẠO HÌNH
+ *                       lessonTitle:
+ *                         type: string
+ *                         example: Học vẽ hình tròn
+ *                       details:
+ *                         type: string
+ *                         example: Bé vẽ mặt trời, bánh xe và bóng bay.
+ *                       iconType:
+ *                         type: string
+ *                         example: draw
+ *                       createdAt:
+ *                         type: integer
+ *                         example: 1781359832
+ *                       updatedAt:
+ *                         type: integer
+ *                         example: 1781359832
+ *       400:
+ *         description: Bad Request - invalid studentId or invalid date parameter
+ *       401:
+ *         description: Unauthorized - token missing or invalid
+ *       403:
+ *         description: Forbidden - user is not a parent or is not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/daily-albums:
+ *   get:
+ *     summary: Get daily albums of a child's class
+ *     description: Retrieve the daily albums (caption, album date, and associated photo URLs) for the class of a given child student. Defaults to the current date if not specified. Only accessible by parents associated with the child.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the child student
+ *       - in: query
+ *         name: date
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Target date represented as a Unix timestamp in seconds. Midnight UTC of the corresponding date will be used. Defaults to the current date.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved child daily albums
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách album ảnh ngày của bé thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       albumId:
+ *                         type: integer
+ *                         example: 1
+ *                       classId:
+ *                         type: integer
+ *                         example: 1
+ *                       teacherId:
+ *                         type: integer
+ *                         example: 5
+ *                       albumDate:
+ *                         type: integer
+ *                         example: 1782172800
+ *                       caption:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Bé tham gia dã ngoại ngoài trời
+ *                       createdAt:
+ *                         type: integer
+ *                         example: 1782215794
+ *                       updatedAt:
+ *                         type: integer
+ *                         example: 1782215794
+ *                       photos:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             photoId:
+ *                               type: integer
+ *                               example: 1
+ *                             albumId:
+ *                               type: integer
+ *                               example: 1
+ *                             photoUrl:
+ *                               type: string
+ *                               example: https://picsum.photos/400/600
+ *                             description:
+ *                               type: string
+ *                               nullable: true
+ *                               example: Bé chơi đu quay
+ *                             createdAt:
+ *                               type: integer
+ *                               example: 1782215794
+ *       400:
+ *         description: Bad Request - invalid studentId or invalid date parameter
+ *       401:
+ *         description: Unauthorized - token missing or invalid
+ *       403:
+ *         description: Forbidden - user is not a parent or is not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+
+
+
+
 
 
 

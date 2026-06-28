@@ -1,6 +1,8 @@
 import pool from '../../config/db.js';
 import ApiError from '../../utils/ApiError.js';
 import httpStatus from 'http-status';
+import jwt from 'jsonwebtoken';
+import { randomUUID } from 'crypto';
 
 /**
  * Get all children of a parent by ParentID
@@ -467,6 +469,180 @@ export const cancelMedicationRequest = async (medRequestId, parentId) => {
   const [updatedRows] = await pool.query(selectQuery, [request.StudentID, parentId, request.RequestDate]);
   return updatedRows;
 };
+
+/**
+ * Get assessments of a child by StudentID, optionally filtered by month
+ * @param {number} studentId
+ * @param {string|null} month - Month in MM-YYYY format
+ * @returns {Promise<Array>} List of assessments
+ */
+export const getStudentAssessments = async (studentId, month = null) => {
+  let query = `
+    SELECT 
+      AssessmentID AS assessmentId,
+      StudentID AS studentId,
+      AssessmentMonth AS assessmentMonth,
+      PhysicalScore AS physicalScore,
+      CognitiveScore AS cognitiveScore,
+      LanguageScore AS languageScore,
+      SocioEmotionalScore AS socioEmotionalScore,
+      AestheticScore AS aestheticScore,
+      TeacherComment AS teacherComment,
+      CreatedAt AS createdAt
+    FROM StudentAssessments
+    WHERE StudentID = ?
+  `;
+  const params = [studentId];
+
+  if (month) {
+    query += ' AND AssessmentMonth = ?';
+    params.push(month);
+  }
+
+  query += ' ORDER BY AssessmentID DESC';
+
+  const [rows] = await pool.query(query, params);
+  return rows;
+};
+
+/**
+ * Get daily schedule of a child's class by StudentID and ScheduleDate
+ * @param {number} studentId
+ * @param {number} targetDate - Midnight timestamp in seconds
+ * @returns {Promise<Array>} List of daily schedule items
+ */
+export const getStudentDailySchedule = async (studentId, targetDate) => {
+  const query = `
+    SELECT 
+      ds.DailyScheduleID AS dailyScheduleId,
+      ds.ClassID AS classId,
+      ds.ScheduleDate AS scheduleDate,
+      ds.StartTime AS startTime,
+      ds.EndTime AS endTime,
+      ds.ActivityName AS activityName,
+      ds.Details AS details,
+      ds.Location AS location,
+      ds.ActivityType AS activityType,
+      ds.Status AS status
+    FROM DailySchedules ds
+    JOIN Students s ON ds.ClassID = s.ClassID
+    WHERE s.StudentID = ? AND ds.ScheduleDate = ?
+    ORDER BY ds.StartTime ASC
+  `;
+  const [rows] = await pool.query(query, [studentId, targetDate]);
+  return rows;
+};
+
+/**
+ * Get daily lessons of a child's class by StudentID and LessonDate
+ * @param {number} studentId
+ * @param {number} targetDate - Midnight timestamp in seconds
+ * @returns {Promise<Array>} List of daily lesson items
+ */
+export const getStudentDailyLessons = async (studentId, targetDate) => {
+  const query = `
+    SELECT 
+      dl.LessonLogID AS lessonLogId,
+      dl.ClassID AS classId,
+      dl.LessonDate AS lessonDate,
+      dl.SubjectName AS subjectName,
+      dl.LessonTitle AS lessonTitle,
+      dl.Details AS details,
+      dl.IconType AS iconType,
+      dl.CreatedAt AS createdAt,
+      dl.UpdatedAt AS updatedAt
+    FROM DailyLessons dl
+    JOIN Students s ON dl.ClassID = s.ClassID
+    WHERE s.StudentID = ? AND dl.LessonDate = ?
+    ORDER BY dl.LessonLogID ASC
+  `;
+  const [rows] = await pool.query(query, [studentId, targetDate]);
+  return rows;
+};
+
+/**
+ * Get daily albums of a child's class by StudentID and AlbumDate
+ * @param {number} studentId
+ * @param {number} targetDate - Midnight timestamp in seconds
+ * @returns {Promise<Array>} List of daily albums with photos
+ */
+export const getStudentDailyAlbums = async (studentId, targetDate) => {
+  const query = `
+    SELECT 
+      da.AlbumID AS albumId,
+      da.ClassID AS classId,
+      da.TeacherID AS teacherId,
+      da.AlbumDate AS albumDate,
+      da.Caption AS caption,
+      da.CreatedAt AS createdAt,
+      da.UpdatedAt AS updatedAt
+    FROM DailyAlbums da
+    JOIN Students s ON da.ClassID = s.ClassID
+    WHERE s.StudentID = ? AND da.AlbumDate = ?
+    ORDER BY da.AlbumID ASC
+  `;
+  const [albums] = await pool.query(query, [studentId, targetDate]);
+
+  if (albums.length === 0) {
+    return [];
+  }
+
+  const albumIds = albums.map(a => a.albumId);
+  const placeholders = albumIds.map(() => '?').join(',');
+
+  const [photos] = await pool.query(
+    `SELECT 
+      PhotoID AS photoId,
+      AlbumID AS albumId,
+      PhotoURL AS photoUrl,
+      Description AS description,
+      CreatedAt AS createdAt
+     FROM DailyAlbumPhotos
+     WHERE AlbumID IN (${placeholders})
+     ORDER BY PhotoID ASC`,
+    albumIds
+  );
+
+  // Group photos by albumId
+  const photosByAlbum = {};
+  for (const photo of photos) {
+    if (!photosByAlbum[photo.albumId]) {
+      photosByAlbum[photo.albumId] = [];
+    }
+    photosByAlbum[photo.albumId].push(photo);
+  }
+
+  // Attach photos to each album
+  return albums.map(album => ({
+    ...album,
+    photos: photosByAlbum[album.albumId] || []
+  }));
+};
+
+export const generateQrToken = async (parentId, studentId) => {
+  const hasAccess = await isParentOfStudent(parentId, studentId);
+  if (!hasAccess) {
+    throw new ApiError(httpStatus.FORBIDDEN, 'Học sinh không thuộc về phụ huynh này');
+  }
+
+  const ttl = parseInt(process.env.QR_TOKEN_TTL || '60', 10);
+  const now = Math.floor(Date.now() / 1000);
+
+  const payload = {
+    sub: String(studentId),
+    iat: now,
+    exp: now + ttl,
+    jti: randomUUID(),
+  };
+
+  const token = jwt.sign(payload, process.env.QR_TOKEN_SECRET, { algorithm: 'HS256' });
+
+  return { token, expiresAt: now + ttl, ttl };
+};
+
+
+
+
 
 
 
