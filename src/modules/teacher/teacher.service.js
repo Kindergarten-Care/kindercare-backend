@@ -918,3 +918,16 @@ export const awardWeeklyRewards = async (classId, weekNumber, year, awards) => {
   }
 };
 
+
+/**
+ * Update daily schedule status
+ */
+export const updateScheduleStatus = async (classId, scheduleId, statusStr) => {
+  const query = 
+    UPDATE DailySchedules 
+    SET Status = ?, UpdatedAt = UNIX_TIMESTAMP() 
+    WHERE DailyScheduleID = ? AND ClassID = ?
+  ;
+  const [result] = await pool.query(query, [statusStr, scheduleId, classId]);
+  return result.affectedRows > 0;
+};

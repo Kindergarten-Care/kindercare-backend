@@ -1148,3 +1148,50 @@
  *       404:
  *         description: Not Found
  */
+
+/**
+ * @swagger
+ * /teacher/classes/{classId}/schedule/{scheduleId}/status:
+ *   put:
+ *     summary: Update Daily Schedule Status
+ *     description: Mark a specific schedule/activity as completed or pending.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: classId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Class ID
+ *       - in: path
+ *         name: scheduleId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Schedule ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - completed
+ *             properties:
+ *               completed:
+ *                 type: boolean
+ *                 example: true
+ *     responses:
+ *       200:
+ *         description: Successfully updated schedule status
+ *       400:
+ *         description: Bad Request
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Not Found
+ */
