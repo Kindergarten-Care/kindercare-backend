@@ -942,3 +942,72 @@ export const updateScheduleStatus = async (classId, scheduleId, statusStr) => {
   const [result] = await pool.query(query, [statusStr, scheduleId, classId]);
   return result.affectedRows > 0;
 };
+
+
+/**
+ * Process QR Scan Attendance (Auto-detect check-in / check-out)
+ */
+export const processQRAttendance = async (studentId, dateTimestamp, currentTimeStr) => {
+  const pool = require('../../config/db.js').default || require('../../config/db.js');
+
+  // 1. Get student info
+  const [studentRows] = await pool.query(
+    `SELECT s.FullName as fullName, c.ClassName as className, cp.CampusName as campusName
+     FROM Students s
+     LEFT JOIN Classes c ON s.ClassID = c.ClassID
+     LEFT JOIN Buildings b ON c.BuildingID = b.BuildingID
+     LEFT JOIN Campuses cp ON b.CampusID = cp.CampusID
+     WHERE s.StudentID = ?`,
+    [studentId]
+  );
+
+  if (studentRows.length === 0) return null;
+  const student = studentRows[0];
+
+  // 2. Check current attendance record for today
+  const [attRows] = await pool.query(
+    `SELECT AttendanceID, CheckInTime, CheckOutTime, Status FROM Attendances WHERE StudentID = ? AND AttendanceDate = ?`,
+    [studentId, dateTimestamp]
+  );
+
+  let attendanceType = 'checkin';
+
+  if (attRows.length === 0) {
+    // checkin
+    await pool.query(
+      `INSERT INTO Attendances (StudentID, AttendanceDate, CheckInTime, Status)
+       VALUES (?, ?, ?, 'Present')`,
+      [studentId, dateTimestamp, currentTimeStr]
+    );
+  } else {
+    const record = attRows[0];
+    if (record.CheckInTime && record.CheckOutTime) {
+      // Already fully attended
+      const error = new Error('Bé đã điểm danh đủ cả ngày');
+      error.status = 409;
+      throw error;
+    } else if (record.CheckInTime && !record.CheckOutTime) {
+      // checkout
+      attendanceType = 'checkout';
+      await pool.query(
+        `UPDATE Attendances SET CheckOutTime = ? WHERE AttendanceID = ?`,
+        [currentTimeStr, record.AttendanceID]
+      );
+    } else {
+      // Absent or Excused -> change to Present and CheckIn
+      await pool.query(
+        `UPDATE Attendances SET CheckInTime = ?, Status = 'Present' WHERE AttendanceID = ?`,
+        [currentTimeStr, record.AttendanceID]
+      );
+    }
+  }
+
+  return {
+    studentId,
+    fullName: student.fullName,
+    className: student.className,
+    campusName: student.campusName,
+    attendanceType,
+    time: currentTimeStr
+  };
+};

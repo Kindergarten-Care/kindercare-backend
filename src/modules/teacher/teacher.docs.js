@@ -1196,3 +1196,37 @@
  *       404:
  *         description: Not Found
  */
+
+/**
+ * @swagger
+ * /teacher/attendance/scan:
+ *   post:
+ *     summary: Scan QR Code for Attendance
+ *     description: Teacher scans a parent's QR code to automatically check-in or check-out a student.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - qrToken
+ *             properties:
+ *               qrToken:
+ *                 type: string
+ *                 example: "eyJhbGciOiJIUzI1NiJ9..."
+ *     responses:
+ *       200:
+ *         description: Successfully recorded attendance
+ *       400:
+ *         description: Bad Request (Invalid or expired token)
+ *       401:
+ *         description: Unauthorized
+ *       409:
+ *         description: Conflict (Token already used, or student already fully attended today)
+ *       500:
+ *         description: Internal Server Error
+ */

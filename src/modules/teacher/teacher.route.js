@@ -122,4 +122,6 @@ router.post(
 
 router.put('/classes/:classId/schedule/:scheduleId/status', teacherValidation.validateUpdateScheduleStatus, teacherController.updateScheduleStatus);
 
+router.post('/attendance/scan', teacherValidation.validateScanQR, teacherController.scanQRAttendance);
+
 export default router;
