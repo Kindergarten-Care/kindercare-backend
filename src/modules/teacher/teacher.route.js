@@ -119,6 +119,6 @@ router.post(
   teacherController.awardWeeklyRewards
 );
 
-router.put(/classes/:classId/schedule/:scheduleId/status, teacherValidation.validateUpdateScheduleStatus, teacherController.updateScheduleStatus);
+router.put('/classes/:classId/schedule/:scheduleId/status', teacherValidation.validateUpdateScheduleStatus, teacherController.updateScheduleStatus);
 
 export default router;
