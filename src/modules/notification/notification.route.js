@@ -1,13 +1,24 @@
 import express from 'express';
-import { registerToken, getFirebaseConfig } from './notification.controller.js';
+import {
+  registerToken,
+  getFirebaseConfig,
+  getNotifications,
+  markAsRead,
+  markAllAsRead,
+} from './notification.controller.js';
 import { authenticate } from '../../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-// Register/update user's device FCM token
+// FCM token registration
 router.post('/register-token', authenticate, registerToken);
 
-// Serve Firebase web configuration properties
+// Firebase client config (public)
 router.get('/firebase-config', getFirebaseConfig);
+
+// Inbox
+router.get('/', authenticate, getNotifications);
+router.put('/read-all', authenticate, markAllAsRead);
+router.put('/:id/read', authenticate, markAsRead);
 
 export default router;
