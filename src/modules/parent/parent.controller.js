@@ -4,6 +4,8 @@ import httpStatus from 'http-status';
 import ApiError from '../../utils/ApiError.js';
 import logger from '../../config/logger.js';
 import { uploadToSpace } from '../../utils/s3Upload.js';
+import { sendPushToUser } from '../notification/notification.service.js';
+import { getStudentBasicInfo, getTeacherIdsByStudentId } from '../../utils/studentHelpers.js';
 
 const getMyChildren = async (req, res, next) => {
   try {
@@ -144,6 +146,25 @@ const createLeaveRequest = async (req, res, next) => {
 
     logger.info(`Parent ID ${parentId} created Leave Request ID ${newRequest.requestId} for Student ID ${studentId}`);
 
+    // Notify teachers of the student's class
+    const [studentInfo, teacherIds] = await Promise.all([
+      getStudentBasicInfo(studentIdVal),
+      getTeacherIdsByStudentId(studentIdVal),
+    ]);
+    const studentLabel = studentInfo
+      ? `${studentInfo.fullName} (${studentInfo.className})`
+      : `ID: ${studentIdVal}`;
+    await Promise.all(
+      teacherIds.map((tid) =>
+        sendPushToUser(
+          tid,
+          'Đơn xin nghỉ học mới',
+          `Bé ${studentLabel} có đơn xin nghỉ học từ phụ huynh. Vui lòng kiểm tra và phê duyệt.`,
+          { type: 'LEAVE_REQUEST', studentId: String(studentIdVal), requestId: String(newRequest.requestId) }
+        )
+      )
+    );
+
     res.status(httpStatus.CREATED).json(
       new ApiResponse(
         httpStatus.CREATED,
@@ -210,6 +231,25 @@ const createMedicationRequest = async (req, res, next) => {
     );
 
     logger.info(`Parent ID ${parentId} created Medication Request ID ${newRequest.medRequestId} for Student ID ${studentId}`);
+
+    // Notify teachers of the student's class
+    const [studentInfo, teacherIds] = await Promise.all([
+      getStudentBasicInfo(studentIdVal),
+      getTeacherIdsByStudentId(studentIdVal),
+    ]);
+    const studentLabel = studentInfo
+      ? `${studentInfo.fullName} (${studentInfo.className})`
+      : `ID: ${studentIdVal}`;
+    await Promise.all(
+      teacherIds.map((tid) =>
+        sendPushToUser(
+          tid,
+          'Dặn dò thuốc mới',
+          `Bé ${studentLabel} có dặn dò thuốc mới từ phụ huynh. Vui lòng kiểm tra.`,
+          { type: 'MEDICATION_REQUEST', studentId: String(studentIdVal), medRequestId: String(newRequest.medRequestId) }
+        )
+      )
+    );
 
     res.status(httpStatus.CREATED).json(
       new ApiResponse(
