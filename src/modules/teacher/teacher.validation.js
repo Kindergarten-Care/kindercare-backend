@@ -418,3 +418,25 @@ export const validateAwardWeeklyRewards = (req, res, next) => {
   next();
 };
 
+
+/**
+ * Validate update schedule status
+ */
+export const validateUpdateScheduleStatus = (req, res, next) => {
+  const { classId, scheduleId } = req.params;
+  const { completed } = req.body;
+
+  if (!classId || isNaN(Number(classId))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId ph?i là m?t s? nguyên h?p l?'));
+  }
+
+  if (!scheduleId || isNaN(Number(scheduleId))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'scheduleId ph?i là m?t s? nguyên h?p l?'));
+  }
+
+  if (typeof completed !== 'boolean') {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'Tru?ng completed là b?t bu?c và ph?i là ki?u boolean'));
+  }
+
+  next();
+};

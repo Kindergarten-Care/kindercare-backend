@@ -811,3 +811,35 @@ export const awardWeeklyRewards = async (req, res, next) => {
   }
 };
 
+
+/**
+ * Update daily schedule status
+ */
+export const updateScheduleStatus = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId, scheduleId } = req.params;
+    const { completed } = req.body;
+
+    const numericClassId = Number(classId);
+    const numericScheduleId = Number(scheduleId);
+
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'B?n không có quy?n thao tác trên l?p này');
+    }
+
+    const statusStr = completed ? 'Xong' : 'Chua di?n ra';
+    const success = await teacherService.updateScheduleStatus(numericClassId, numericScheduleId, statusStr);
+    
+    if (!success) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm th?y l?ch trình này trong l?p h?c');
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'C?p nh?t tr?ng thái l?ch trình thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
