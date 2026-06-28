@@ -419,6 +419,7 @@ export const validateAwardWeeklyRewards = (req, res, next) => {
 };
 
 
+
 /**
  * Validate update schedule status
  */
@@ -427,15 +428,15 @@ export const validateUpdateScheduleStatus = (req, res, next) => {
   const { completed } = req.body;
 
   if (!classId || isNaN(Number(classId))) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId ph?i l� m?t s? nguy�n h?p l?'));
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId phải là một số nguyên hợp lệ'));
   }
 
   if (!scheduleId || isNaN(Number(scheduleId))) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'scheduleId ph?i l� m?t s? nguy�n h?p l?'));
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'scheduleId phải là một số nguyên hợp lệ'));
   }
 
   if (typeof completed !== 'boolean') {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'Tru?ng completed l� b?t bu?c v� ph?i l� ki?u boolean'));
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'Trường completed là bắt buộc và phải là kiểu boolean'));
   }
 
   next();

@@ -1149,6 +1149,7 @@
  *         description: Not Found
  */
 
+
 /**
  * @swagger
  * /teacher/classes/{classId}/schedule/{scheduleId}/status:
