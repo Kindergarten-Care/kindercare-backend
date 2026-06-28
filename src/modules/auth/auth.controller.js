@@ -14,7 +14,7 @@ const detectIdentifierType = (identifier) => {
 
 const buildQuery = (identifierType) => {
     const baseSelect = `
-        SELECT u.UserID, u.Username, u.PasswordHash, u.RoleID, u.fcm_token, u.Status,
+        SELECT u.UserID, u.Username, u.PasswordHash, u.RoleID, u.Status,
                r.RoleName,
                COALESCE(a.FullName, pr.FullName, t.FullName, p.FullName) AS FullName,
                (
@@ -133,7 +133,6 @@ const createLoginHandler = (allowedRoleIds = null, allowedIdentifiers = ['Userna
                             username: user.Username,
                             roleId: user.RoleID,
                             roleName: user.RoleName,
-                            fcmToken: user.fcm_token,
                             fullName: user.FullName,
                             relationship: relationship,
                             children: children,
