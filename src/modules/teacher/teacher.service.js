@@ -967,8 +967,6 @@ export const updateScheduleStatus = async (classId, scheduleId, statusStr) => {
  * Process QR Scan Attendance (Auto-detect check-in / check-out)
  */
 export const processQRAttendance = async (studentId, dateTimestamp, currentTimeStr) => {
-  const pool = require('../../config/db.js').default || require('../../config/db.js');
-
   // 1. Get student info
   const [studentRows] = await pool.query(
     `SELECT s.FullName as fullName, c.ClassName as className, cp.CampusName as campusName
