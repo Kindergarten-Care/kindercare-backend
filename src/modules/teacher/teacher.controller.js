@@ -1,4 +1,8 @@
 import * as teacherService from './teacher.service.js';
+import { sendPushToUser } from '../notification/notification.service.js';
+import { getStudentBasicInfo } from '../../utils/studentHelpers.js';
+import { qrCache } from '../../utils/qrCache.js';
+import jwt from 'jsonwebtoken';
 import ApiResponse from '../../utils/ApiResponse.js';
 import httpStatus from 'http-status';
 import ApiError from '../../utils/ApiError.js';
@@ -160,19 +164,22 @@ export const updateLeaveRequestStatus = async (req, res, next) => {
 
     // Push notification to parent
     if (leaveRequest.ParentID) {
-      const parentIds = await teacherService.getStudentParentsUserIds(leaveRequest.StudentID);
+      const [parentIds, studentInfo] = await Promise.all([
+        teacherService.getStudentParentsUserIds(leaveRequest.StudentID),
+        getStudentBasicInfo(leaveRequest.StudentID),
+      ]);
+      const studentName = studentInfo ? studentInfo.fullName : `ID: ${leaveRequest.StudentID}`;
       for (const parentId of parentIds) {
         let statusText = '';
         if (dbStatus === 'Approved') statusText = 'đã được duyệt';
         if (dbStatus === 'Rejected') statusText = 'bị từ chối';
-        
+
         if (statusText) {
-          await teacherService.pushNotification(
+          await sendPushToUser(
             parentId,
             'Cập nhật Đơn xin phép',
-            `Đơn xin phép nghỉ học của bé ${statusText}.`,
-            'LeaveRequest',
-            `/leave-requests/${requestId}`
+            `Đơn xin phép nghỉ học của bé ${studentName} ${statusText}.`,
+            { type: 'LEAVE_REQUEST', requestId: String(requestId) }
           );
         }
       }
@@ -241,15 +248,18 @@ export const submitQuickAttendance = async (req, res, next) => {
 
       // Push notification to parent if student is absent or excused
       if (dbStatus === 'Absent' || dbStatus === 'Excused') {
-        const parentIds = await teacherService.getStudentParentsUserIds(studentId);
+        const [parentIds, studentInfo] = await Promise.all([
+          teacherService.getStudentParentsUserIds(studentId),
+          getStudentBasicInfo(studentId),
+        ]);
+        const studentName = studentInfo ? studentInfo.fullName : `ID: ${studentId}`;
         for (const parentId of parentIds) {
           const statusText = dbStatus === 'Absent' ? 'Vắng mặt không phép' : 'Vắng mặt có phép';
-          await teacherService.pushNotification(
+          await sendPushToUser(
             parentId,
             'Thông báo Điểm danh',
-            `Học sinh vắng mặt ngày hôm nay (${statusText}). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.`,
-            'Attendance',
-            `/attendance/${targetTimestamp}`
+            `Bé ${studentName} vắng mặt ngày hôm nay (${statusText}). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.`,
+            { type: 'ATTENDANCE', date: String(targetTimestamp) }
           );
         }
       }
@@ -543,14 +553,17 @@ export const updateMedicalRequestStatus = async (req, res, next) => {
 
     // Push notification to parent
     if (request.ParentID) {
-      const parentIds = await teacherService.getStudentParentsUserIds(request.StudentID);
+      const [parentIds, studentInfo] = await Promise.all([
+        teacherService.getStudentParentsUserIds(request.StudentID),
+        getStudentBasicInfo(request.StudentID),
+      ]);
+      const studentName = studentInfo ? studentInfo.fullName : `ID: ${request.StudentID}`;
       for (const parentId of parentIds) {
-        await teacherService.pushNotification(
+        await sendPushToUser(
           parentId,
           'Cập nhật Dặn dò y tế',
-          `Giáo viên đã cập nhật trạng thái dặn dò y tế thành: ${status}. Ghi chú: ${teacherNote || ''}`,
-          'Health',
-          `/medical-requests/${requestId}`
+          `Giáo viên đã cập nhật trạng thái dặn dò y tế của bé ${studentName} thành: ${status}. Ghi chú: ${teacherNote || ''}`,
+          { type: 'MEDICAL_REQUEST', requestId: String(requestId) }
         );
       }
     }
@@ -584,12 +597,11 @@ export const createNewsfeed = async (req, res, next) => {
     // Push notification to all parents in the class
     const parentIds = await teacherService.getClassParentsUserIds(numericClassId);
     for (const parentId of parentIds) {
-      await teacherService.pushNotification(
+      await sendPushToUser(
         parentId,
         'Bài đăng mới từ lớp học',
         'Cô giáo vừa đăng một hoạt động mới của lớp. Hãy vào xem nhé!',
-        'Newsfeed',
-        `/newsfeed/${postId}`
+        { type: 'NEWSFEED', postId: String(postId) }
       );
     }
 
@@ -648,45 +660,6 @@ export const getDetailedClassStudents = async (req, res, next) => {
         { classId: numericClassId, totalStudents: students.length, students }, 
         'Lấy danh sách chi tiết học sinh thành công'
       )
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Get Notifications for Teacher
- */
-export const getNotifications = async (req, res, next) => {
-  try {
-    const teacherId = req.user.userId;
-    const notifications = await teacherService.getTeacherNotifications(teacherId);
-
-    res.status(httpStatus.OK).json(
-      new ApiResponse(httpStatus.OK, notifications, 'Lấy danh sách thông báo thành công')
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Mark Notification as Read
- */
-export const markAsRead = async (req, res, next) => {
-  try {
-    const teacherId = req.user.userId;
-    const { notifId } = req.params;
-
-    const numericNotifId = Number(notifId);
-
-    const success = await teacherService.markNotificationAsRead(numericNotifId, teacherId);
-    if (!success) {
-      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy thông báo hoặc thông báo này không thuộc về bạn');
-    }
-
-    res.status(httpStatus.OK).json(
-      new ApiResponse(httpStatus.OK, null, 'Đã đánh dấu thông báo là đã đọc')
     );
   } catch (error) {
     next(error);
@@ -769,14 +742,17 @@ export const submitClassAssessments = async (req, res, next) => {
       );
 
       // Push notification to parents
-      const parentIds = await teacherService.getStudentParentsUserIds(studentId);
+      const [parentIds, studentInfo] = await Promise.all([
+        teacherService.getStudentParentsUserIds(studentId),
+        getStudentBasicInfo(studentId),
+      ]);
+      const studentName = studentInfo ? studentInfo.fullName : `ID: ${studentId}`;
       for (const parentId of parentIds) {
-        await teacherService.pushNotification(
+        await sendPushToUser(
           parentId,
           'Cập nhật Phiếu Bé Ngoan',
-          `Giáo viên đã cập nhật Phiếu Bé Ngoan / Đánh giá tháng ${month} của bé.`,
-          'StudentAssessment',
-          `/students/${studentId}/assessments?month=${month}`
+          `Giáo viên đã cập nhật Phiếu Bé Ngoan / Đánh giá tháng ${month} của bé ${studentName}.`,
+          { type: 'STUDENT_ASSESSMENT', studentId: String(studentId), month: String(month) }
         );
       }
     }
@@ -904,9 +880,6 @@ export const updateScheduleStatus = async (req, res, next) => {
 export const scanQRAttendance = async (req, res, next) => {
   try {
     const { qrToken } = req.body;
-    const jwt = (await import('jsonwebtoken')).default || await import('jsonwebtoken');
-    const { qrCache } = await import('../../utils/qrCache.js');
-    
     const secret = process.env.QR_TOKEN_SECRET || 'default_qr_secret';
 
     let decoded;
@@ -927,21 +900,34 @@ export const scanQRAttendance = async (req, res, next) => {
       throw new ApiError(httpStatus.CONFLICT, 'Mã QR này đã được sử dụng');
     }
 
-    const today = new Date();
-    const dateTimestamp = Math.floor(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / 1000);
-    
-    const hours = String(today.getHours()).padStart(2, '0');
-    const minutes = String(today.getMinutes()).padStart(2, '0');
-    const currentTimeStr = `${hours}:${minutes}`;
+    const nowVN = new Date(Date.now() + 7 * 60 * 60 * 1000);
+    const dateTimestamp = Math.floor(Date.UTC(nowVN.getUTCFullYear(), nowVN.getUTCMonth(), nowVN.getUTCDate()) / 1000);
+    const checkTimestamp = Math.floor(Date.now() / 1000);
 
     try {
-      const result = await teacherService.processQRAttendance(studentId, dateTimestamp, currentTimeStr);
+      const result = await teacherService.processQRAttendance(studentId, dateTimestamp, checkTimestamp);
       if (!result) {
         throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy học sinh');
       }
 
       // Add to cache to prevent replay
       qrCache.add(jti, exp);
+
+      // Notify parents (fire-and-forget — không block response)
+      const notifTitle = result.attendanceType === 'checkin' ? 'Bé đã đến trường' : 'Bé đã được đón về';
+      const notifBody = result.attendanceType === 'checkin'
+        ? `Bé ${result.fullName} đã điểm danh vào lúc ${result.time}.`
+        : `Bé ${result.fullName} đã được đón về lúc ${result.time}.`;
+      teacherService.getStudentParentsUserIds(studentId)
+        .then((parentIds) =>
+          Promise.all(parentIds.map((pid) =>
+            sendPushToUser(pid, notifTitle, notifBody, {
+              type: result.attendanceType === 'checkin' ? 'CHECKIN' : 'CHECKOUT',
+              studentId: String(studentId),
+            })
+          ))
+        )
+        .catch(() => {});
 
       res.status(httpStatus.OK).json(
         new ApiResponse(httpStatus.OK, result, 'Điểm danh thành công')
