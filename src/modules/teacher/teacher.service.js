@@ -538,17 +538,6 @@ export const getClassSchedule = async (classId, dateTimestamp) => {
 };
 
 /**
- * Push a notification to a user
- */
-export const pushNotification = async (userId, title, message, type = 'System', actionLink = null) => {
-  const query = `
-    INSERT INTO Notifications (UserID, Title, Message, Type, ActionLink)
-    VALUES (?, ?, ?, ?, ?)
-  `;
-  await pool.query(query, [userId, title, message, type, actionLink]);
-};
-
-/**
  * Get parent UserIDs for a specific class
  */
 export const getClassParentsUserIds = async (classId) => {
@@ -754,40 +743,6 @@ export const getClassDetailedStudents = async (classId) => {
 };
 
 /**
- * Get notifications for a teacher
- */
-export const getTeacherNotifications = async (teacherId) => {
-  const query = `
-    SELECT 
-      NotifID AS notifId,
-      Title AS title,
-      Message AS message,
-      Type AS type,
-      ActionLink AS actionLink,
-      IsRead AS isRead,
-      CreatedAt AS createdAt
-    FROM Notifications
-    WHERE UserID = ?
-    ORDER BY NotifID DESC
-  `;
-  const [rows] = await pool.query(query, [teacherId]);
-  return rows.map(r => ({ ...r, isRead: !!r.isRead }));
-};
-
-/**
- * Mark notification as read
- */
-export const markNotificationAsRead = async (notifId, teacherId) => {
-  const query = `
-    UPDATE Notifications
-    SET IsRead = 1
-    WHERE NotifID = ? AND UserID = ?
-  `;
-  const [result] = await pool.query(query, [notifId, teacherId]);
-  return result.affectedRows > 0;
-};
-
-/**
  * Get class assessments for a specific month
  */
 export const getClassAssessments = async (classId, month) => {
@@ -966,8 +921,9 @@ export const updateScheduleStatus = async (classId, scheduleId, statusStr) => {
 /**
  * Process QR Scan Attendance (Auto-detect check-in / check-out)
  */
-export const processQRAttendance = async (studentId, dateTimestamp, currentTimeStr) => {
-  const pool = require('../../config/db.js').default || require('../../config/db.js');
+export const processQRAttendance = async (studentId, dateTimestamp, checkTimestamp) => {
+  const vnDate = new Date(checkTimestamp * 1000 + 7 * 60 * 60 * 1000);
+  const timeStr = `${String(vnDate.getUTCHours()).padStart(2, '0')}:${String(vnDate.getUTCMinutes()).padStart(2, '0')}`;
 
   // 1. Get student info
   const [studentRows] = await pool.query(
@@ -996,7 +952,7 @@ export const processQRAttendance = async (studentId, dateTimestamp, currentTimeS
     await pool.query(
       `INSERT INTO Attendances (StudentID, AttendanceDate, CheckInTime, Status)
        VALUES (?, ?, ?, 'Present')`,
-      [studentId, dateTimestamp, currentTimeStr]
+      [studentId, dateTimestamp, checkTimestamp]
     );
   } else {
     const record = attRows[0];
@@ -1010,13 +966,13 @@ export const processQRAttendance = async (studentId, dateTimestamp, currentTimeS
       attendanceType = 'checkout';
       await pool.query(
         `UPDATE Attendances SET CheckOutTime = ? WHERE AttendanceID = ?`,
-        [currentTimeStr, record.AttendanceID]
+        [checkTimestamp, record.AttendanceID]
       );
     } else {
       // Absent or Excused -> change to Present and CheckIn
       await pool.query(
         `UPDATE Attendances SET CheckInTime = ?, Status = 'Present' WHERE AttendanceID = ?`,
-        [currentTimeStr, record.AttendanceID]
+        [checkTimestamp, record.AttendanceID]
       );
     }
   }
@@ -1027,6 +983,6 @@ export const processQRAttendance = async (studentId, dateTimestamp, currentTimeS
     className: student.className,
     campusName: student.campusName,
     attendanceType,
-    time: currentTimeStr
+    time: timeStr
   };
 };
