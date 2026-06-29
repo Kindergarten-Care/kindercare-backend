@@ -82,17 +82,6 @@ router.get(
   teacherController.getDetailedClassStudents
 );
 
-// Notifications
-router.get(
-  '/notifications',
-  teacherController.getNotifications
-);
-router.put(
-  '/notifications/:notifId/read',
-  teacherValidation.validateUpdateNotificationRead,
-  teacherController.markAsRead
-);
-
 // Student Assessments (Phiếu bé ngoan)
 router.get(
   '/classes/:classId/assessments',
