@@ -78,6 +78,15 @@ export const validateQuickAttendance = (req, res, next) => {
     if (item.pickedUpBy && typeof item.pickedUpBy !== 'string') {
       return next(new ApiError(httpStatus.BAD_REQUEST, `Phần tử thứ ${i + 1} có pickedUpBy không hợp lệ`));
     }
+    if (item.droppedOffBy && typeof item.droppedOffBy !== 'string') {
+      return next(new ApiError(httpStatus.BAD_REQUEST, `Phần tử thứ ${i + 1} có droppedOffBy không hợp lệ`));
+    }
+    if (item.pickedUpByParentId && typeof item.pickedUpByParentId !== 'number') {
+      return next(new ApiError(httpStatus.BAD_REQUEST, `Phần tử thứ ${i + 1} có pickedUpByParentId không hợp lệ`));
+    }
+    if (item.droppedOffByParentId && typeof item.droppedOffByParentId !== 'number') {
+      return next(new ApiError(httpStatus.BAD_REQUEST, `Phần tử thứ ${i + 1} có droppedOffByParentId không hợp lệ`));
+    }
   }
 
   next();
