@@ -985,6 +985,14 @@ export const processQRAttendance = async (
   if (studentRows.length === 0) return null;
   const student = studentRows[0];
 
+  // 1.5 Check if there is an active proxy authorization for today
+  const [proxyRows] = await pool.query(
+    `SELECT AuthorizationID, ProxyName, ProxyPhone, ProxyIDCard, ProxyPhotoURL, Type, Notes
+     FROM ProxyAuthorizations 
+     WHERE StudentID = ? AND AuthorizationDate = ? AND Status = 'Approved'`,
+    [studentId, dateTimestamp]
+  );
+
   // 2. Check current attendance record for today
   const [attRows] = await pool.query(
     `SELECT AttendanceID, CheckInTime, CheckOutTime, Status FROM Attendances WHERE StudentID = ? AND AttendanceDate = ?`,
@@ -992,14 +1000,24 @@ export const processQRAttendance = async (
   );
 
   let attendanceType = 'checkin';
+  let activeProxy = null;
 
   if (attRows.length === 0) {
     // checkin
-    await pool.query(
-      `INSERT INTO Attendances (StudentID, AttendanceDate, CheckInTime, Status, DroppedOffBy, CheckedInByTeacherID)
-       VALUES (?, ?, ?, 'Present', ?, ?)`,
-      [studentId, dateTimestamp, checkTimestamp, parentName || null, teacherId || null]
-    );
+    activeProxy = proxyRows.find(p => p.Type === 'checkin' || p.Type === 'both') || null;
+    if (activeProxy) {
+      await pool.query(
+        `INSERT INTO Attendances (StudentID, AttendanceDate, CheckInTime, Status, DroppedOffBy, CheckedInByTeacherID, ProxyAuthorizationID)
+         VALUES (?, ?, ?, 'Present', ?, ?, ?)`,
+        [studentId, dateTimestamp, checkTimestamp, `${activeProxy.ProxyName} (Đưa hộ)`, teacherId || null, activeProxy.AuthorizationID]
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO Attendances (StudentID, AttendanceDate, CheckInTime, Status, DroppedOffBy, CheckedInByTeacherID)
+         VALUES (?, ?, ?, 'Present', ?, ?)`,
+        [studentId, dateTimestamp, checkTimestamp, parentName || null, teacherId || null]
+      );
+    }
   } else {
     const record = attRows[0];
     if (record.CheckInTime && record.CheckOutTime) {
@@ -1010,16 +1028,32 @@ export const processQRAttendance = async (
     } else if (record.CheckInTime && !record.CheckOutTime) {
       // checkout
       attendanceType = 'checkout';
-      await pool.query(
-        `UPDATE Attendances SET CheckOutTime = ?, PickedUpBy = ?, CheckedOutByTeacherID = ? WHERE AttendanceID = ?`,
-        [checkTimestamp, parentName || null, teacherId || null, record.AttendanceID]
-      );
+      activeProxy = proxyRows.find(p => p.Type === 'checkout' || p.Type === 'both') || null;
+      if (activeProxy) {
+        await pool.query(
+          `UPDATE Attendances SET CheckOutTime = ?, PickedUpBy = ?, CheckedOutByTeacherID = ?, ProxyAuthorizationID = ? WHERE AttendanceID = ?`,
+          [checkTimestamp, `${activeProxy.ProxyName} (Đón hộ)`, teacherId || null, activeProxy.AuthorizationID, record.AttendanceID]
+        );
+      } else {
+        await pool.query(
+          `UPDATE Attendances SET CheckOutTime = ?, PickedUpBy = ?, CheckedOutByTeacherID = ? WHERE AttendanceID = ?`,
+          [checkTimestamp, parentName || null, teacherId || null, record.AttendanceID]
+        );
+      }
     } else {
       // Absent or Excused -> change to Present and CheckIn
-      await pool.query(
-        `UPDATE Attendances SET CheckInTime = ?, Status = 'Present', DroppedOffBy = ?, CheckedInByTeacherID = ? WHERE AttendanceID = ?`,
-        [checkTimestamp, parentName || null, teacherId || null, record.AttendanceID]
-      );
+      activeProxy = proxyRows.find(p => p.Type === 'checkin' || p.Type === 'both') || null;
+      if (activeProxy) {
+        await pool.query(
+          `UPDATE Attendances SET CheckInTime = ?, Status = 'Present', DroppedOffBy = ?, CheckedInByTeacherID = ?, ProxyAuthorizationID = ? WHERE AttendanceID = ?`,
+          [checkTimestamp, `${activeProxy.ProxyName} (Đưa hộ)`, teacherId || null, activeProxy.AuthorizationID, record.AttendanceID]
+        );
+      } else {
+        await pool.query(
+          `UPDATE Attendances SET CheckInTime = ?, Status = 'Present', DroppedOffBy = ?, CheckedInByTeacherID = ? WHERE AttendanceID = ?`,
+          [checkTimestamp, parentName || null, teacherId || null, record.AttendanceID]
+        );
+      }
     }
   }
 
@@ -1029,6 +1063,14 @@ export const processQRAttendance = async (
     className: student.className,
     campusName: student.campusName,
     attendanceType,
-    time: timeStr
+    time: timeStr,
+    hasProxy: !!activeProxy,
+    proxyInfo: activeProxy ? {
+      proxyName: activeProxy.ProxyName,
+      proxyPhone: activeProxy.ProxyPhone,
+      proxyIDCard: activeProxy.ProxyIDCard,
+      proxyPhotoUrl: activeProxy.ProxyPhotoURL,
+      notes: activeProxy.Notes
+    } : null
   };
 };
