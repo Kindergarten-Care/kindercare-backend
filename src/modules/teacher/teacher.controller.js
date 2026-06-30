@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken';
 import ApiResponse from '../../utils/ApiResponse.js';
 import httpStatus from 'http-status';
 import ApiError from '../../utils/ApiError.js';
+import { uploadToSpace } from '../../utils/s3Upload.js';
 
 /**
  * Get Teacher Dashboard stats
@@ -390,7 +391,7 @@ export const submitQuickMealLogs = async (req, res, next) => {
     // Perform upsert for each student's meal status
     for (const item of mealData) {
       const studentId = Number(item.studentId);
-      const { breakfastStatus, lunchStatus, snackStatus } = item;
+      const { breakfastStatus, lunchStatus, snackStatus, teacherNote, photoUrl } = item;
 
       // Verify student is indeed enrolled in this class
       const isInClass = await teacherService.isStudentInClass(studentId, Number(classId));
@@ -402,6 +403,8 @@ export const submitQuickMealLogs = async (req, res, next) => {
         breakfastStatus, 
         lunchStatus, 
         snackStatus,
+        teacherNote,
+        photoUrl,
         recordedBy: teacherId
       });
     }
@@ -438,7 +441,7 @@ export const submitQuickActivities = async (req, res, next) => {
 
     for (const item of activityData) {
       const studentId = Number(item.studentId);
-      const { napStatus, hygieneStatus, teacherNote } = item;
+      const { napStatus, hygieneStatus, teacherNote, photoUrl } = item;
       const isInClass = await teacherService.isStudentInClass(studentId, Number(classId));
       if (!isInClass) {
         throw new ApiError(httpStatus.BAD_REQUEST, `Học sinh với ID ${studentId} không thuộc lớp ${classId}`);
@@ -448,6 +451,7 @@ export const submitQuickActivities = async (req, res, next) => {
         napStatus, 
         hygieneStatus, 
         teacherNote,
+        photoUrl,
         recordedBy: teacherId
       });
     }
@@ -570,6 +574,49 @@ export const updateMedicalRequestStatus = async (req, res, next) => {
 
     res.status(httpStatus.OK).json(
       new ApiResponse(httpStatus.OK, null, 'Cập nhật dặn dò y tế thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteMedicalRequest = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId, requestId } = req.params;
+
+    const numericClassId = Number(classId);
+    const numericRequestId = Number(requestId);
+
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền quản lý đơn dặn thuốc của lớp này');
+    }
+
+    const success = await teacherService.deleteMedicalRequest(numericRequestId);
+    if (!success) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy đơn dặn thuốc');
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Xóa đơn dặn thuốc thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Upload an image to cloud storage
+ */
+export const uploadImage = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng chọn một file ảnh');
+    }
+    const imageUrl = await uploadToSpace(req.file, 'teacher-uploads');
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, { url: imageUrl }, 'Tải ảnh lên thành công')
     );
   } catch (error) {
     next(error);
