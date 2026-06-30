@@ -1291,7 +1291,219 @@
  *         description: Internal Server Error
  */
 
-
-
-
-
+/**
+ * @swagger
+ * /parent/proxy-authorizations:
+ *   post:
+ *     summary: Create a proxy authorization for a child
+ *     description: Submit a new authorization request for another person to check-in or check-out a child student. Optionally uploads a portrait photo of the proxy.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - studentId
+ *               - authorizationDate
+ *               - type
+ *               - proxyName
+ *             properties:
+ *               studentId:
+ *                 type: integer
+ *                 description: ID of the child student
+ *                 example: 19
+ *               authorizationDate:
+ *                 type: integer
+ *                 description: Unix timestamp in seconds for the authorization day (start of day)
+ *                 example: 1782824107
+ *               type:
+ *                 type: string
+ *                 enum: [checkin, checkout, both]
+ *                 description: Type of authorization (checkin = Morning drop-off, checkout = Afternoon pickup, both = Both)
+ *                 example: checkout
+ *               proxyName:
+ *                 type: string
+ *                 description: Full name of the proxy person
+ *                 example: "Nguyễn Văn B"
+ *               proxyPhone:
+ *                 type: string
+ *                 description: Phone number of the proxy person
+ *                 example: "0901234567"
+ *               proxyIDCard:
+ *                 type: string
+ *                 description: ID card number (CCCD/CMND) of the proxy person
+ *                 example: "079123456789"
+ *               notes:
+ *                 type: string
+ *                 description: Additional notes/description of the proxy person
+ *                 example: "Là chú của bé, đi xe Lead đỏ"
+ *               proxyPhoto:
+ *                 type: string
+ *                 format: binary
+ *                 description: Portrait image file of the proxy person
+ *     responses:
+ *       201:
+ *         description: Proxy authorization created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 201
+ *                 message:
+ *                   type: string
+ *                   example: "Đăng ký ủy quyền đưa đón thành công"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     authorizationId:
+ *                       type: integer
+ *                       example: 12
+ *       400:
+ *         description: Bad Request - Validation failed or invalid format
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Student does not belong to this parent
+ *       500:
+ *         description: Internal Server Error
+ * 
+ * /parent/children/{studentId}/proxy-authorizations:
+ *   get:
+ *     summary: Get proxy authorizations of a child
+ *     description: Retrieve all active and past proxy authorizations submitted by the logged-in parent for a specific child student.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the child student
+ *         example: 19
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved proxy authorizations list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: "Lấy danh sách ủy quyền đón hộ thành công"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       authorizationId:
+ *                         type: integer
+ *                         example: 12
+ *                       studentId:
+ *                         type: integer
+ *                         example: 19
+ *                       parentId:
+ *                         type: integer
+ *                         example: 4
+ *                       authorizationDate:
+ *                         type: integer
+ *                         description: Unix timestamp of the day of authorization
+ *                         example: 1782824107
+ *                       type:
+ *                         type: string
+ *                         enum: [checkin, checkout, both]
+ *                         example: checkout
+ *                       proxyName:
+ *                         type: string
+ *                         example: "Nguyễn Văn B"
+ *                       proxyPhone:
+ *                         type: string
+ *                         example: "0901234567"
+ *                       proxyIDCard:
+ *                         type: string
+ *                         example: "079123456789"
+ *                       proxyPhotoUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "https://example.com/parents/proxy-photos/168910291.jpg"
+ *                       notes:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "Là chú của bé, đi xe Lead đỏ"
+ *                       status:
+ *                         type: string
+ *                         enum: [Approved, Cancelled, Completed]
+ *                         example: Approved
+ *                       createdAt:
+ *                         type: integer
+ *                         example: 1782810000
+ *       400:
+ *         description: Bad Request
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Student does not belong to this parent
+ *       500:
+ *         description: Internal Server Error
+ * 
+ * /parent/proxy-authorizations/{authorizationId}/cancel:
+ *   patch:
+ *     summary: Cancel a proxy authorization
+ *     description: Cancel an active proxy authorization request. This is only allowed for requests with status 'Approved' that have not occurred yet.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: authorizationId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the proxy authorization record
+ *         example: 12
+ *     responses:
+ *       200:
+ *         description: Proxy authorization cancelled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: "Hủy ủy quyền đón hộ thành công"
+ *       400:
+ *         description: Bad Request - Authorization cannot be cancelled (e.g. already cancelled or completed)
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Record does not belong to the logged-in parent's child
+ *       404:
+ *         description: Not Found - Proxy authorization not found
+ *       500:
+ *         description: Internal Server Error
+ */
