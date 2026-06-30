@@ -943,6 +943,7 @@ export const updateScheduleStatus = async (req, res, next) => {
 export const scanQRAttendance = async (req, res, next) => {
   try {
     const { qrToken } = req.body;
+    const teacherId = req.user.userId;
     const secret = process.env.QR_TOKEN_SECRET || 'default_qr_secret';
 
     let decoded;
@@ -955,7 +956,7 @@ export const scanQRAttendance = async (req, res, next) => {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Mã QR không hợp lệ');
     }
 
-    const { sub: studentIdStr, jti, exp } = decoded;
+    const { sub: studentIdStr, jti, exp, parentName, relationship } = decoded;
     const studentId = Number(studentIdStr);
 
     // Check replay attack
@@ -968,7 +969,14 @@ export const scanQRAttendance = async (req, res, next) => {
     const checkTimestamp = Math.floor(Date.now() / 1000);
 
     try {
-      const result = await teacherService.processQRAttendance(studentId, dateTimestamp, checkTimestamp);
+      const result = await teacherService.processQRAttendance(
+        studentId,
+        dateTimestamp,
+        checkTimestamp,
+        teacherId,
+        parentName,
+        relationship
+      );
       if (!result) {
         throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy học sinh');
       }
