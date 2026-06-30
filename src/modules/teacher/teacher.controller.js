@@ -1096,22 +1096,4 @@ export const updateClassMenu = async (req, res, next) => {
   }
 };
 
-/**
- * Upload an image file and return the URL
- */
-export const uploadImage = async (req, res, next) => {
-  try {
-    if (!req.file) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng chọn một file ảnh');
-    }
 
-    const folder = req.body.folder || 'teacher-uploads';
-    const imageUrl = await uploadToSpace(req.file, folder);
-
-    res.status(httpStatus.OK).json(
-      new ApiResponse(httpStatus.OK, { url: imageUrl }, 'Tải ảnh lên thành công')
-    );
-  } catch (error) {
-    next(error);
-  }
-};
