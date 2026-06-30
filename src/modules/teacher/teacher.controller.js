@@ -614,9 +614,25 @@ export const uploadImage = async (req, res, next) => {
     if (!req.file) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng chọn một file ảnh');
     }
-    const imageUrl = await uploadToSpace(req.file, 'teacher-uploads');
+
+    let targetDateStr;
+    if (req.body.date) {
+      // Nếu date là UNIX timestamp (số), chuyển thành chuỗi YYYY-MM-DD
+      if (!isNaN(req.body.date)) {
+        const d = new Date(Number(req.body.date) * 1000);
+        targetDateStr = d.toISOString().split('T')[0];
+      } else {
+        targetDateStr = req.body.date; // Mặc định là chuỗi YYYY-MM-DD
+      }
+    } else {
+      targetDateStr = new Date().toISOString().split('T')[0];
+    }
+
+    const folderPath = `daily-albums/album-${targetDateStr}`;
+    const imageUrl = await uploadToSpace(req.file, folderPath);
+
     res.status(httpStatus.OK).json(
-      new ApiResponse(httpStatus.OK, { url: imageUrl }, 'Tải ảnh lên thành công')
+      new ApiResponse(httpStatus.OK, { url: imageUrl, folder: folderPath }, 'Tải ảnh lên thành công')
     );
   } catch (error) {
     next(error);
