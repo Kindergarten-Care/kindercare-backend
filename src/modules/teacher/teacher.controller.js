@@ -942,3 +942,39 @@ export const scanQRAttendance = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Update class meal menu for a date
+ */
+export const updateClassMenu = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId } = req.params;
+    const { date, breakfastMenu, lunchMenu, afternoonSnackMenu } = req.body;
+
+    const numericClassId = Number(classId);
+
+    // Security check: Check if teacher teaches this class
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền cập nhật thực đơn của lớp này');
+    }
+
+    // Calculate target date timestamp (seconds) at start of day in UTC
+    const d = new Date(Number(date) * 1000);
+    const targetTimestamp = Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 1000);
+
+    await teacherService.updateClassMenu(numericClassId, targetTimestamp, {
+      breakfastMenu,
+      lunchMenu,
+      afternoonSnackMenu
+    });
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Cập nhật thực đơn lớp học thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+

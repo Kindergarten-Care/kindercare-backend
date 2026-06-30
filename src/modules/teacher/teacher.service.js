@@ -456,6 +456,48 @@ export const getClassMenu = async (classId, dateTimestamp) => {
 };
 
 /**
+ * Update class meal menu for a specific date
+ * @param {number} classId 
+ * @param {number} dateTimestamp Unix timestamp (seconds) for start of day
+ * @param {Object} menuData - contains breakfastMenu, lunchMenu, afternoonSnackMenu
+ * @returns {Promise<boolean>}
+ */
+export const updateClassMenu = async (classId, dateTimestamp, menuData) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Remove existing menus for that day
+    const deleteQuery = `DELETE FROM Menus WHERE ClassID = ? AND MenuDate = ?`;
+    await connection.query(deleteQuery, [classId, dateTimestamp]);
+
+    // Insert new menus
+    const insertQuery = `
+      INSERT INTO Menus (ClassID, MenuDate, MealType, DishName) 
+      VALUES (?, ?, ?, ?)
+    `;
+
+    if (menuData.breakfastMenu) {
+      await connection.query(insertQuery, [classId, dateTimestamp, 'Breakfast', menuData.breakfastMenu]);
+    }
+    if (menuData.lunchMenu) {
+      await connection.query(insertQuery, [classId, dateTimestamp, 'Lunch', menuData.lunchMenu]);
+    }
+    if (menuData.afternoonSnackMenu) {
+      await connection.query(insertQuery, [classId, dateTimestamp, 'Snack', menuData.afternoonSnackMenu]);
+    }
+
+    await connection.commit();
+    return true;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+/**
  * Upsert daily activity status for a student on a specific date
  */
 export const upsertDailyActivity = async (studentId, dateTimestamp, data) => {

@@ -35,6 +35,11 @@ router.get(
   teacherValidation.validateGetClassMenu,
   teacherController.getClassMenu
 );
+router.put(
+  '/classes/:classId/menu',
+  teacherValidation.validateUpdateClassMenu,
+  teacherController.updateClassMenu
+);
 router.get(
   '/classes/:classId/schedule',
   teacherValidation.validateGetClassSchedule,

@@ -455,3 +455,27 @@ export const validateScanQR = (req, res, next) => {
 
   next();
 };
+
+/**
+ * Validate updating class menu
+ */
+export const validateUpdateClassMenu = (req, res, next) => {
+  const { classId } = req.params;
+  const { date, breakfastMenu, lunchMenu, afternoonSnackMenu } = req.body;
+
+  const numericClassId = Number(classId);
+  if (isNaN(numericClassId)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId phải là một số nguyên hợp lệ'));
+  }
+
+  const numericDate = Number(date);
+  if (isNaN(numericDate) || numericDate <= 0) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'Ngày cập nhật (date) phải là một số nguyên Unix timestamp hợp lệ'));
+  }
+
+  if (typeof breakfastMenu !== 'string' || typeof lunchMenu !== 'string' || typeof afternoonSnackMenu !== 'string') {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'Menu các bữa (breakfastMenu, lunchMenu, afternoonSnackMenu) phải là chuỗi ký tự'));
+  }
+
+  next();
+};
