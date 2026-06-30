@@ -64,10 +64,6 @@
  *                         roleName:
  *                           type: string
  *                           example: Admin
- *                         fcmToken:
- *                           type: string
- *                           nullable: true
- *                           example: null
  *                         fullName:
  *                           type: string
  *                           nullable: true
@@ -134,9 +130,6 @@
  *                           type: integer
  *                         roleName:
  *                           type: string
- *                         fcmToken:
- *                           type: string
- *                           nullable: true
  *                         fullName:
  *                           type: string
  *                           nullable: true
@@ -202,9 +195,6 @@
  *                           type: integer
  *                         roleName:
  *                           type: string
- *                         fcmToken:
- *                           type: string
- *                           nullable: true
  *                         fullName:
  *                           type: string
  *                           nullable: true
@@ -270,9 +260,6 @@
  *                           type: integer
  *                         roleName:
  *                           type: string
- *                         fcmToken:
- *                           type: string
- *                           nullable: true
  *                         fullName:
  *                           type: string
  *                           nullable: true
@@ -338,9 +325,6 @@
  *                           type: integer
  *                         roleName:
  *                           type: string
- *                         fcmToken:
- *                           type: string
- *                           nullable: true
  *                         fullName:
  *                           type: string
  *                           nullable: true
