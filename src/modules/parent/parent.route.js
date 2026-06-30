@@ -48,6 +48,15 @@ router.post('/leave-requests', authenticate, authorize(4), upload.single('eviden
 // Create a medication request for a child (with optional prescription image)
 router.post('/medication-requests', authenticate, authorize(4), upload.single('medicineImage'), parentController.createMedicationRequest);
 
+// Create a proxy authorization for a child (with optional proxy photo)
+router.post('/proxy-authorizations', authenticate, authorize(4), upload.single('proxyPhoto'), parentController.createProxyAuthorization);
+
+// Get proxy authorizations of a child
+router.get('/children/:studentId/proxy-authorizations', authenticate, authorize(4), parentController.getChildProxyAuthorizations);
+
+// Cancel a proxy authorization
+router.patch('/proxy-authorizations/:authorizationId/cancel', authenticate, authorize(4), parentController.cancelProxyAuthorization);
+
 // Cancel a leave request
 router.patch('/leave-requests/:requestId/cancel', authenticate, authorize(4), parentController.cancelLeaveRequest);
 

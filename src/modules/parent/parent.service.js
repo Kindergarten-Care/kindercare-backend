@@ -650,6 +650,111 @@ export const generateQrToken = async (parentId, studentId) => {
   return { token, expiresAt: now + ttl, ttl };
 };
 
+export const createProxyAuthorization = async (
+  studentId,
+  parentId,
+  authorizationDate,
+  type,
+  proxyName,
+  proxyPhone,
+  proxyIDCard,
+  proxyPhotoUrl,
+  notes
+) => {
+  const createdAt = Math.floor(Date.now() / 1000);
+  const insertQuery = `
+    INSERT INTO ProxyAuthorizations (StudentID, ParentID, AuthorizationDate, Type, ProxyName, ProxyPhone, ProxyIDCard, ProxyPhotoURL, Notes, Status, CreatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Approved', ?)
+  `;
+  const [result] = await pool.query(insertQuery, [
+    studentId,
+    parentId,
+    authorizationDate,
+    type,
+    proxyName,
+    proxyPhone,
+    proxyIDCard,
+    proxyPhotoUrl,
+    notes,
+    createdAt
+  ]);
+
+  const selectQuery = `
+    SELECT 
+      AuthorizationID AS authorizationId,
+      StudentID AS studentId,
+      ParentID AS parentId,
+      AuthorizationDate AS authorizationDate,
+      Type AS type,
+      ProxyName AS proxyName,
+      ProxyPhone AS proxyPhone,
+      ProxyIDCard AS proxyIDCard,
+      ProxyPhotoURL AS proxyPhotoUrl,
+      Notes AS notes,
+      Status AS status,
+      CreatedAt AS createdAt
+    FROM ProxyAuthorizations
+    WHERE AuthorizationID = ?
+  `;
+  const [rows] = await pool.query(selectQuery, [result.insertId]);
+  return rows[0];
+};
+
+export const getProxyAuthorizationsByStudentId = async (studentId) => {
+  const query = `
+    SELECT 
+      AuthorizationID AS authorizationId,
+      StudentID AS studentId,
+      ParentID AS parentId,
+      AuthorizationDate AS authorizationDate,
+      Type AS type,
+      ProxyName AS proxyName,
+      ProxyPhone AS proxyPhone,
+      ProxyIDCard AS proxyIDCard,
+      ProxyPhotoURL AS proxyPhotoUrl,
+      Notes AS notes,
+      Status AS status,
+      CreatedAt AS createdAt
+    FROM ProxyAuthorizations
+    WHERE StudentID = ?
+    ORDER BY AuthorizationDate DESC, AuthorizationID DESC
+  `;
+  const [rows] = await pool.query(query, [studentId]);
+  return rows;
+};
+
+export const cancelProxyAuthorization = async (authorizationId, parentId) => {
+  const updateQuery = `
+    UPDATE ProxyAuthorizations 
+    SET Status = 'Cancelled' 
+    WHERE AuthorizationID = ? AND ParentID = ?
+  `;
+  await pool.query(updateQuery, [authorizationId, parentId]);
+
+  const selectQuery = `
+    SELECT 
+      AuthorizationID AS authorizationId,
+      StudentID AS studentId,
+      ParentID AS parentId,
+      AuthorizationDate AS authorizationDate,
+      Type AS type,
+      ProxyName AS proxyName,
+      ProxyPhone AS proxyPhone,
+      ProxyIDCard AS proxyIDCard,
+      ProxyPhotoURL AS proxyPhotoUrl,
+      Notes AS notes,
+      Status AS status,
+      CreatedAt AS createdAt
+    FROM ProxyAuthorizations
+    WHERE AuthorizationID = ?
+  `;
+  const [rows] = await pool.query(selectQuery, [authorizationId]);
+  if (rows.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy đơn ủy quyền');
+  }
+  return rows[0];
+};
+
 
 
 
