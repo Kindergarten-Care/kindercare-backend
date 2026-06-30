@@ -1017,6 +1017,35 @@
  *                           reason:
  *                             type: string
  *                             example: Bé bị sốt cần nghỉ ngơi
+ *                       hasProxy:
+ *                         type: boolean
+ *                         example: true
+ *                       proxyInfo:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           authorizationId:
+ *                             type: integer
+ *                             example: 12
+ *                           proxyName:
+ *                             type: string
+ *                             example: "Nguyễn Văn B"
+ *                           proxyPhone:
+ *                             type: string
+ *                             example: "0901234567"
+ *                           proxyIDCard:
+ *                             type: string
+ *                             example: "079123456789"
+ *                           proxyPhotoUrl:
+ *                             type: string
+ *                             example: "https://example.com/parents/proxy-photos/168910291.jpg"
+ *                           notes:
+ *                             type: string
+ *                             example: "Là chú của bé, đi xe máy màu đỏ"
+ *                           type:
+ *                             type: string
+ *                             enum: [checkin, checkout, both]
+ *                             example: checkout
  *       400:
  *         description: Bad Request - Validation failed
  *       401:
