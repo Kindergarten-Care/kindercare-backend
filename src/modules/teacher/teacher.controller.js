@@ -224,7 +224,17 @@ export const submitQuickAttendance = async (req, res, next) => {
 
     // Perform upsert for each student
     for (const item of attendanceData) {
-      const { studentId, status, checkInTime, checkOutTime, pickedUpBy } = item;
+      const { 
+        studentId, 
+        status, 
+        checkInTime, 
+        checkOutTime, 
+        pickedUpBy,
+        droppedOffBy,
+        checkedInByTeacherId,
+        checkedOutByTeacherId,
+        proxyAuthorizationId
+      } = item;
 
       // Verify student is indeed enrolled in this class
       const isInClass = await teacherService.isStudentInClass(studentId, classId);
@@ -244,7 +254,11 @@ export const submitQuickAttendance = async (req, res, next) => {
         dbStatus,
         checkInTime || null,
         checkOutTime || null,
-        pickedUpBy || null
+        pickedUpBy || null,
+        droppedOffBy || null,
+        checkedInByTeacherId || null,
+        checkedOutByTeacherId || null,
+        proxyAuthorizationId || null
       );
 
       // Push notification to parent if student is absent or excused

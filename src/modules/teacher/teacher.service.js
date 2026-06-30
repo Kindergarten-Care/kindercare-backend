@@ -308,23 +308,56 @@ export const updateLeaveRequestStatus = async (requestId, status, teacherId) => 
  * @param {number} [checkOutTime] 
  * @param {string} [pickedUpBy] 
  */
-export const upsertAttendance = async (studentId, date, status, checkInTime = null, checkOutTime = null, pickedUpBy = null) => {
+export const upsertAttendance = async (
+  studentId, 
+  date, 
+  status, 
+  checkInTime = null, 
+  checkOutTime = null, 
+  pickedUpBy = null,
+  droppedOffBy = null,
+  checkedInByTeacherId = null,
+  checkedOutByTeacherId = null,
+  proxyAuthorizationId = null
+) => {
   const checkQuery = 'SELECT AttendanceID FROM Attendances WHERE StudentID = ? AND AttendanceDate = ?';
   const [rows] = await pool.query(checkQuery, [studentId, date]);
 
   if (rows.length > 0) {
     const updateQuery = `
       UPDATE Attendances
-      SET Status = ?, CheckInTime = ?, CheckOutTime = ?, PickedUpBy = ?
+      SET Status = ?, CheckInTime = ?, CheckOutTime = ?, PickedUpBy = ?, DroppedOffBy = ?, CheckedInByTeacherID = ?, CheckedOutByTeacherID = ?, ProxyAuthorizationID = ?
       WHERE StudentID = ? AND AttendanceDate = ?
     `;
-    await pool.query(updateQuery, [status, checkInTime, checkOutTime, pickedUpBy, studentId, date]);
+    await pool.query(updateQuery, [
+      status, 
+      checkInTime, 
+      checkOutTime, 
+      pickedUpBy, 
+      droppedOffBy, 
+      checkedInByTeacherId, 
+      checkedOutByTeacherId, 
+      proxyAuthorizationId, 
+      studentId, 
+      date
+    ]);
   } else {
     const insertQuery = `
-      INSERT INTO Attendances (StudentID, AttendanceDate, Status, CheckInTime, CheckOutTime, PickedUpBy)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO Attendances (StudentID, AttendanceDate, Status, CheckInTime, CheckOutTime, PickedUpBy, DroppedOffBy, CheckedInByTeacherID, CheckedOutByTeacherID, ProxyAuthorizationID)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    await pool.query(insertQuery, [studentId, date, status, checkInTime, checkOutTime, pickedUpBy]);
+    await pool.query(insertQuery, [
+      studentId, 
+      date, 
+      status, 
+      checkInTime, 
+      checkOutTime, 
+      pickedUpBy, 
+      droppedOffBy, 
+      checkedInByTeacherId, 
+      checkedOutByTeacherId, 
+      proxyAuthorizationId
+    ]);
   }
 };
 

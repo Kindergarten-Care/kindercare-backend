@@ -891,6 +891,22 @@
  *                       type: string
  *                       nullable: true
  *                       example: Nguyễn Anh Tuấn
+ *                     droppedOffBy:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Nguyễn Anh Tuấn
+ *                     checkedInByTeacherId:
+ *                       type: integer
+ *                       nullable: true
+ *                       example: 5
+ *                     checkedOutByTeacherId:
+ *                       type: integer
+ *                       nullable: true
+ *                       example: 5
+ *                     proxyAuthorizationId:
+ *                       type: integer
+ *                       nullable: true
+ *                       example: 12
  *     responses:
  *       200:
  *         description: Successfully recorded attendance in bulk
@@ -1220,7 +1236,57 @@
  *                 example: "eyJhbGciOiJIUzI1NiJ9..."
  *     responses:
  *       200:
- *         description: Successfully recorded attendance
+ *         description: Successfully recorded attendance (Auto check-in or check-out).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: "Điểm danh thành công (Đón bé về)"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     studentId:
+ *                       type: integer
+ *                       example: 19
+ *                     fullName:
+ *                       type: string
+ *                       example: "Nguyễn Bảo Châu"
+ *                     attendanceType:
+ *                       type: string
+ *                       enum: [checkin, checkout]
+ *                       example: checkout
+ *                     hasProxy:
+ *                       type: boolean
+ *                       description: Indicates if child is picked up or dropped off by an authorized proxy today.
+ *                       example: true
+ *                     proxyInfo:
+ *                       type: object
+ *                       nullable: true
+ *                       properties:
+ *                         proxyName:
+ *                           type: string
+ *                           example: "Nguyễn Văn B"
+ *                         proxyPhone:
+ *                           type: string
+ *                           example: "0901234567"
+ *                         proxyIDCard:
+ *                           type: string
+ *                           example: "079123456789"
+ *                         proxyPhotoUrl:
+ *                           type: string
+ *                           example: "https://example.com/parents/proxy-photos/168910291.jpg"
+ *                         notes:
+ *                           type: string
+ *                           example: "Chú của bé, đi xe Lead đỏ"
  *       400:
  *         description: Bad Request (Invalid or expired token)
  *       401:
