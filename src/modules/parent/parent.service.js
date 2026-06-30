@@ -625,11 +625,21 @@ export const generateQrToken = async (parentId, studentId) => {
     throw new ApiError(httpStatus.FORBIDDEN, 'Học sinh không thuộc về phụ huynh này');
   }
 
+  // Get parent name and relationship to child
+  const parentProfile = await getParentProfileById(parentId);
+  const relationshipQuery = `
+    SELECT Relationship FROM StudentParents WHERE ParentID = ? AND StudentID = ?
+  `;
+  const [relRows] = await pool.query(relationshipQuery, [parentId, studentId]);
+  const relationship = relRows.length > 0 ? relRows[0].Relationship : 'Phụ huynh';
+
   const ttl = parseInt(process.env.QR_TOKEN_TTL || '60', 10);
   const now = Math.floor(Date.now() / 1000);
 
   const payload = {
     sub: String(studentId),
+    parentName: parentProfile?.fullName || 'Phụ huynh',
+    relationship: relationship || 'Phụ huynh',
     iat: now,
     exp: now + ttl,
     jti: randomUUID(),
