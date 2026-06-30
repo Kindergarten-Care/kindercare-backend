@@ -356,22 +356,22 @@ export const getStudentAttendance = async (studentId, startDate, endDate) => {
       
       -- Dropped off info
       a.DroppedOffByParentID AS droppedOffByParentId,
-      COALESCE(u_in.FullName, pa.ProxyName) AS droppedOffBy,
+      COALESCE(p_in.FullName, pa.ProxyName) AS droppedOffBy,
       COALESCE(sp_in.Relationship, 'Người đưa đi') AS droppedOffRelationship,
       
       -- Picked up info
       a.PickedUpByParentID AS pickedUpByParentId,
-      COALESCE(u_out.FullName, pa.ProxyName) AS pickedUpBy,
+      COALESCE(p_out.FullName, pa.ProxyName) AS pickedUpBy,
       COALESCE(sp_out.Relationship, 'Người đón hộ') AS pickedUpRelationship,
       
       a.CheckedInByTeacherID AS checkedInByTeacherId,
       a.CheckedOutByTeacherID AS checkedOutByTeacherId,
       a.ProxyAuthorizationID AS proxyAuthorizationId
     FROM Attendances a
-    LEFT JOIN Users u_in ON a.DroppedOffByParentID = u_in.UserID
-    LEFT JOIN StudentParents sp_in ON u_in.UserID = sp_in.ParentID AND sp_in.StudentID = a.StudentID
-    LEFT JOIN Users u_out ON a.PickedUpByParentID = u_out.UserID
-    LEFT JOIN StudentParents sp_out ON u_out.UserID = sp_out.ParentID AND sp_out.StudentID = a.StudentID
+    LEFT JOIN Parents p_in ON a.DroppedOffByParentID = p_in.ParentID
+    LEFT JOIN StudentParents sp_in ON p_in.ParentID = sp_in.ParentID AND sp_in.StudentID = a.StudentID
+    LEFT JOIN Parents p_out ON a.PickedUpByParentID = p_out.ParentID
+    LEFT JOIN StudentParents sp_out ON p_out.ParentID = sp_out.ParentID AND sp_out.StudentID = a.StudentID
     LEFT JOIN ProxyAuthorizations pa ON a.ProxyAuthorizationID = pa.AuthorizationID
     WHERE a.StudentID = ?
   `;
