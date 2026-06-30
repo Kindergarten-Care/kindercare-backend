@@ -419,6 +419,48 @@ export const getClassStudentsAttendance = async (classId, dateTimestamp) => {
         ORDER BY lr.RequestID DESC
         LIMIT 1
       ) AS leaveRequestReason,
+      (
+        SELECT pa.AuthorizationID
+        FROM ProxyAuthorizations pa
+        WHERE pa.StudentID = s.StudentID AND pa.AuthorizationDate = ? AND pa.Status = 'Approved'
+        LIMIT 1
+      ) AS proxyAuthorizationId,
+      (
+        SELECT pa.ProxyName
+        FROM ProxyAuthorizations pa
+        WHERE pa.StudentID = s.StudentID AND pa.AuthorizationDate = ? AND pa.Status = 'Approved'
+        LIMIT 1
+      ) AS proxyName,
+      (
+        SELECT pa.ProxyPhone
+        FROM ProxyAuthorizations pa
+        WHERE pa.StudentID = s.StudentID AND pa.AuthorizationDate = ? AND pa.Status = 'Approved'
+        LIMIT 1
+      ) AS proxyPhone,
+      (
+        SELECT pa.ProxyIDCard
+        FROM ProxyAuthorizations pa
+        WHERE pa.StudentID = s.StudentID AND pa.AuthorizationDate = ? AND pa.Status = 'Approved'
+        LIMIT 1
+      ) AS proxyIDCard,
+      (
+        SELECT pa.ProxyPhotoURL
+        FROM ProxyAuthorizations pa
+        WHERE pa.StudentID = s.StudentID AND pa.AuthorizationDate = ? AND pa.Status = 'Approved'
+        LIMIT 1
+      ) AS proxyPhotoUrl,
+      (
+        SELECT pa.Notes
+        FROM ProxyAuthorizations pa
+        WHERE pa.StudentID = s.StudentID AND pa.AuthorizationDate = ? AND pa.Status = 'Approved'
+        LIMIT 1
+      ) AS proxyNotes,
+      (
+        SELECT pa.Type
+        FROM ProxyAuthorizations pa
+        WHERE pa.StudentID = s.StudentID AND pa.AuthorizationDate = ? AND pa.Status = 'Approved'
+        LIMIT 1
+      ) AS proxyType,
       da.TeacherNote AS healthNote,
       da.BreakfastStatus AS breakfastStatus,
       da.LunchStatus AS lunchStatus,
@@ -433,13 +475,20 @@ export const getClassStudentsAttendance = async (classId, dateTimestamp) => {
     ORDER BY s.FullName
   `;
   const [rows] = await pool.query(query, [
-    dateTimestamp,
-    dateTimestamp,
-    dateTimestamp,
-    dateTimestamp,
-    dateTimestamp,
-    dateTimestamp,
-    classId
+    dateTimestamp, // 1: leave status
+    dateTimestamp, // 2: leaveRequestId
+    dateTimestamp, // 3: leaveRequestStatus
+    dateTimestamp, // 4: leaveRequestReason
+    dateTimestamp, // 5: proxyAuthorizationId
+    dateTimestamp, // 6: proxyName
+    dateTimestamp, // 7: proxyPhone
+    dateTimestamp, // 8: proxyIDCard
+    dateTimestamp, // 9: proxyPhotoUrl
+    dateTimestamp, // 10: proxyNotes
+    dateTimestamp, // 11: proxyType
+    dateTimestamp, // 12: Attendances join
+    dateTimestamp, // 13: DailyActivities join
+    classId        // 14: classId
   ]);
 
   return rows.map(row => ({
@@ -460,6 +509,16 @@ export const getClassStudentsAttendance = async (classId, dateTimestamp) => {
       requestId: row.leaveRequestId,
       status: row.leaveRequestStatus,
       reason: row.leaveRequestReason
+    } : null,
+    hasProxy: row.proxyAuthorizationId ? true : false,
+    proxyInfo: row.proxyAuthorizationId ? {
+      authorizationId: row.proxyAuthorizationId,
+      proxyName: row.proxyName,
+      proxyPhone: row.proxyPhone,
+      proxyIDCard: row.proxyIDCard,
+      proxyPhotoUrl: row.proxyPhotoUrl,
+      notes: row.proxyNotes,
+      type: row.proxyType
     } : null
   }));
 };
