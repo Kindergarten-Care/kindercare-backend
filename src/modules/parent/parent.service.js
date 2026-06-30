@@ -211,6 +211,7 @@ export const createLeaveRequest = async (
     WHERE RequestID = ?
   `;
   const [rows] = await pool.query(selectQuery, [requestId]);
+
   return rows[0];
 };
 
@@ -305,6 +306,7 @@ export const createMedicationRequest = async (
     WHERE MedRequestID = ?
   `;
   const [rows] = await pool.query(selectQuery, [medRequestId]);
+
   return rows[0];
 };
 

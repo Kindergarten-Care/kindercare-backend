@@ -889,6 +889,36 @@ export const getWeeklyRewards = async (req, res, next) => {
 };
 
 /**
+ * Get Automated Monthly Good Kids
+ */
+export const getMonthlyGoodKids = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId } = req.params;
+    const { month, year } = req.query;
+
+    const numericClassId = Number(classId);
+
+    // Security check
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập lớp này');
+    }
+
+    const currentMonth = month ? Number(month) : new Date().getMonth() + 1;
+    const currentYear = year ? Number(year) : new Date().getFullYear();
+
+    const rewards = await teacherService.getMonthlyGoodKids(numericClassId, currentMonth, currentYear);
+    
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, rewards, 'Lấy danh sách bé ngoan tháng tự động thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Batch award Weekly Rewards
  */
 export const awardWeeklyRewards = async (req, res, next) => {
@@ -1066,3 +1096,22 @@ export const updateClassMenu = async (req, res, next) => {
   }
 };
 
+/**
+ * Upload an image file and return the URL
+ */
+export const uploadImage = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng chọn một file ảnh');
+    }
+
+    const folder = req.body.folder || 'teacher-uploads';
+    const imageUrl = await uploadToSpace(req.file, folder);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, { url: imageUrl }, 'Tải ảnh lên thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};

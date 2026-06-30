@@ -785,9 +785,10 @@ export const createNewsfeedPost = async (classId, teacherId, content, mediaUrl) 
  */
 export const getNewsfeeds = async (classId) => {
   const query = `
-    SELECT n.*, u.FullName as TeacherName, u.Avatar as TeacherAvatar 
+    SELECT n.*, t.FullName as TeacherName, u.AvatarURL as TeacherAvatar 
     FROM Newsfeeds n
     LEFT JOIN Users u ON n.TeacherID = u.UserID
+    LEFT JOIN Teachers t ON n.TeacherID = t.TeacherID
     WHERE n.ClassID = ?
     ORDER BY n.PostedAt DESC
   `;
@@ -991,6 +992,63 @@ export const getWeeklyRewards = async (classId, weekNumber, year) => {
     WHERE s.ClassID = ? AND w.WeekNumber = ? AND w.Year = ?
   `;
   const [rows] = await pool.query(query, [classId, weekNumber, year]);
+  return rows;
+};
+
+/**
+ * Get automated monthly good kids evaluation
+ */
+export const getMonthlyGoodKids = async (classId, month, year) => {
+  // Convert month/year to timestamps
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0, 23, 59, 59);
+  const startTimestamp = Math.floor(startDate.getTime() / 1000);
+  const endTimestamp = Math.floor(endDate.getTime() / 1000);
+  
+  // For LogDate (DATE type)
+  const startLogStr = `${year}-${String(month).padStart(2, '0')}-01`;
+  const endLogStr = `${year}-${String(month).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+
+  const query = `
+    SELECT 
+      s.StudentID AS studentId,
+      s.FullName AS studentName,
+      s.AvatarURL AS avatarUrl,
+      (
+        SELECT COALESCE(SUM(CASE WHEN a.Status = 'Present' THEN 1 ELSE 0 END), 0)
+        FROM Attendances a 
+        WHERE a.StudentID = s.StudentID AND a.AttendanceDate >= ? AND a.AttendanceDate <= ?
+      ) AS attendancePoints,
+      (
+        SELECT COALESCE(SUM(
+          (CASE WHEN da.BreakfastStatus = 'Ăn hết' THEN 1 WHEN da.BreakfastStatus = 'Ăn chậm' THEN 0.5 ELSE 0 END) +
+          (CASE WHEN da.LunchStatus = 'Ăn hết' THEN 1 WHEN da.LunchStatus = 'Ăn chậm' THEN 0.5 ELSE 0 END) +
+          (CASE WHEN da.SnackStatus = 'Ăn hết' THEN 1 WHEN da.SnackStatus = 'Ăn chậm' THEN 0.5 ELSE 0 END) +
+          (CASE WHEN da.NapStatus = 'Ngủ ngoan' THEN 1 WHEN da.NapStatus = 'Khó ngủ' THEN 0.5 ELSE 0 END)
+        ), 0)
+        FROM DailyActivities da
+        WHERE da.StudentID = s.StudentID AND da.LogDate >= ? AND da.LogDate <= ?
+      ) AS eatSleepPoints,
+      (
+        SELECT COALESCE(SUM(
+          CASE WHEN da2.ViolationLevel = 'Heavy' THEN -10
+               WHEN da2.ViolationLevel = 'Medium' THEN -5
+               WHEN da2.ViolationLevel = 'Light' THEN -2
+               ELSE 0 END
+        ), 0)
+        FROM DailyActivities da2
+        WHERE da2.StudentID = s.StudentID AND da2.LogDate >= ? AND da2.LogDate <= ?
+      ) AS violationPoints
+    FROM Students s
+    WHERE s.ClassID = ?
+    ORDER BY violationPoints DESC, eatSleepPoints DESC, attendancePoints DESC
+  `;
+  const [rows] = await pool.query(query, [
+    startTimestamp, endTimestamp, 
+    startLogStr, endLogStr, 
+    startLogStr, endLogStr, 
+    classId
+  ]);
   return rows;
 };
 
