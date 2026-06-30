@@ -664,6 +664,118 @@ const getQrToken = async (req, res, next) => {
   }
 };
 
+const createProxyAuthorization = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền thực hiện hành động này');
+    }
+
+    const { studentId, authorizationDate, type, proxyName, proxyPhone, proxyIDCard, notes } = req.body;
+
+    if (!studentId || !authorizationDate || !type || !proxyName) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Các thông tin studentId, authorizationDate, type, và proxyName là bắt buộc');
+    }
+
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền đăng ký đón hộ cho học sinh này');
+    }
+
+    const authDateVal = parseInt(authorizationDate, 10);
+    if (isNaN(authDateVal)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'authorizationDate phải là số hợp lệ (timestamp tính bằng giây)');
+    }
+
+    let proxyPhotoUrlVal = null;
+    if (req.file) {
+      proxyPhotoUrlVal = await uploadToSpace(req.file, 'parents/proxy-photos');
+    }
+
+    const studentIdVal = parseInt(studentId, 10);
+    const newAuth = await parentService.createProxyAuthorization(
+      studentIdVal,
+      parentId,
+      authDateVal,
+      type,
+      proxyName.trim(),
+      proxyPhone ? proxyPhone.trim() : null,
+      proxyIDCard ? proxyIDCard.trim() : null,
+      proxyPhotoUrlVal,
+      notes ? notes.trim() : null
+    );
+
+    logger.info(`Parent ID ${parentId} created Proxy Authorization ID ${newAuth.authorizationId} for Student ID ${studentId}`);
+
+    res.status(httpStatus.CREATED).json(
+      new ApiResponse(
+        httpStatus.CREATED,
+        newAuth,
+        'Đăng ký người đưa đón hộ thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getChildProxyAuthorizations = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { studentId } = req.params;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin người đưa đón hộ của học sinh này');
+    }
+
+    const authorizations = await parentService.getProxyAuthorizationsByStudentId(parseInt(studentId, 10));
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        authorizations,
+        'Lấy danh sách người đưa đón hộ thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const cancelProxyAuthorization = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { authorizationId } = req.params;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền thực hiện hành động này');
+    }
+
+    const updatedAuth = await parentService.cancelProxyAuthorization(parseInt(authorizationId, 10), parentId);
+
+    logger.info(`Parent ID ${parentId} cancelled Proxy Authorization ID ${authorizationId}`);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        updatedAuth,
+        'Hủy đăng ký đưa đón hộ thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyChildren,
   getMyProfile,
@@ -680,6 +792,9 @@ export default {
   getChildDailyLessons,
   getChildDailyAlbums,
   getQrToken,
+  createProxyAuthorization,
+  getChildProxyAuthorizations,
+  cancelProxyAuthorization,
 };
 
 
