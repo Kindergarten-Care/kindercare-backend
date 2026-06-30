@@ -106,6 +106,12 @@ router.post(
 // Reward Badges
 router.get('/reward-badges', teacherController.getRewardBadges);
 
+// Monthly Automated Good Kids
+router.get(
+  '/classes/:classId/monthly-good-kids',
+  teacherController.getMonthlyGoodKids
+);
+
 // Weekly Rewards
 router.get(
   '/classes/:classId/weekly-rewards',

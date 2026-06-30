@@ -3,6 +3,7 @@ import ApiError from '../../utils/ApiError.js';
 import httpStatus from 'http-status';
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
+import { sendPushToUser } from '../notification/notification.service.js';
 
 /**
  * Get all children of a parent by ParentID
@@ -211,6 +212,36 @@ export const createLeaveRequest = async (
     WHERE RequestID = ?
   `;
   const [rows] = await pool.query(selectQuery, [requestId]);
+
+  // Gửi thông báo đến Giáo viên
+  try {
+    const [studentInfo] = await pool.query(
+      `SELECT s.FullName, ct.TeacherID
+       FROM Students s
+       JOIN ClassTeachers ct ON s.ClassID = ct.ClassID
+       WHERE s.StudentID = ?`,
+      [studentId]
+    );
+
+    if (studentInfo.length > 0) {
+      const studentName = studentInfo[0].FullName;
+      const title = 'Đơn xin nghỉ học mới';
+      const body = `Bé ${studentName} có đơn xin nghỉ học từ phụ huynh. Vui lòng kiểm tra và phê duyệt.`;
+      const dataPayload = { type: 'LEAVE_REQUEST', requestId: String(requestId), studentId: String(studentId) };
+
+      for (const row of studentInfo) {
+        if (row.TeacherID) {
+          // Gửi thông báo không dùng await chặn để API phản hồi nhanh cho Phụ huynh
+          sendPushToUser(row.TeacherID, title, body, dataPayload, false).catch(err => 
+            console.error('[FCM] Lỗi gửi thông báo Đơn xin nghỉ:', err)
+          );
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[Notification] Lỗi truy vấn gửi thông báo Đơn xin nghỉ:', error);
+  }
+
   return rows[0];
 };
 
@@ -305,6 +336,35 @@ export const createMedicationRequest = async (
     WHERE MedRequestID = ?
   `;
   const [rows] = await pool.query(selectQuery, [medRequestId]);
+
+  // Gửi thông báo đến Giáo viên
+  try {
+    const [studentInfo] = await pool.query(
+      `SELECT s.FullName, ct.TeacherID
+       FROM Students s
+       JOIN ClassTeachers ct ON s.ClassID = ct.ClassID
+       WHERE s.StudentID = ?`,
+      [studentId]
+    );
+
+    if (studentInfo.length > 0) {
+      const studentName = studentInfo[0].FullName;
+      const title = 'Dặn dò y tế mới';
+      const body = `Phụ huynh bé ${studentName} vừa gửi dặn dò thuốc mới. Vui lòng kiểm tra.`;
+      const dataPayload = { type: 'HEALTH_ALERT', medRequestId: String(medRequestId), studentId: String(studentId) };
+
+      for (const row of studentInfo) {
+        if (row.TeacherID) {
+          sendPushToUser(row.TeacherID, title, body, dataPayload, false).catch(err => 
+            console.error('[FCM] Lỗi gửi thông báo Dặn dò thuốc:', err)
+          );
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[Notification] Lỗi truy vấn gửi thông báo Dặn dò thuốc:', error);
+  }
+
   return rows[0];
 };
 
