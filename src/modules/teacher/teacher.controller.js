@@ -231,6 +231,8 @@ export const submitQuickAttendance = async (req, res, next) => {
         checkOutTime, 
         pickedUpBy,
         droppedOffBy,
+        pickedUpByParentId,
+        droppedOffByParentId,
         checkedInByTeacherId,
         checkedOutByTeacherId,
         proxyAuthorizationId
@@ -254,8 +256,8 @@ export const submitQuickAttendance = async (req, res, next) => {
         dbStatus,
         checkInTime || null,
         checkOutTime || null,
-        pickedUpBy || null,
-        droppedOffBy || null,
+        pickedUpByParentId || pickedUpBy || null,
+        droppedOffByParentId || droppedOffBy || null,
         checkedInByTeacherId || null,
         checkedOutByTeacherId || null,
         proxyAuthorizationId || null
@@ -970,7 +972,7 @@ export const scanQRAttendance = async (req, res, next) => {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Mã QR không hợp lệ');
     }
 
-    const { sub: studentIdStr, jti, exp, parentName, relationship } = decoded;
+    const { sub: studentIdStr, jti, exp, parentId, parentName, relationship } = decoded;
     const studentId = Number(studentIdStr);
 
     // Check replay attack
@@ -988,6 +990,7 @@ export const scanQRAttendance = async (req, res, next) => {
         dateTimestamp,
         checkTimestamp,
         teacherId,
+        parentId,
         parentName,
         relationship
       );

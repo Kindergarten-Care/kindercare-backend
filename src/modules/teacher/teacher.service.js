@@ -314,8 +314,8 @@ export const upsertAttendance = async (
   status, 
   checkInTime = null, 
   checkOutTime = null, 
-  pickedUpBy = null,
-  droppedOffBy = null,
+  pickedUpByParentId = null,
+  droppedOffByParentId = null,
   checkedInByTeacherId = null,
   checkedOutByTeacherId = null,
   proxyAuthorizationId = null
@@ -326,15 +326,15 @@ export const upsertAttendance = async (
   if (rows.length > 0) {
     const updateQuery = `
       UPDATE Attendances
-      SET Status = ?, CheckInTime = ?, CheckOutTime = ?, PickedUpBy = ?, DroppedOffBy = ?, CheckedInByTeacherID = ?, CheckedOutByTeacherID = ?, ProxyAuthorizationID = ?
+      SET Status = ?, CheckInTime = ?, CheckOutTime = ?, PickedUpByParentID = ?, DroppedOffByParentID = ?, CheckedInByTeacherID = ?, CheckedOutByTeacherID = ?, ProxyAuthorizationID = ?
       WHERE StudentID = ? AND AttendanceDate = ?
     `;
     await pool.query(updateQuery, [
       status, 
       checkInTime, 
       checkOutTime, 
-      pickedUpBy, 
-      droppedOffBy, 
+      pickedUpByParentId, 
+      droppedOffByParentId, 
       checkedInByTeacherId, 
       checkedOutByTeacherId, 
       proxyAuthorizationId, 
@@ -343,7 +343,7 @@ export const upsertAttendance = async (
     ]);
   } else {
     const insertQuery = `
-      INSERT INTO Attendances (StudentID, AttendanceDate, Status, CheckInTime, CheckOutTime, PickedUpBy, DroppedOffBy, CheckedInByTeacherID, CheckedOutByTeacherID, ProxyAuthorizationID)
+      INSERT INTO Attendances (StudentID, AttendanceDate, Status, CheckInTime, CheckOutTime, PickedUpByParentID, DroppedOffByParentID, CheckedInByTeacherID, CheckedOutByTeacherID, ProxyAuthorizationID)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     await pool.query(insertQuery, [
@@ -352,8 +352,8 @@ export const upsertAttendance = async (
       status, 
       checkInTime, 
       checkOutTime, 
-      pickedUpBy, 
-      droppedOffBy, 
+      pickedUpByParentId, 
+      droppedOffByParentId, 
       checkedInByTeacherId, 
       checkedOutByTeacherId, 
       proxyAuthorizationId
@@ -1057,6 +1057,7 @@ export const processQRAttendance = async (
   dateTimestamp,
   checkTimestamp,
   teacherId,
+  parentId,
   parentName,
   relationship
 ) => {
@@ -1099,15 +1100,15 @@ export const processQRAttendance = async (
     activeProxy = proxyRows.find(p => p.Type === 'checkin' || p.Type === 'both') || null;
     if (activeProxy) {
       await pool.query(
-        `INSERT INTO Attendances (StudentID, AttendanceDate, CheckInTime, Status, DroppedOffBy, CheckedInByTeacherID, ProxyAuthorizationID)
-         VALUES (?, ?, ?, 'Present', ?, ?, ?)`,
-        [studentId, dateTimestamp, checkTimestamp, `${activeProxy.ProxyName} (Đưa hộ)`, teacherId || null, activeProxy.AuthorizationID]
+        `INSERT INTO Attendances (StudentID, AttendanceDate, CheckInTime, Status, CheckedInByTeacherID, ProxyAuthorizationID)
+         VALUES (?, ?, ?, 'Present', ?, ?)`,
+        [studentId, dateTimestamp, checkTimestamp, teacherId || null, activeProxy.AuthorizationID]
       );
     } else {
       await pool.query(
-        `INSERT INTO Attendances (StudentID, AttendanceDate, CheckInTime, Status, DroppedOffBy, CheckedInByTeacherID)
+        `INSERT INTO Attendances (StudentID, AttendanceDate, CheckInTime, Status, DroppedOffByParentID, CheckedInByTeacherID)
          VALUES (?, ?, ?, 'Present', ?, ?)`,
-        [studentId, dateTimestamp, checkTimestamp, parentName || null, teacherId || null]
+        [studentId, dateTimestamp, checkTimestamp, parentId || null, teacherId || null]
       );
     }
   } else {
@@ -1123,13 +1124,13 @@ export const processQRAttendance = async (
       activeProxy = proxyRows.find(p => p.Type === 'checkout' || p.Type === 'both') || null;
       if (activeProxy) {
         await pool.query(
-          `UPDATE Attendances SET CheckOutTime = ?, PickedUpBy = ?, CheckedOutByTeacherID = ?, ProxyAuthorizationID = ? WHERE AttendanceID = ?`,
-          [checkTimestamp, `${activeProxy.ProxyName} (Đón hộ)`, teacherId || null, activeProxy.AuthorizationID, record.AttendanceID]
+          `UPDATE Attendances SET CheckOutTime = ?, CheckedOutByTeacherID = ?, ProxyAuthorizationID = ? WHERE AttendanceID = ?`,
+          [checkTimestamp, teacherId || null, activeProxy.AuthorizationID, record.AttendanceID]
         );
       } else {
         await pool.query(
-          `UPDATE Attendances SET CheckOutTime = ?, PickedUpBy = ?, CheckedOutByTeacherID = ? WHERE AttendanceID = ?`,
-          [checkTimestamp, parentName || null, teacherId || null, record.AttendanceID]
+          `UPDATE Attendances SET CheckOutTime = ?, PickedUpByParentID = ?, CheckedOutByTeacherID = ? WHERE AttendanceID = ?`,
+          [checkTimestamp, parentId || null, teacherId || null, record.AttendanceID]
         );
       }
     } else {
@@ -1137,13 +1138,13 @@ export const processQRAttendance = async (
       activeProxy = proxyRows.find(p => p.Type === 'checkin' || p.Type === 'both') || null;
       if (activeProxy) {
         await pool.query(
-          `UPDATE Attendances SET CheckInTime = ?, Status = 'Present', DroppedOffBy = ?, CheckedInByTeacherID = ?, ProxyAuthorizationID = ? WHERE AttendanceID = ?`,
-          [checkTimestamp, `${activeProxy.ProxyName} (Đưa hộ)`, teacherId || null, activeProxy.AuthorizationID, record.AttendanceID]
+          `UPDATE Attendances SET CheckInTime = ?, Status = 'Present', CheckedInByTeacherID = ?, ProxyAuthorizationID = ? WHERE AttendanceID = ?`,
+          [checkTimestamp, teacherId || null, activeProxy.AuthorizationID, record.AttendanceID]
         );
       } else {
         await pool.query(
-          `UPDATE Attendances SET CheckInTime = ?, Status = 'Present', DroppedOffBy = ?, CheckedInByTeacherID = ? WHERE AttendanceID = ?`,
-          [checkTimestamp, parentName || null, teacherId || null, record.AttendanceID]
+          `UPDATE Attendances SET CheckInTime = ?, Status = 'Present', DroppedOffByParentID = ?, CheckedInByTeacherID = ? WHERE AttendanceID = ?`,
+          [checkTimestamp, parentId || null, teacherId || null, record.AttendanceID]
         );
       }
     }
