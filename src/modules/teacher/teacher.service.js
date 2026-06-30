@@ -960,7 +960,14 @@ export const updateScheduleStatus = async (classId, scheduleId, statusStr) => {
 /**
  * Process QR Scan Attendance (Auto-detect check-in / check-out)
  */
-export const processQRAttendance = async (studentId, dateTimestamp, checkTimestamp) => {
+export const processQRAttendance = async (
+  studentId,
+  dateTimestamp,
+  checkTimestamp,
+  teacherId,
+  parentName,
+  relationship
+) => {
   const vnDate = new Date(checkTimestamp * 1000 + 7 * 60 * 60 * 1000);
   const timeStr = `${String(vnDate.getUTCHours()).padStart(2, '0')}:${String(vnDate.getUTCMinutes()).padStart(2, '0')}`;
 
@@ -989,9 +996,9 @@ export const processQRAttendance = async (studentId, dateTimestamp, checkTimesta
   if (attRows.length === 0) {
     // checkin
     await pool.query(
-      `INSERT INTO Attendances (StudentID, AttendanceDate, CheckInTime, Status)
-       VALUES (?, ?, ?, 'Present')`,
-      [studentId, dateTimestamp, checkTimestamp]
+      `INSERT INTO Attendances (StudentID, AttendanceDate, CheckInTime, Status, DroppedOffBy, CheckedInByTeacherID)
+       VALUES (?, ?, ?, 'Present', ?, ?)`,
+      [studentId, dateTimestamp, checkTimestamp, parentName || null, teacherId || null]
     );
   } else {
     const record = attRows[0];
@@ -1004,14 +1011,14 @@ export const processQRAttendance = async (studentId, dateTimestamp, checkTimesta
       // checkout
       attendanceType = 'checkout';
       await pool.query(
-        `UPDATE Attendances SET CheckOutTime = ? WHERE AttendanceID = ?`,
-        [checkTimestamp, record.AttendanceID]
+        `UPDATE Attendances SET CheckOutTime = ?, PickedUpBy = ?, CheckedOutByTeacherID = ? WHERE AttendanceID = ?`,
+        [checkTimestamp, parentName || null, teacherId || null, record.AttendanceID]
       );
     } else {
       // Absent or Excused -> change to Present and CheckIn
       await pool.query(
-        `UPDATE Attendances SET CheckInTime = ?, Status = 'Present' WHERE AttendanceID = ?`,
-        [checkTimestamp, record.AttendanceID]
+        `UPDATE Attendances SET CheckInTime = ?, Status = 'Present', DroppedOffBy = ?, CheckedInByTeacherID = ? WHERE AttendanceID = ?`,
+        [checkTimestamp, parentName || null, teacherId || null, record.AttendanceID]
       );
     }
   }
