@@ -347,19 +347,33 @@ export const getMedicationRequestsByStudentId = async (studentId) => {
 export const getStudentAttendance = async (studentId, startDate, endDate) => {
   let query = `
     SELECT 
-      AttendanceID AS attendanceId,
-      StudentID AS studentId,
-      AttendanceDate AS attendanceDate,
-      Status AS status,
-      CheckInTime AS checkInTime,
-      CheckOutTime AS checkOutTime,
-      PickedUpBy AS pickedUpBy,
-      DroppedOffBy AS droppedOffBy,
-      CheckedInByTeacherID AS checkedInByTeacherId,
-      CheckedOutByTeacherID AS checkedOutByTeacherId,
-      ProxyAuthorizationID AS proxyAuthorizationId
-    FROM Attendances
-    WHERE StudentID = ?
+      a.AttendanceID AS attendanceId,
+      a.StudentID AS studentId,
+      a.AttendanceDate AS attendanceDate,
+      a.Status AS status,
+      a.CheckInTime AS checkInTime,
+      a.CheckOutTime AS checkOutTime,
+      
+      -- Dropped off info
+      a.DroppedOffByParentID AS droppedOffByParentId,
+      COALESCE(u_in.FullName, pa.ProxyName) AS droppedOffBy,
+      COALESCE(sp_in.Relationship, 'Người đưa đi') AS droppedOffRelationship,
+      
+      -- Picked up info
+      a.PickedUpByParentID AS pickedUpByParentId,
+      COALESCE(u_out.FullName, pa.ProxyName) AS pickedUpBy,
+      COALESCE(sp_out.Relationship, 'Người đón hộ') AS pickedUpRelationship,
+      
+      a.CheckedInByTeacherID AS checkedInByTeacherId,
+      a.CheckedOutByTeacherID AS checkedOutByTeacherId,
+      a.ProxyAuthorizationID AS proxyAuthorizationId
+    FROM Attendances a
+    LEFT JOIN Users u_in ON a.DroppedOffByParentID = u_in.UserID
+    LEFT JOIN StudentParents sp_in ON u_in.UserID = sp_in.ParentID AND sp_in.StudentID = a.StudentID
+    LEFT JOIN Users u_out ON a.PickedUpByParentID = u_out.UserID
+    LEFT JOIN StudentParents sp_out ON u_out.UserID = sp_out.ParentID AND sp_out.StudentID = a.StudentID
+    LEFT JOIN ProxyAuthorizations pa ON a.ProxyAuthorizationID = pa.AuthorizationID
+    WHERE a.StudentID = ?
   `;
   const params = [studentId];
 
@@ -642,6 +656,7 @@ export const generateQrToken = async (parentId, studentId) => {
 
   const payload = {
     sub: String(studentId),
+    parentId: parentId,
     parentName: parentProfile?.fullName || 'Phụ huynh',
     relationship: relationship || 'Phụ huynh',
     iat: now,
