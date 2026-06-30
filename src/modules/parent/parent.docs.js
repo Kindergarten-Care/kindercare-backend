@@ -686,6 +686,22 @@
  *                         type: string
  *                         nullable: true
  *                         example: Bà nội
+ *                       droppedOffBy:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Bố
+ *                       checkedInByTeacherId:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 5
+ *                       checkedOutByTeacherId:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 5
+ *                       proxyAuthorizationId:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 12
  *       400:
  *         description: Bad Request - invalid parameters
  *       401:
