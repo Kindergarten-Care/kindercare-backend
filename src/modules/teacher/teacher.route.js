@@ -2,6 +2,7 @@ import express from 'express';
 import * as teacherController from './teacher.controller.js';
 import * as teacherValidation from './teacher.validation.js';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
+import { upload } from '../../utils/s3Upload.js';
 
 const router = express.Router();
 
@@ -56,6 +57,9 @@ router.get(
 router.post('/attendance/quick', teacherValidation.validateQuickAttendance, teacherController.submitQuickAttendance);
 router.post('/attendance/meals', teacherValidation.validateQuickMealLogs, teacherController.submitQuickMealLogs);
 router.post('/attendance/activities', teacherController.submitQuickActivities);
+
+// Uploads
+router.post('/upload', upload.single('image'), teacherController.uploadImage);
 
 // Medical Requests
 router.get(

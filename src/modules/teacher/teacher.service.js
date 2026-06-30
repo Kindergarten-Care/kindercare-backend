@@ -501,7 +501,7 @@ export const updateClassMenu = async (classId, dateTimestamp, menuData) => {
  * Upsert daily activity status for a student on a specific date
  */
 export const upsertDailyActivity = async (studentId, dateTimestamp, data) => {
-  const { breakfastStatus, lunchStatus, snackStatus, napStatus, hygieneStatus, teacherNote, recordedBy } = data;
+  const { breakfastStatus, lunchStatus, snackStatus, napStatus, hygieneStatus, teacherNote, photoUrl, recordedBy } = data;
   
   // Convert UNIX timestamp to YYYY-MM-DD string
   const dateObj = new Date(dateTimestamp * 1000);
@@ -519,33 +519,30 @@ export const upsertDailyActivity = async (studentId, dateTimestamp, data) => {
     if (napStatus !== undefined) { updateFields.push('NapStatus = ?'); updateValues.push(napStatus); }
     if (hygieneStatus !== undefined) { updateFields.push('HygieneStatus = ?'); updateValues.push(hygieneStatus); }
     if (teacherNote !== undefined) { updateFields.push('TeacherNote = ?'); updateValues.push(teacherNote); }
+    if (photoUrl !== undefined) { updateFields.push('PhotoUrl = ?'); updateValues.push(photoUrl); }
     if (recordedBy !== undefined) { updateFields.push('RecordedBy = ?'); updateValues.push(recordedBy); }
 
     updateFields.push('UpdatedAt = ?');
     updateValues.push(Math.floor(Date.now() / 1000));
 
-    if (updateFields.length > 0) {
-      const updateQuery = `
-        UPDATE DailyActivities
-        SET ${updateFields.join(', ')}
-        WHERE StudentID = ? AND LogDate = ?
-      `;
-      updateValues.push(studentId, logDate);
-      await pool.query(updateQuery, updateValues);
-    }
+    const updateQuery = `UPDATE DailyActivities SET ${updateFields.join(', ')} WHERE ActivityID = ?`;
+    updateValues.push(rows[0].ActivityID);
+    await pool.query(updateQuery, updateValues);
   } else {
     const insertQuery = `
-      INSERT INTO DailyActivities (StudentID, LogDate, BreakfastStatus, LunchStatus, SnackStatus, NapStatus, HygieneStatus, TeacherNote, RecordedBy, UpdatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO DailyActivities (StudentID, LogDate, BreakfastStatus, LunchStatus, SnackStatus, NapStatus, HygieneStatus, TeacherNote, PhotoUrl, RecordedBy, UpdatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     await pool.query(insertQuery, [
-      studentId, logDate, 
+      studentId, 
+      logDate, 
       breakfastStatus || null, 
       lunchStatus || null, 
-      snackStatus || null,
-      napStatus || null,
-      hygieneStatus || null, 
+      snackStatus || null, 
+      napStatus || null, 
+      hygieneStatus || 'Bình thường', 
       teacherNote || null,
+      photoUrl || null,
       recordedBy || null,
       Math.floor(Date.now() / 1000)
     ]);
