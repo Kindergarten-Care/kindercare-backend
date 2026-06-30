@@ -353,7 +353,11 @@ export const getStudentAttendance = async (studentId, startDate, endDate) => {
       Status AS status,
       CheckInTime AS checkInTime,
       CheckOutTime AS checkOutTime,
-      PickedUpBy AS pickedUpBy
+      PickedUpBy AS pickedUpBy,
+      DroppedOffBy AS droppedOffBy,
+      CheckedInByTeacherID AS checkedInByTeacherId,
+      CheckedOutByTeacherID AS checkedOutByTeacherId,
+      ProxyAuthorizationID AS proxyAuthorizationId
     FROM Attendances
     WHERE StudentID = ?
   `;
