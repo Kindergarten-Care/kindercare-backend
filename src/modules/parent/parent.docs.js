@@ -686,10 +686,18 @@
  *                         type: string
  *                         nullable: true
  *                         example: Bà nội
- *                       droppedOffBy:
- *                         type: string
- *                         nullable: true
- *                         example: Bố
+  *                       droppedOffBy:
+  *                         type: string
+  *                         nullable: true
+  *                         example: Bố
+  *                       droppedOffAvatarUrl:
+  *                         type: string
+  *                         nullable: true
+  *                         example: https://media.kindercare.app/parents/avatar.png
+  *                       pickedUpAvatarUrl:
+  *                         type: string
+  *                         nullable: true
+  *                         example: https://media.kindercare.app/proxy/avatar.png
  *                       checkedInByTeacherId:
  *                         type: integer
  *                         nullable: true

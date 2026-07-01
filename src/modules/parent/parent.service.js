@@ -360,11 +360,13 @@ export const getStudentAttendance = async (studentId, startDate, endDate) => {
       a.DroppedOffByParentID AS droppedOffByParentId,
       COALESCE(p_in.FullName, pa.ProxyName) AS droppedOffBy,
       COALESCE(sp_in.Relationship, 'Người đưa đi') AS droppedOffRelationship,
+      p_in.AvatarURL AS droppedOffAvatarUrl,
       
       -- Picked up info
       a.PickedUpByParentID AS pickedUpByParentId,
       COALESCE(p_out.FullName, pa.ProxyName) AS pickedUpBy,
       COALESCE(sp_out.Relationship, 'Người đón hộ') AS pickedUpRelationship,
+      COALESCE(p_out.AvatarURL, pa.ProxyPhotoURL) AS pickedUpAvatarUrl,
       
       a.CheckedInByTeacherID AS checkedInByTeacherId,
       a.CheckedOutByTeacherID AS checkedOutByTeacherId,
