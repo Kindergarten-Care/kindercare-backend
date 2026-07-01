@@ -35,6 +35,15 @@ router.get('/children/:studentId/daily-lessons', authenticate, authorize(4), par
 // Get daily albums of a child's class
 router.get('/children/:studentId/daily-albums', authenticate, authorize(4), parentController.getChildDailyAlbums);
 
+// Get class newsfeed of a child's class
+router.get('/children/:studentId/newsfeeds', authenticate, authorize(4), parentController.getChildNewsfeeds);
+
+// Get daily menu of a child's class
+router.get('/children/:studentId/menu', authenticate, authorize(4), parentController.getChildMenu);
+
+// Get daily activities of a child
+router.get('/children/:studentId/daily-activities', authenticate, authorize(4), parentController.getChildDailyActivities);
+
 // Generate QR token for attendance
 router.get('/children/:studentId/qr-token', authenticate, authorize(4), parentController.getQrToken);
 

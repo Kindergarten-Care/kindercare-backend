@@ -776,6 +776,120 @@ export const cancelProxyAuthorization = async (authorizationId, parentId) => {
   return rows[0];
 };
 
+/**
+ * Get newsfeeds of the class that a student is attending
+ * @param {number} studentId
+ * @returns {Promise<Array>} List of newsfeeds
+ */
+export const getNewsfeedsByStudentId = async (studentId) => {
+  const studentQuery = `
+    SELECT ClassID AS classId
+    FROM Students
+    WHERE StudentID = ?
+  `;
+  const [studentRows] = await pool.query(studentQuery, [studentId]);
+  if (studentRows.length === 0 || !studentRows[0].classId) {
+    return [];
+  }
+
+  const classId = studentRows[0].classId;
+
+  const newsfeedsQuery = `
+    SELECT 
+      n.PostID AS postId,
+      n.ClassID AS classId,
+      n.TeacherID AS teacherId,
+      n.Content AS content,
+      n.MediaURL AS mediaUrl,
+      n.PostedAt AS postedAt,
+      t.FullName AS teacherName,
+      u.AvatarURL AS teacherAvatarUrl
+    FROM Newsfeeds n
+    LEFT JOIN Teachers t ON n.TeacherID = t.TeacherID
+    LEFT JOIN Users u ON t.TeacherID = u.UserID
+    WHERE n.ClassID = ?
+    ORDER BY n.PostedAt DESC
+  `;
+  const [rows] = await pool.query(newsfeedsQuery, [classId]);
+  return rows;
+};
+
+/**
+ * Get daily menu of a child's class by StudentID and MenuDate
+ * @param {number} studentId
+ * @param {number} targetDate - Midnight timestamp in seconds
+ * @returns {Promise<Object|null>} Daily menu with details
+ */
+export const getStudentMenu = async (studentId, targetDate) => {
+  const menuQuery = `
+    SELECT 
+      m.MenuID AS menuId,
+      m.ClassID AS classId,
+      m.MenuDate AS menuDate
+    FROM Menus m
+    JOIN Students s ON m.ClassID = s.ClassID
+    WHERE s.StudentID = ? AND m.MenuDate = ?
+  `;
+  const [menuRows] = await pool.query(menuQuery, [studentId, targetDate]);
+  
+  if (menuRows.length === 0) {
+    return null;
+  }
+
+  const menu = menuRows[0];
+
+  const detailsQuery = `
+    SELECT 
+      MenuDetailID AS menuDetailId,
+      MealType AS mealType,
+      DishName AS dishName,
+      Calories AS calories,
+      NutritionalDetails AS nutritionalDetails
+    FROM MenuDetails
+    WHERE MenuID = ?
+    ORDER BY MenuDetailID ASC
+  `;
+  const [detailsRows] = await pool.query(detailsQuery, [menu.menuId]);
+  
+  return {
+    ...menu,
+    details: detailsRows
+  };
+};
+
+/**
+ * Get daily activities of a child by StudentID and LogDate
+ * @param {number} studentId
+ * @param {string} logDateStr - Date in YYYY-MM-DD format
+ * @returns {Promise<Object|null>} Daily activities record
+ */
+export const getDailyActivities = async (studentId, logDateStr) => {
+  const query = `
+    SELECT 
+      da.ActivityID AS activityId,
+      da.StudentID AS studentId,
+      da.LogDate AS logDate,
+      da.BreakfastStatus AS breakfastStatus,
+      da.LunchStatus AS lunchStatus,
+      da.NapStatus AS napStatus,
+      da.SnackStatus AS snackStatus,
+      da.HygieneStatus AS hygieneStatus,
+      da.TeacherNote AS teacherNote,
+      da.ActivityStatus AS activityStatus,
+      da.RecordedBy AS recordedBy,
+      da.UpdatedAt AS updatedAt,
+      t.FullName AS teacherName
+    FROM DailyActivities da
+    LEFT JOIN Teachers t ON da.RecordedBy = t.TeacherID
+    WHERE da.StudentID = ? AND da.LogDate = ?
+  `;
+  const [rows] = await pool.query(query, [studentId, logDateStr]);
+  return rows.length > 0 ? rows[0] : null;
+};
+
+
+
+
 
 
 
