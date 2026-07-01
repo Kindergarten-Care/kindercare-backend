@@ -83,6 +83,10 @@ router.get(
   '/classes/:classId/newsfeed',
   teacherController.getNewsfeeds
 );
+router.delete(
+  '/classes/:classId/newsfeed/:postId',
+  teacherController.deleteNewsfeed
+);
 
 // Detailed Students
 router.get(

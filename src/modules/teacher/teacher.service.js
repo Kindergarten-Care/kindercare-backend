@@ -593,7 +593,7 @@ export const updateClassMenu = async (classId, dateTimestamp, menuData) => {
  * Upsert daily activity status for a student on a specific date
  */
 export const upsertDailyActivity = async (studentId, dateTimestamp, data) => {
-  const { breakfastStatus, lunchStatus, snackStatus, napStatus, hygieneStatus, teacherNote, photoUrl, recordedBy } = data;
+  const { breakfastStatus, lunchStatus, snackStatus, napStatus, hygieneStatus, teacherNote, photoUrl, activityStatus, recordedBy } = data;
   
   // Convert UNIX timestamp to YYYY-MM-DD string
   const dateObj = new Date(dateTimestamp * 1000);
@@ -612,6 +612,7 @@ export const upsertDailyActivity = async (studentId, dateTimestamp, data) => {
     if (hygieneStatus !== undefined) { updateFields.push('HygieneStatus = ?'); updateValues.push(hygieneStatus); }
     if (teacherNote !== undefined) { updateFields.push('TeacherNote = ?'); updateValues.push(teacherNote); }
     if (photoUrl !== undefined) { updateFields.push('PhotoUrl = ?'); updateValues.push(photoUrl); }
+    if (activityStatus !== undefined) { updateFields.push('ActivityStatus = ?'); updateValues.push(activityStatus); }
     if (recordedBy !== undefined) { updateFields.push('RecordedBy = ?'); updateValues.push(recordedBy); }
 
     updateFields.push('UpdatedAt = ?');
@@ -622,8 +623,8 @@ export const upsertDailyActivity = async (studentId, dateTimestamp, data) => {
     await pool.query(updateQuery, updateValues);
   } else {
     const insertQuery = `
-      INSERT INTO DailyActivities (StudentID, LogDate, BreakfastStatus, LunchStatus, SnackStatus, NapStatus, HygieneStatus, TeacherNote, PhotoUrl, RecordedBy, UpdatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO DailyActivities (StudentID, LogDate, BreakfastStatus, LunchStatus, SnackStatus, NapStatus, HygieneStatus, TeacherNote, PhotoUrl, ActivityStatus, RecordedBy, UpdatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     await pool.query(insertQuery, [
       studentId, 
@@ -635,6 +636,7 @@ export const upsertDailyActivity = async (studentId, dateTimestamp, data) => {
       hygieneStatus || 'Bình thường', 
       teacherNote || null,
       photoUrl || null,
+      activityStatus || null,
       recordedBy || null,
       Math.floor(Date.now() / 1000)
     ]);
@@ -785,15 +787,30 @@ export const createNewsfeedPost = async (classId, teacherId, content, mediaUrl) 
  */
 export const getNewsfeeds = async (classId) => {
   const query = `
-    SELECT n.*, t.FullName as TeacherName, u.AvatarURL as TeacherAvatar 
+    SELECT 
+      n.PostID AS postId,
+      n.Content AS content,
+      n.MediaURL AS mediaUrl,
+      n.PostedAt AS postedAt,
+      u.FullName AS teacherName,
+      u.AvatarURL AS teacherAvatar
     FROM Newsfeeds n
-    LEFT JOIN Users u ON n.TeacherID = u.UserID
-    LEFT JOIN Teachers t ON n.TeacherID = t.TeacherID
+    JOIN Teachers t ON n.TeacherID = t.TeacherID
+    JOIN Users u ON t.UserID = u.UserID
     WHERE n.ClassID = ?
     ORDER BY n.PostedAt DESC
   `;
   const [rows] = await pool.query(query, [classId]);
   return rows;
+};
+
+/**
+ * Delete a newsfeed post
+ */
+export const deleteNewsfeedPost = async (postId, classId) => {
+  const query = 'DELETE FROM Newsfeeds WHERE PostID = ? AND ClassID = ?';
+  const [result] = await pool.query(query, [postId, classId]);
+  return result.affectedRows > 0;
 };
 
 /**

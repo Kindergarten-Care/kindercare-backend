@@ -457,7 +457,7 @@ export const submitQuickActivities = async (req, res, next) => {
 
     for (const item of activityData) {
       const studentId = Number(item.studentId);
-      const { napStatus, hygieneStatus, teacherNote, photoUrl } = item;
+      const { napStatus, hygieneStatus, teacherNote, photoUrl, activityStatus } = item;
       const isInClass = await teacherService.isStudentInClass(studentId, Number(classId));
       if (!isInClass) {
         throw new ApiError(httpStatus.BAD_REQUEST, `Học sinh với ID ${studentId} không thuộc lớp ${classId}`);
@@ -468,6 +468,7 @@ export const submitQuickActivities = async (req, res, next) => {
         hygieneStatus, 
         teacherNote,
         photoUrl,
+        activityStatus,
         recordedBy: teacherId
       });
     }
@@ -711,6 +712,35 @@ export const getNewsfeeds = async (req, res, next) => {
 
     res.status(httpStatus.OK).json(
       new ApiResponse(httpStatus.OK, newsfeeds, 'Lấy danh sách nhật ký thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Delete a Newsfeed post
+ */
+export const deleteNewsfeed = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId, postId } = req.params;
+
+    const numericClassId = Number(classId);
+    const numericPostId = Number(postId);
+
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền thao tác trên lớp này');
+    }
+
+    const success = await teacherService.deleteNewsfeedPost(numericPostId, numericClassId);
+    if (!success) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy bài đăng hoặc bài đăng không thuộc lớp này');
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Xóa bài đăng thành công')
     );
   } catch (error) {
     next(error);
