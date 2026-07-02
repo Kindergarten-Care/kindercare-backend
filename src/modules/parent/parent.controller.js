@@ -709,6 +709,25 @@ const createProxyAuthorization = async (req, res, next) => {
 
     logger.info(`Parent ID ${parentId} created Proxy Authorization ID ${newAuth.authorizationId} for Student ID ${studentId}`);
 
+    // Notify teachers of the student's class
+    const [studentInfo, teacherIds] = await Promise.all([
+      getStudentBasicInfo(studentIdVal),
+      getTeacherIdsByStudentId(studentIdVal),
+    ]);
+    const studentLabel = studentInfo
+      ? `${studentInfo.fullName} (${studentInfo.className})`
+      : `ID: ${studentIdVal}`;
+    await Promise.all(
+      teacherIds.map((tid) =>
+        sendPushToUser(
+          tid,
+          'Đăng ký đón hộ mới',
+          `Bé ${studentLabel} có đăng ký người đón hộ mới từ phụ huynh (${proxyName.trim()}). Vui lòng kiểm tra.`,
+          { type: 'PROXY_AUTHORIZATION', studentId: String(studentIdVal), authorizationId: String(newAuth.authorizationId) }
+        )
+      )
+    );
+
     res.status(httpStatus.CREATED).json(
       new ApiResponse(
         httpStatus.CREATED,

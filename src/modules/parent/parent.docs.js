@@ -1581,7 +1581,7 @@
  * /parent/proxy-authorizations:
  *   post:
  *     summary: Create a proxy authorization for a child
- *     description: Submit a new authorization request for another person to check-in or check-out a child student. Optionally uploads a portrait photo of the proxy.
+ *     description: Submit a new authorization request for another person to check-in or check-out a child student. Optionally uploads a portrait photo of the proxy. After creation, a push notification is automatically sent to all teachers of the child's class.
  *     tags: [Parent]
  *     security:
  *       - bearerAuth: []
