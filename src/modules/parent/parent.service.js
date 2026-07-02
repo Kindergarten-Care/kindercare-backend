@@ -1055,6 +1055,123 @@ export const changePassword = async (parentId, currentPassword, newPassword) => 
   await pool.query('UPDATE Users SET PasswordHash = ? WHERE UserID = ?', [hashed, parentId]);
 };
 
+export const getStudentWeeklyTimetable = async (studentId, dateParam = null) => {
+  // 1. Get student's classId
+  const [studentRows] = await pool.query('SELECT ClassID FROM Students WHERE StudentID = ?', [studentId]);
+  if (studentRows.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy học sinh');
+  }
+  const classId = studentRows[0].ClassID;
+  if (!classId) {
+    return null; // Student has no class assigned yet
+  }
+
+  // 2. Parse date in GMT+7
+  let dateObj = new Date();
+  if (dateParam) {
+    dateObj = new Date(dateParam * 1000);
+  }
+  // Shift to GMT+7 timezone for consistent date calculation
+  const tzOffset = 7 * 60 * 60 * 1000;
+  const localTime = new Date(dateObj.getTime() + tzOffset);
+  
+  const month = localTime.getUTCMonth() + 1;
+  const year = localTime.getUTCFullYear();
+  const day = localTime.getUTCDate();
+  const weekOrder = Math.ceil(day / 7);
+
+  // 3. Find MonthlySchedule
+  let monthlyQuery = `
+    SELECT MonthlyScheduleID AS monthlyScheduleId, MonthTheme AS monthTheme, Month AS month, Year AS year
+    FROM MonthlySchedules
+    WHERE ClassID = ? AND Month = ? AND Year = ? AND IsActive = 1
+  `;
+  let [monthlyRows] = await pool.query(monthlyQuery, [classId, month, year]);
+  
+  if (monthlyRows.length === 0) {
+    // Fallback to the latest active monthly schedule for this class
+    const fallbackQuery = `
+      SELECT MonthlyScheduleID AS monthlyScheduleId, MonthTheme AS monthTheme, Month AS month, Year AS year
+      FROM MonthlySchedules
+      WHERE ClassID = ? AND IsActive = 1
+      ORDER BY Year DESC, Month DESC
+      LIMIT 1
+    `;
+    [monthlyRows] = await pool.query(fallbackQuery, [classId]);
+  }
+
+  if (monthlyRows.length === 0) {
+    return null; // No monthly schedule found
+  }
+
+  const monthlySchedule = monthlyRows[0];
+  const targetMonthlyScheduleId = monthlySchedule.monthlyScheduleId;
+
+  // 4. Find WeeklySchedule
+  let weeklyQuery = `
+    SELECT WeeklyScheduleID AS weeklyScheduleId, WeekTheme AS weekTheme, WeekOrder AS weekOrder
+    FROM WeeklySchedules
+    WHERE MonthlyScheduleID = ? AND WeekOrder = ?
+  `;
+  let [weeklyRows] = await pool.query(weeklyQuery, [targetMonthlyScheduleId, weekOrder]);
+
+  if (weeklyRows.length === 0) {
+    // Fallback to the first available weekly schedule under this monthly schedule
+    const fallbackWeeklyQuery = `
+      SELECT WeeklyScheduleID AS weeklyScheduleId, WeekTheme AS weekTheme, WeekOrder AS weekOrder
+      FROM WeeklySchedules
+      WHERE MonthlyScheduleID = ?
+      ORDER BY WeekOrder ASC
+      LIMIT 1
+    `;
+    [weeklyRows] = await pool.query(fallbackWeeklyQuery, [targetMonthlyScheduleId]);
+  }
+
+  if (weeklyRows.length === 0) {
+    return {
+      monthlyScheduleId: monthlySchedule.monthlyScheduleId,
+      month: monthlySchedule.month,
+      year: monthlySchedule.year,
+      monthTheme: monthlySchedule.monthTheme,
+      weeklyScheduleId: null,
+      weekOrder: null,
+      weekTheme: null,
+      details: []
+    };
+  }
+
+  const weeklySchedule = weeklyRows[0];
+
+  // 5. Get WeeklyScheduleDetails
+  const detailsQuery = `
+    SELECT 
+      ScheduleDetailID AS scheduleDetailId,
+      DayOfWeek AS dayOfWeek,
+      StartTime AS startTime,
+      EndTime AS endTime,
+      ActivityName AS activityName,
+      Details AS details,
+      Location AS location,
+      ActivityType AS activityType
+    FROM WeeklyScheduleDetails
+    WHERE WeeklyScheduleID = ?
+    ORDER BY FIELD(DayOfWeek, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'), StartTime ASC
+  `;
+  const [details] = await pool.query(detailsQuery, [weeklySchedule.weeklyScheduleId]);
+
+  return {
+    monthlyScheduleId: monthlySchedule.monthlyScheduleId,
+    month: monthlySchedule.month,
+    year: monthlySchedule.year,
+    monthTheme: monthlySchedule.monthTheme,
+    weeklyScheduleId: weeklySchedule.weeklyScheduleId,
+    weekOrder: weeklySchedule.weekOrder,
+    weekTheme: weeklySchedule.weekTheme,
+    details: details
+  };
+};
+
+
 
 
 

@@ -617,6 +617,117 @@
 
 /**
  * @swagger
+ * /parent/children/{studentId}/weekly-timetable:
+ *   get:
+ *     summary: Get weekly timetable and themes for a child's class
+ *     description: Retrieve the monthly theme, weekly theme, and full weekly schedule details (lessons/activities) for the class of a given student. Defaults to the current date if not specified. Only accessible by parents associated with the child.
+ *     tags: ["Parent - Child Info"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the student
+ *         example: 1
+ *       - in: query
+ *         name: date
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Unix timestamp in seconds to specify a custom target date
+ *         example: 1783008683
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved weekly timetable and themes
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy thời khóa biểu tuần của học sinh thành công
+ *                 data:
+ *                   type: object
+ *                   nullable: true
+ *                   properties:
+ *                     monthlyScheduleId:
+ *                       type: integer
+ *                       example: 1
+ *                     month:
+ *                       type: integer
+ *                       example: 10
+ *                     year:
+ *                       type: integer
+ *                       example: 2026
+ *                     monthTheme:
+ *                       type: string
+ *                       example: "Vòng Tay Gia Đình & Lễ Hội Sắc Màu"
+ *                     weeklyScheduleId:
+ *                       type: integer
+ *                       example: 1
+ *                     weekOrder:
+ *                       type: integer
+ *                       example: 1
+ *                     weekTheme:
+ *                       type: string
+ *                       example: "Tuần 1: Tổ ấm của bé (Yêu thương gia đình)"
+ *                     details:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           scheduleDetailId:
+ *                             type: integer
+ *                             example: 1
+ *                           dayOfWeek:
+ *                             type: string
+ *                             enum: [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday]
+ *                             example: Monday
+ *                           startTime:
+ *                             type: string
+ *                             example: "09:00:00"
+ *                           endTime:
+ *                             type: string
+ *                             example: "10:15:00"
+ *                           activityName:
+ *                             type: string
+ *                             example: "Vẽ tranh ngôi nhà"
+ *                           details:
+ *                             type: string
+ *                             nullable: true
+ *                             example: "Bé vẽ và tô màu ngôi nhà của mình"
+ *                           location:
+ *                             type: string
+ *                             nullable: true
+ *                             example: null
+ *                           activityType:
+ *                             type: string
+ *                             enum: [pickup, meal, study, nap, play, dropoff, other]
+ *                             example: study
+ *       400:
+ *         description: Bad Request - invalid studentId
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - student does not belong to the logged-in parent
+ *       404:
+ *         description: Not Found - student not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
  * /parent/children/{studentId}/health-records:
  *   get:
  *     summary: Get health records of a child

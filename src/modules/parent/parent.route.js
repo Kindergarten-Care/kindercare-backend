@@ -14,6 +14,9 @@ router.get('/children/:studentId', authenticate, authorize(4), parentController.
 // Get relatives of a child
 router.get('/children/:studentId/relatives', authenticate, authorize(4), parentController.getChildRelatives);
 
+// Get weekly timetable of a child's class
+router.get('/children/:studentId/weekly-timetable', authenticate, authorize(4), parentController.getChildWeeklyTimetable);
+
 // Get profile of the logged-in parent
 router.get('/profile', authenticate, authorize(4), parentController.getMyProfile);
 
