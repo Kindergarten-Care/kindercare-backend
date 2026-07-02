@@ -1081,6 +1081,33 @@ const changePassword = async (req, res, next) => {
   }
 };
 
+const getChildWeeklyTimetable = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const { studentId } = req.params;
+    const { date } = req.query; // optional Unix timestamp in seconds
+    const studentIdVal = parseInt(studentId, 10);
+
+    if (isNaN(studentIdVal)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'studentId phải là số hợp lệ');
+    }
+
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentIdVal);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin của học sinh này');
+    }
+
+    const dateParam = date ? parseInt(date, 10) : null;
+    const timetable = await parentService.getStudentWeeklyTimetable(studentIdVal, dateParam);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, timetable, 'Lấy thời khóa biểu tuần của học sinh thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyChildren,
   getMyProfile,
@@ -1108,6 +1135,7 @@ export default {
   updateMyProfile,
   changePassword,
   getChildBadges,
+  getChildWeeklyTimetable,
 };
 
 
