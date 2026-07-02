@@ -9,11 +9,16 @@ let io = null;
  * @param {import('http').Server} httpServer
  */
 export const initSocket = (httpServer) => {
+  const allowedOrigins = (process.env.CLIENT_URL || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   io = new Server(httpServer, {
     cors: {
-      origin: process.env.CLIENT_URL || '*',
+      origin: allowedOrigins.length > 0 ? allowedOrigins : '*',
       methods: ['GET', 'POST'],
-      credentials: true,
+      credentials: allowedOrigins.length > 0,
     },
     transports: ['websocket', 'polling'],
   });
