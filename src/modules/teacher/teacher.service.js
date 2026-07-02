@@ -795,8 +795,8 @@ export const getNewsfeeds = async (classId) => {
       t.FullName AS teacherName,
       u.AvatarURL AS teacherAvatar
     FROM Newsfeeds n
-    JOIN Teachers t ON n.TeacherID = t.TeacherID
-    JOIN Users u ON t.TeacherID = u.UserID
+      JOIN Teachers t ON n.TeacherID = t.TeacherID
+      JOIN Users u ON t.UserID = u.UserID
     WHERE n.ClassID = ?
     ORDER BY n.PostedAt DESC
   `;
