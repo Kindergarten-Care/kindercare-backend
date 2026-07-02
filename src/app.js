@@ -11,6 +11,7 @@ import logger from './config/logger.js';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpecs from './config/swagger.js';
 import './jobs/attendanceCron.js';
+import './jobs/leaveRequestAttendanceCron.js';
 
 dotenv.config({
     path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env'
