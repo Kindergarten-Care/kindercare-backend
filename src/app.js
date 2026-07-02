@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import http from 'http';
 import routes from './routes/index.js';
 import { errorConverter, errorHandler } from './middlewares/error.middleware.js';
 import ApiError from './utils/ApiError.js';
@@ -10,6 +11,7 @@ import httpStatus from 'http-status';
 import logger from './config/logger.js';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpecs from './config/swagger.js';
+import { initSocket } from './config/socket.js';
 
 dotenv.config({
     path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env'
@@ -42,12 +44,15 @@ app.use(errorConverter);
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
+// Create HTTP server and attach Socket.IO
+const server = http.createServer(app);
+initSocket(server);
+
+server.listen(PORT, () => {
     logger.info(`=============================================`);
     logger.info(`🚀 Server is running on http://localhost:${PORT}`);
+    logger.info(`🔌 Socket.IO is ready on ws://localhost:${PORT}`);
     logger.info(`=============================================`);
 });
 
 export default app;
-
-
