@@ -8,8 +8,20 @@ const router = express.Router();
 // Get children of the logged-in parent
 router.get('/children', authenticate, authorize(4), parentController.getMyChildren);
 
+// Get detail of a single child
+router.get('/children/:studentId', authenticate, authorize(4), parentController.getChildDetail);
+
+// Get relatives of a child
+router.get('/children/:studentId/relatives', authenticate, authorize(4), parentController.getChildRelatives);
+
 // Get profile of the logged-in parent
 router.get('/profile', authenticate, authorize(4), parentController.getMyProfile);
+
+// Update profile of the logged-in parent (with optional avatar upload)
+router.patch('/profile', authenticate, authorize(4), upload.single('avatar'), parentController.updateMyProfile);
+
+// Change password
+router.patch('/change-password', authenticate, authorize(4), parentController.changePassword);
 
 // Get health records of a child
 router.get('/children/:studentId/health-records', authenticate, authorize(4), parentController.getChildHealthRecords);
@@ -43,6 +55,9 @@ router.get('/children/:studentId/menu', authenticate, authorize(4), parentContro
 
 // Get daily activities of a child
 router.get('/children/:studentId/daily-activities', authenticate, authorize(4), parentController.getChildDailyActivities);
+
+// Get badges of a child
+router.get('/children/:studentId/badges', authenticate, authorize(4), parentController.getChildBadges);
 
 // Generate QR token for attendance
 router.get('/children/:studentId/qr-token', authenticate, authorize(4), parentController.getQrToken);

@@ -954,6 +954,133 @@ const getChildDailyActivities = async (req, res, next) => {
   }
 };
 
+const updateMyProfile = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const { fullName, phoneNumber, email, idCard, job, address } = req.body;
+
+    let avatarUrl;
+    if (req.file) {
+      avatarUrl = await uploadToSpace(req.file, 'parents/parents-profile-avatar');
+    }
+
+    const updated = await parentService.updateParentProfile(parentId, {
+      fullName,
+      phoneNumber,
+      email,
+      idCard,
+      job,
+      address,
+      avatarUrl,
+    });
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, updated, 'Cập nhật thông tin phụ huynh thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getChildDetail = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const { studentId } = req.params;
+    const studentIdVal = parseInt(studentId, 10);
+
+    if (isNaN(studentIdVal)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'studentId phải là số hợp lệ');
+    }
+
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentIdVal);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin của học sinh này');
+    }
+
+    const student = await parentService.getStudentDetailById(studentIdVal);
+    if (!student) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy học sinh');
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, student, 'Lấy thông tin học sinh thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getChildRelatives = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const { studentId } = req.params;
+    const studentIdVal = parseInt(studentId, 10);
+
+    if (isNaN(studentIdVal)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'studentId phải là số hợp lệ');
+    }
+
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentIdVal);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin của học sinh này');
+    }
+
+    const relatives = await parentService.getStudentRelatives(studentIdVal);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, relatives, 'Lấy danh sách người thân của học sinh thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getChildBadges = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const studentIdVal = parseInt(req.params.studentId, 10);
+    if (isNaN(studentIdVal)) throw new ApiError(httpStatus.BAD_REQUEST, 'studentId phải là số hợp lệ');
+
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentIdVal);
+    if (!hasAccess) throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin của học sinh này');
+
+    const badges = await parentService.getStudentBadges(studentIdVal);
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, badges, 'Lấy danh sách huy hiệu của bé thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const changePassword = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const { currentPassword, newPassword, confirmNewPassword } = req.body;
+
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng cung cấp đầy đủ mật khẩu hiện tại, mật khẩu mới và xác nhận mật khẩu mới');
+    }
+    if (newPassword.length < 6) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Mật khẩu mới phải có ít nhất 6 ký tự');
+    }
+    if (newPassword !== confirmNewPassword) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Mật khẩu mới và xác nhận mật khẩu không khớp');
+    }
+    if (currentPassword === newPassword) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Mật khẩu mới không được trùng với mật khẩu hiện tại');
+    }
+
+    await parentService.changePassword(parentId, currentPassword, newPassword);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Đổi mật khẩu thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyChildren,
   getMyProfile,
@@ -976,6 +1103,11 @@ export default {
   createProxyAuthorization,
   getChildProxyAuthorizations,
   cancelProxyAuthorization,
+  getChildDetail,
+  getChildRelatives,
+  updateMyProfile,
+  changePassword,
+  getChildBadges,
 };
 
 

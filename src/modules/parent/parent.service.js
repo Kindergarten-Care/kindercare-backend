@@ -3,6 +3,7 @@ import ApiError from '../../utils/ApiError.js';
 import httpStatus from 'http-status';
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
+import bcrypt from 'bcryptjs';
 
 /**
  * Get all children of a parent by ParentID
@@ -100,14 +101,15 @@ export const getChildrenByParentId = async (parentId) => {
 export const getParentProfileById = async (parentId) => {
   const query = `
     SELECT 
-      ParentID AS parentId,
-      FullName AS fullName,
-      PhoneNumber AS phoneNumber,
-      Email AS email,
-      IDCard AS idCard,
-      Job AS job,
-      Address AS address,
-      AvatarURL AS avatarUrl
+      ParentID     AS parentId,
+      FullName     AS fullName,
+      DateOfBirth  AS dateOfBirth,
+      PhoneNumber  AS phoneNumber,
+      Email        AS email,
+      IDCard       AS idCard,
+      Job          AS job,
+      Address      AS address,
+      AvatarURL    AS avatarUrl
     FROM Parents
     WHERE ParentID = ?
   `;
@@ -151,6 +153,137 @@ export const isParentOfStudent = async (parentId, studentId) => {
   `;
   const [rows] = await pool.query(query, [parentId, studentId]);
   return rows.length > 0;
+};
+
+/**
+ * Get detailed info of a single student (accessible by parent)
+ * @param {number} studentId
+ * @returns {Promise<Object|null>}
+ */
+export const getStudentDetailById = async (studentId) => {
+  const [rows] = await pool.query(
+    `SELECT
+       s.StudentID        AS studentId,
+       s.FullName         AS fullName,
+       s.DateOfBirth      AS dateOfBirth,
+       s.Gender           AS gender,
+       s.Allergies        AS allergies,
+       s.AdmissionDate    AS admissionDate,
+       s.EnrollmentStatus AS enrollmentStatus,
+       s.AvatarURL        AS avatarUrl,
+       s.ClassID          AS classId,
+       c.ClassName        AS className,
+       g.GradeID          AS gradeId,
+       g.GradeName        AS gradeName,
+       ay.YearID          AS academicYearId,
+       ay.YearName        AS academicYearName,
+       b.BuildingID       AS buildingId,
+       b.BuildingName     AS buildingName,
+       cp.CampusID        AS campusId,
+       cp.CampusName      AS campusName,
+       cp.Address         AS campusAddress
+     FROM Students s
+     LEFT JOIN Classes     c  ON s.ClassID      = c.ClassID
+     LEFT JOIN Grades      g  ON c.GradeID      = g.GradeID
+     LEFT JOIN AcademicYears ay ON c.YearID     = ay.YearID
+     LEFT JOIN Buildings   b  ON c.BuildingID   = b.BuildingID
+     LEFT JOIN Campuses    cp ON b.CampusID     = cp.CampusID
+     WHERE s.StudentID = ?`,
+    [studentId]
+  );
+
+  if (rows.length === 0) return null;
+
+  const student = rows[0];
+
+  if (student.classId) {
+    const [teacherRows] = await pool.query(
+      `SELECT
+         t.TeacherID    AS teacherId,
+         t.FullName     AS fullName,
+         t.PhoneNumber  AS phoneNumber,
+         t.Email        AS email,
+         t.Gender       AS gender,
+         ct.RoleInClass AS roleInClass
+       FROM ClassTeachers ct
+       JOIN Teachers t ON ct.TeacherID = t.TeacherID
+       WHERE ct.ClassID = ?`,
+      [student.classId]
+    );
+    student.teachers = teacherRows;
+  } else {
+    student.teachers = [];
+  }
+
+  return student;
+};
+
+/**
+ * Update parent profile
+ * @param {number} parentId
+ * @param {object} fields - { fullName, phoneNumber, email, idCard, job, address, avatarUrl }
+ * @returns {Promise<Object>}
+ */
+export const updateParentProfile = async (parentId, fields) => {
+  const { fullName, phoneNumber, email, idCard, job, address, avatarUrl } = fields;
+
+  const setClauses = [];
+  const values = [];
+
+  if (fullName !== undefined)    { setClauses.push('FullName = ?');    values.push(fullName); }
+  if (phoneNumber !== undefined) { setClauses.push('PhoneNumber = ?'); values.push(phoneNumber); }
+  if (email !== undefined)       { setClauses.push('Email = ?');       values.push(email); }
+  if (idCard !== undefined)      { setClauses.push('IDCard = ?');      values.push(idCard); }
+  if (job !== undefined)         { setClauses.push('Job = ?');         values.push(job); }
+  if (address !== undefined)     { setClauses.push('Address = ?');     values.push(address); }
+  if (avatarUrl !== undefined)   { setClauses.push('AvatarURL = ?');   values.push(avatarUrl); }
+
+  if (setClauses.length === 0) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Không có thông tin nào để cập nhật');
+  }
+
+  values.push(parentId);
+  await pool.query(
+    `UPDATE Parents SET ${setClauses.join(', ')} WHERE ParentID = ?`,
+    values
+  );
+
+  const [rows] = await pool.query(
+    `SELECT ParentID AS parentId, FullName AS fullName, DateOfBirth AS dateOfBirth,
+            PhoneNumber AS phoneNumber, Email AS email, IDCard AS idCard,
+            Job AS job, Address AS address, AvatarURL AS avatarUrl
+     FROM Parents WHERE ParentID = ?`,
+    [parentId]
+  );
+  return rows[0];
+};
+
+/**
+ * Get all relatives (parents/guardians) of a student
+ * @param {number} studentId
+ * @returns {Promise<Array>}
+ */
+export const getStudentRelatives = async (studentId) => {
+  const [rows] = await pool.query(
+    `SELECT
+       p.ParentID      AS parentId,
+       p.FullName      AS fullName,
+       p.DateOfBirth   AS dateOfBirth,
+       p.PhoneNumber   AS phoneNumber,
+       p.Email         AS email,
+       p.IDCard        AS idCard,
+       p.Job           AS job,
+       p.Address       AS address,
+       p.AvatarURL     AS avatarUrl,
+       sp.Relationship AS relationship,
+       sp.IsPrimary    AS isPrimary
+     FROM StudentParents sp
+     JOIN Parents p ON sp.ParentID = p.ParentID
+     WHERE sp.StudentID = ?
+     ORDER BY sp.IsPrimary DESC, p.FullName ASC`,
+    [studentId]
+  );
+  return rows;
 };
 
 /**
@@ -865,7 +998,7 @@ export const getStudentMenu = async (studentId, targetDate) => {
  */
 export const getDailyActivities = async (studentId, logDateStr) => {
   const query = `
-    SELECT 
+    SELECT
       da.ActivityID AS activityId,
       da.StudentID AS studentId,
       da.LogDate AS logDate,
@@ -885,6 +1018,39 @@ export const getDailyActivities = async (studentId, logDateStr) => {
   `;
   const [rows] = await pool.query(query, [studentId, logDateStr]);
   return rows.length > 0 ? rows[0] : null;
+};
+
+export const getStudentBadges = async (studentId) => {
+  const [rows] = await pool.query(
+    `SELECT
+       sb.StudentBadgeID AS studentBadgeId,
+       sb.StudentID      AS studentId,
+       sb.DateEarned     AS dateEarned,
+       rb.BadgeID        AS badgeId,
+       rb.BadgeName      AS badgeName,
+       rb.BadgeImageURL  AS badgeImageUrl,
+       rb.CriteriaType   AS criteriaType
+     FROM StudentBadges sb
+     JOIN RewardBadges rb ON sb.BadgeID = rb.BadgeID
+     WHERE sb.StudentID = ?
+     ORDER BY sb.DateEarned DESC`,
+    [studentId]
+  );
+  return rows;
+};
+
+export const changePassword = async (parentId, currentPassword, newPassword) => {
+  const [rows] = await pool.query(
+    'SELECT PasswordHash FROM Users WHERE UserID = ?',
+    [parentId]
+  );
+  if (rows.length === 0) throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy tài khoản');
+
+  const isMatch = await bcrypt.compare(currentPassword, rows[0].PasswordHash);
+  if (!isMatch) throw new ApiError(httpStatus.BAD_REQUEST, 'Mật khẩu hiện tại không đúng');
+
+  const hashed = await bcrypt.hash(newPassword, 12);
+  await pool.query('UPDATE Users SET PasswordHash = ? WHERE UserID = ?', [hashed, parentId]);
 };
 
 
