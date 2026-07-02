@@ -686,6 +686,30 @@
  *                         type: string
  *                         nullable: true
  *                         example: Bà nội
+  *                       droppedOffBy:
+  *                         type: string
+  *                         nullable: true
+  *                         example: Bố
+  *                       droppedOffAvatarUrl:
+  *                         type: string
+  *                         nullable: true
+  *                         example: https://media.kindercare.app/parents/avatar.png
+  *                       pickedUpAvatarUrl:
+  *                         type: string
+  *                         nullable: true
+  *                         example: https://media.kindercare.app/proxy/avatar.png
+ *                       checkedInByTeacherId:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 5
+ *                       checkedOutByTeacherId:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 5
+ *                       proxyAuthorizationId:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 12
  *       400:
  *         description: Bad Request - invalid parameters
  *       401:
@@ -1234,6 +1258,267 @@
 
 /**
  * @swagger
+ * /parent/children/{studentId}/newsfeeds:
+ *   get:
+ *     summary: Get class newsfeeds of a child's class
+ *     description: Retrieve all newsfeeds (posts with content, media URL, posting time, and teacher details who posted the newsfeed) for the class of a given child student. Only accessible by parents associated with the child.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the child student
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved child class newsfeeds
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách bản tin lớp học thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       postId:
+ *                         type: integer
+ *                         example: 1
+ *                       classId:
+ *                         type: integer
+ *                         example: 1
+ *                       teacherId:
+ *                         type: integer
+ *                         example: 5
+ *                       content:
+ *                         type: string
+ *                         example: sfgsdf
+ *                       mediaUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://images.unsplash.com/photo-1540479859555-17...
+ *                       postedAt:
+ *                         type: integer
+ *                         example: 1782400606
+ *                       teacherName:
+ *                         type: string
+ *                         example: Nguyễn Thị Lan
+ *                       teacherAvatarUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://media.kindercare.app/Avatar/Teacher%20Avatar/avatar1.jpg
+ *       400:
+ *         description: Bad Request - invalid studentId
+ *       401:
+ *         description: Unauthorized - token missing or invalid
+ *       403:
+ *         description: Forbidden - user is not a parent or is not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/menu:
+ *   get:
+ *     summary: Get daily menu of a child's class
+ *     description: Retrieve the daily menu (dishes served for different meal types, e.g., Breakfast, Lunch, Snack, with calories and nutritional details) for the class of a given child student. Defaults to the current date if not specified. Only accessible by parents associated with the child.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the child student
+ *       - in: query
+ *         name: date
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Target date represented as a Unix timestamp in seconds. Midnight UTC of the corresponding date will be used. Defaults to the current date.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved child daily menu
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy thực đơn ngày của bé thành công
+ *                 data:
+ *                   type: object
+ *                   nullable: true
+ *                   properties:
+ *                     menuId:
+ *                       type: integer
+ *                       example: 1
+ *                     classId:
+ *                       type: integer
+ *                       example: 1
+ *                     menuDate:
+ *                       type: integer
+ *                       example: 1782172800
+ *                     details:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           menuDetailId:
+ *                             type: integer
+ *                             example: 1
+ *                           mealType:
+ *                             type: string
+ *                             example: Breakfast
+ *                           dishName:
+ *                             type: string
+ *                             example: Cháo lươn đồng hạt sen
+ *                           calories:
+ *                             type: integer
+ *                             nullable: true
+ *                             example: null
+ *                           nutritionalDetails:
+ *                             type: string
+ *                             nullable: true
+ *                             example: Protein, Canxi
+ *       400:
+ *         description: Bad Request - invalid studentId or invalid date parameter
+ *       401:
+ *         description: Unauthorized - token missing or invalid
+ *       403:
+ *         description: Forbidden - user is not a parent or is not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/daily-activities:
+ *   get:
+ *     summary: Get daily activities of a child
+ *     description: Retrieve the daily activity behaviors (breakfast status, lunch status, nap status, snack status, hygiene status, and teacher comments/notes) recorded for a child on a specific date. Defaults to the current date if not specified. Only accessible by parents associated with the child.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the child student
+ *       - in: query
+ *         name: date
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Target date represented as a Unix timestamp in seconds. Midnight local of the corresponding date will be used. Defaults to the current date.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved child daily activities
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy nhật ký hoạt động ngày của bé thành công
+ *                 data:
+ *                   type: object
+ *                   nullable: true
+ *                   properties:
+ *                     activityId:
+ *                       type: integer
+ *                       example: 1
+ *                     studentId:
+ *                       type: integer
+ *                       example: 1
+ *                     logDate:
+ *                       type: string
+ *                       example: 2026-06-22
+ *                     breakfastStatus:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Ăn hết
+ *                     lunchStatus:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Ăn hết
+ *                     napStatus:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Ngủ ngoan
+ *                     snackStatus:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Ăn hết
+ *                     hygieneStatus:
+ *                       type: string
+ *                       example: Tốt
+ *                     teacherNote:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Hôm nay Khang rất ngoan, tự xúc cơm không cần cô đút.
+ *                     activityStatus:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Vui chơi tích cực
+ *                     recordedBy:
+ *                       type: integer
+ *                       nullable: true
+ *                       example: 5
+ *                     updatedAt:
+ *                       type: integer
+ *                       example: 1782669357
+ *                     teacherName:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Nguyễn Thị Lan
+ *       400:
+ *         description: Bad Request - invalid studentId or invalid date parameter
+ *       401:
+ *         description: Unauthorized - token missing or invalid
+ *       403:
+ *         description: Forbidden - user is not a parent or is not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+
+
+
+/**
+ * @swagger
  * /parent/children/{studentId}/qr-token:
  *   get:
  *     summary: Generate QR attendance token for a child
@@ -1291,7 +1576,219 @@
  *         description: Internal Server Error
  */
 
-
-
-
-
+/**
+ * @swagger
+ * /parent/proxy-authorizations:
+ *   post:
+ *     summary: Create a proxy authorization for a child
+ *     description: Submit a new authorization request for another person to check-in or check-out a child student. Optionally uploads a portrait photo of the proxy. After creation, a push notification is automatically sent to all teachers of the child's class.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - studentId
+ *               - authorizationDate
+ *               - type
+ *               - proxyName
+ *             properties:
+ *               studentId:
+ *                 type: integer
+ *                 description: ID of the child student
+ *                 example: 19
+ *               authorizationDate:
+ *                 type: integer
+ *                 description: Unix timestamp in seconds for the authorization day (start of day)
+ *                 example: 1782824107
+ *               type:
+ *                 type: string
+ *                 enum: [checkin, checkout, both]
+ *                 description: Type of authorization (checkin = Morning drop-off, checkout = Afternoon pickup, both = Both)
+ *                 example: checkout
+ *               proxyName:
+ *                 type: string
+ *                 description: Full name of the proxy person
+ *                 example: "Nguyễn Văn B"
+ *               proxyPhone:
+ *                 type: string
+ *                 description: Phone number of the proxy person
+ *                 example: "0901234567"
+ *               proxyIDCard:
+ *                 type: string
+ *                 description: ID card number (CCCD/CMND) of the proxy person
+ *                 example: "079123456789"
+ *               notes:
+ *                 type: string
+ *                 description: Additional notes/description of the proxy person
+ *                 example: "Là chú của bé, đi xe Lead đỏ"
+ *               proxyPhoto:
+ *                 type: string
+ *                 format: binary
+ *                 description: Portrait image file of the proxy person
+ *     responses:
+ *       201:
+ *         description: Proxy authorization created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 201
+ *                 message:
+ *                   type: string
+ *                   example: "Đăng ký ủy quyền đưa đón thành công"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     authorizationId:
+ *                       type: integer
+ *                       example: 12
+ *       400:
+ *         description: Bad Request - Validation failed or invalid format
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Student does not belong to this parent
+ *       500:
+ *         description: Internal Server Error
+ * 
+ * /parent/children/{studentId}/proxy-authorizations:
+ *   get:
+ *     summary: Get proxy authorizations of a child
+ *     description: Retrieve all active and past proxy authorizations submitted by the logged-in parent for a specific child student.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the child student
+ *         example: 19
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved proxy authorizations list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: "Lấy danh sách ủy quyền đón hộ thành công"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       authorizationId:
+ *                         type: integer
+ *                         example: 12
+ *                       studentId:
+ *                         type: integer
+ *                         example: 19
+ *                       parentId:
+ *                         type: integer
+ *                         example: 4
+ *                       authorizationDate:
+ *                         type: integer
+ *                         description: Unix timestamp of the day of authorization
+ *                         example: 1782824107
+ *                       type:
+ *                         type: string
+ *                         enum: [checkin, checkout, both]
+ *                         example: checkout
+ *                       proxyName:
+ *                         type: string
+ *                         example: "Nguyễn Văn B"
+ *                       proxyPhone:
+ *                         type: string
+ *                         example: "0901234567"
+ *                       proxyIDCard:
+ *                         type: string
+ *                         example: "079123456789"
+ *                       proxyPhotoUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "https://example.com/parents/proxy-photos/168910291.jpg"
+ *                       notes:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "Là chú của bé, đi xe Lead đỏ"
+ *                       status:
+ *                         type: string
+ *                         enum: [Approved, Cancelled, Completed]
+ *                         example: Approved
+ *                       createdAt:
+ *                         type: integer
+ *                         example: 1782810000
+ *       400:
+ *         description: Bad Request
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Student does not belong to this parent
+ *       500:
+ *         description: Internal Server Error
+ * 
+ * /parent/proxy-authorizations/{authorizationId}/cancel:
+ *   patch:
+ *     summary: Cancel a proxy authorization
+ *     description: Cancel an active proxy authorization request. This is only allowed for requests with status 'Approved' that have not occurred yet.
+ *     tags: [Parent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: authorizationId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the proxy authorization record
+ *         example: 12
+ *     responses:
+ *       200:
+ *         description: Proxy authorization cancelled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: "Hủy ủy quyền đón hộ thành công"
+ *       400:
+ *         description: Bad Request - Authorization cannot be cancelled (e.g. already cancelled or completed)
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Record does not belong to the logged-in parent's child
+ *       404:
+ *         description: Not Found - Proxy authorization not found
+ *       500:
+ *         description: Internal Server Error
+ */

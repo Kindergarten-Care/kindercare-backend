@@ -2,7 +2,22 @@
  * @swagger
  * tags:
  *   name: Notifications
- *   description: Push notifications and FCM device token registry management
+ *   description: |
+ *     Push notifications and FCM device token registry management.
+ *
+ *     **Real-time delivery via Socket.IO**
+ *
+ *     In addition to FCM push and the REST endpoints below, every notification created by
+ *     `sendPushToUser` is also emitted in real time over Socket.IO to the recipient's private room.
+ *
+ *     - Connect: `io(SERVER_URL, { auth: { token: <JWT access token> } })`
+ *     - Server verifies the JWT and joins the socket to room `user:${userId}`
+ *     - Event name: `new_notification`
+ *     - Payload shape matches the notification objects returned by `GET /notifications`
+ *       (`notifId`, `userId`, `title`, `message`, `type`, `isRead`, `isCritical`, `dataPayload` as a JSON string, `createdAt`, `updatedAt`)
+ *     - `dataPayload` is JSON-stringified; parse it client-side to read fields like `type`, `studentId`, etc.
+ *     - Real-time delivery only reaches clients with an active socket connection (e.g. app in foreground);
+ *       FCM push covers background/killed app state.
  */
 
 /**

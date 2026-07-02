@@ -349,15 +349,35 @@ export const getMedicationRequestsByStudentId = async (studentId) => {
 export const getStudentAttendance = async (studentId, startDate, endDate) => {
   let query = `
     SELECT 
-      AttendanceID AS attendanceId,
-      StudentID AS studentId,
-      AttendanceDate AS attendanceDate,
-      Status AS status,
-      CheckInTime AS checkInTime,
-      CheckOutTime AS checkOutTime,
-      PickedUpBy AS pickedUpBy
-    FROM Attendances
-    WHERE StudentID = ?
+      a.AttendanceID AS attendanceId,
+      a.StudentID AS studentId,
+      a.AttendanceDate AS attendanceDate,
+      a.Status AS status,
+      a.CheckInTime AS checkInTime,
+      a.CheckOutTime AS checkOutTime,
+      
+      -- Dropped off info
+      a.DroppedOffByParentID AS droppedOffByParentId,
+      COALESCE(p_in.FullName, pa.ProxyName) AS droppedOffBy,
+      COALESCE(sp_in.Relationship, 'Người đưa đi') AS droppedOffRelationship,
+      p_in.AvatarURL AS droppedOffAvatarUrl,
+      
+      -- Picked up info
+      a.PickedUpByParentID AS pickedUpByParentId,
+      COALESCE(p_out.FullName, pa.ProxyName) AS pickedUpBy,
+      COALESCE(sp_out.Relationship, 'Người đón hộ') AS pickedUpRelationship,
+      COALESCE(p_out.AvatarURL, pa.ProxyPhotoURL) AS pickedUpAvatarUrl,
+      
+      a.CheckedInByTeacherID AS checkedInByTeacherId,
+      a.CheckedOutByTeacherID AS checkedOutByTeacherId,
+      a.ProxyAuthorizationID AS proxyAuthorizationId
+    FROM Attendances a
+    LEFT JOIN Parents p_in ON a.DroppedOffByParentID = p_in.ParentID
+    LEFT JOIN StudentParents sp_in ON p_in.ParentID = sp_in.ParentID AND sp_in.StudentID = a.StudentID
+    LEFT JOIN Parents p_out ON a.PickedUpByParentID = p_out.ParentID
+    LEFT JOIN StudentParents sp_out ON p_out.ParentID = sp_out.ParentID AND sp_out.StudentID = a.StudentID
+    LEFT JOIN ProxyAuthorizations pa ON a.ProxyAuthorizationID = pa.AuthorizationID
+    WHERE a.StudentID = ?
   `;
   const params = [studentId];
 
@@ -640,6 +660,7 @@ export const generateQrToken = async (parentId, studentId) => {
 
   const payload = {
     sub: String(studentId),
+    parentId: parentId,
     parentName: parentProfile?.fullName || 'Phụ huynh',
     relationship: relationship || 'Phụ huynh',
     iat: now,
@@ -651,6 +672,225 @@ export const generateQrToken = async (parentId, studentId) => {
 
   return { token, expiresAt: now + ttl, ttl };
 };
+
+export const createProxyAuthorization = async (
+  studentId,
+  parentId,
+  authorizationDate,
+  type,
+  proxyName,
+  proxyPhone,
+  proxyIDCard,
+  proxyPhotoUrl,
+  notes
+) => {
+  const createdAt = Math.floor(Date.now() / 1000);
+  const insertQuery = `
+    INSERT INTO ProxyAuthorizations (StudentID, ParentID, AuthorizationDate, Type, ProxyName, ProxyPhone, ProxyIDCard, ProxyPhotoURL, Notes, Status, CreatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Approved', ?)
+  `;
+  const [result] = await pool.query(insertQuery, [
+    studentId,
+    parentId,
+    authorizationDate,
+    type,
+    proxyName,
+    proxyPhone,
+    proxyIDCard,
+    proxyPhotoUrl,
+    notes,
+    createdAt
+  ]);
+
+  const selectQuery = `
+    SELECT 
+      AuthorizationID AS authorizationId,
+      StudentID AS studentId,
+      ParentID AS parentId,
+      AuthorizationDate AS authorizationDate,
+      Type AS type,
+      ProxyName AS proxyName,
+      ProxyPhone AS proxyPhone,
+      ProxyIDCard AS proxyIDCard,
+      ProxyPhotoURL AS proxyPhotoUrl,
+      Notes AS notes,
+      Status AS status,
+      CreatedAt AS createdAt
+    FROM ProxyAuthorizations
+    WHERE AuthorizationID = ?
+  `;
+  const [rows] = await pool.query(selectQuery, [result.insertId]);
+  return rows[0];
+};
+
+export const getProxyAuthorizationsByStudentId = async (studentId) => {
+  const query = `
+    SELECT 
+      AuthorizationID AS authorizationId,
+      StudentID AS studentId,
+      ParentID AS parentId,
+      AuthorizationDate AS authorizationDate,
+      Type AS type,
+      ProxyName AS proxyName,
+      ProxyPhone AS proxyPhone,
+      ProxyIDCard AS proxyIDCard,
+      ProxyPhotoURL AS proxyPhotoUrl,
+      Notes AS notes,
+      Status AS status,
+      CreatedAt AS createdAt
+    FROM ProxyAuthorizations
+    WHERE StudentID = ?
+    ORDER BY AuthorizationDate DESC, AuthorizationID DESC
+  `;
+  const [rows] = await pool.query(query, [studentId]);
+  return rows;
+};
+
+export const cancelProxyAuthorization = async (authorizationId, parentId) => {
+  const updateQuery = `
+    UPDATE ProxyAuthorizations 
+    SET Status = 'Cancelled' 
+    WHERE AuthorizationID = ? AND ParentID = ?
+  `;
+  await pool.query(updateQuery, [authorizationId, parentId]);
+
+  const selectQuery = `
+    SELECT 
+      AuthorizationID AS authorizationId,
+      StudentID AS studentId,
+      ParentID AS parentId,
+      AuthorizationDate AS authorizationDate,
+      Type AS type,
+      ProxyName AS proxyName,
+      ProxyPhone AS proxyPhone,
+      ProxyIDCard AS proxyIDCard,
+      ProxyPhotoURL AS proxyPhotoUrl,
+      Notes AS notes,
+      Status AS status,
+      CreatedAt AS createdAt
+    FROM ProxyAuthorizations
+    WHERE AuthorizationID = ?
+  `;
+  const [rows] = await pool.query(selectQuery, [authorizationId]);
+  if (rows.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy đơn ủy quyền');
+  }
+  return rows[0];
+};
+
+/**
+ * Get newsfeeds of the class that a student is attending
+ * @param {number} studentId
+ * @returns {Promise<Array>} List of newsfeeds
+ */
+export const getNewsfeedsByStudentId = async (studentId) => {
+  const studentQuery = `
+    SELECT ClassID AS classId
+    FROM Students
+    WHERE StudentID = ?
+  `;
+  const [studentRows] = await pool.query(studentQuery, [studentId]);
+  if (studentRows.length === 0 || !studentRows[0].classId) {
+    return [];
+  }
+
+  const classId = studentRows[0].classId;
+
+  const newsfeedsQuery = `
+    SELECT 
+      n.PostID AS postId,
+      n.ClassID AS classId,
+      n.TeacherID AS teacherId,
+      n.Content AS content,
+      n.MediaURL AS mediaUrl,
+      n.PostedAt AS postedAt,
+      t.FullName AS teacherName,
+      u.AvatarURL AS teacherAvatarUrl
+    FROM Newsfeeds n
+    LEFT JOIN Teachers t ON n.TeacherID = t.TeacherID
+    LEFT JOIN Users u ON t.TeacherID = u.UserID
+    WHERE n.ClassID = ?
+    ORDER BY n.PostedAt DESC
+  `;
+  const [rows] = await pool.query(newsfeedsQuery, [classId]);
+  return rows;
+};
+
+/**
+ * Get daily menu of a child's class by StudentID and MenuDate
+ * @param {number} studentId
+ * @param {number} targetDate - Midnight timestamp in seconds
+ * @returns {Promise<Object|null>} Daily menu with details
+ */
+export const getStudentMenu = async (studentId, targetDate) => {
+  const menuQuery = `
+    SELECT 
+      m.MenuID AS menuId,
+      m.ClassID AS classId,
+      m.MenuDate AS menuDate
+    FROM Menus m
+    JOIN Students s ON m.ClassID = s.ClassID
+    WHERE s.StudentID = ? AND m.MenuDate = ?
+  `;
+  const [menuRows] = await pool.query(menuQuery, [studentId, targetDate]);
+
+  if (menuRows.length === 0) {
+    return null;
+  }
+
+  const menu = menuRows[0];
+
+  const detailsQuery = `
+    SELECT 
+      MenuDetailID AS menuDetailId,
+      MealType AS mealType,
+      DishName AS dishName,
+      Calories AS calories,
+      NutritionalDetails AS nutritionalDetails
+    FROM MenuDetails
+    WHERE MenuID = ?
+    ORDER BY MenuDetailID ASC
+  `;
+  const [detailsRows] = await pool.query(detailsQuery, [menu.menuId]);
+
+  return {
+    ...menu,
+    details: detailsRows
+  };
+};
+
+/**
+ * Get daily activities of a child by StudentID and LogDate
+ * @param {number} studentId
+ * @param {string} logDateStr - Date in YYYY-MM-DD format
+ * @returns {Promise<Object|null>} Daily activities record
+ */
+export const getDailyActivities = async (studentId, logDateStr) => {
+  const query = `
+    SELECT 
+      da.ActivityID AS activityId,
+      da.StudentID AS studentId,
+      da.LogDate AS logDate,
+      da.BreakfastStatus AS breakfastStatus,
+      da.LunchStatus AS lunchStatus,
+      da.NapStatus AS napStatus,
+      da.SnackStatus AS snackStatus,
+      da.HygieneStatus AS hygieneStatus,
+      da.TeacherNote AS teacherNote,
+      da.ActivityStatus AS activityStatus,
+      da.RecordedBy AS recordedBy,
+      da.UpdatedAt AS updatedAt,
+      t.FullName AS teacherName
+    FROM DailyActivities da
+    LEFT JOIN Teachers t ON da.RecordedBy = t.TeacherID
+    WHERE da.StudentID = ? AND da.LogDate = ?
+  `;
+  const [rows] = await pool.query(query, [studentId, logDateStr]);
+  return rows.length > 0 ? rows[0] : null;
+};
+
+
+
 
 
 
