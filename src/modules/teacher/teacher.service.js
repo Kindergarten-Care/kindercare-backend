@@ -792,11 +792,11 @@ export const getNewsfeeds = async (classId) => {
       n.Content AS content,
       n.MediaURL AS mediaUrl,
       n.PostedAt AS postedAt,
-      u.FullName AS teacherName,
+      t.FullName AS teacherName,
       u.AvatarURL AS teacherAvatar
     FROM Newsfeeds n
     JOIN Teachers t ON n.TeacherID = t.TeacherID
-    JOIN Users u ON t.UserID = u.UserID
+    JOIN Users u ON t.TeacherID = u.UserID
     WHERE n.ClassID = ?
     ORDER BY n.PostedAt DESC
   `;
