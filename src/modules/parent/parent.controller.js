@@ -1116,7 +1116,7 @@ const getChildDailyEvents = async (req, res, next) => {
   try {
     const parentId = req.user.userId;
     const roleId = req.user.roleId;
-    const { studentId, date } = req.query;
+    const { studentId, date, startDate, endDate } = req.query;
 
     if (roleId !== 4) {
       throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
@@ -1126,33 +1126,44 @@ const getChildDailyEvents = async (req, res, next) => {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Thiếu studentId');
     }
 
-    if (!date) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'Thiếu date (định dạng YYYY-MM-DD)');
-    }
-
+    let result;
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(date)) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'date phải ở định dạng YYYY-MM-DD');
-    }
 
-    // Verify parent has access to this student
-    const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
-    if (!hasAccess) {
-      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin sự kiện của học sinh này');
+    if (startDate && endDate) {
+      if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'startDate và endDate phải ở định dạng YYYY-MM-DD');
+      }
+      const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
+      if (!hasAccess) {
+        throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin sự kiện của học sinh này');
+      }
+      result = await parentService.getStudentDailyEvents(parseInt(studentId, 10), startDate, endDate);
+    } else {
+      if (!date) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Thiếu date hoặc cặp (startDate, endDate)');
+      }
+      if (!dateRegex.test(date)) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'date phải ở định dạng YYYY-MM-DD');
+      }
+      const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
+      if (!hasAccess) {
+        throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin sự kiện của học sinh này');
+      }
+      result = await parentService.getStudentDailyEvents(parseInt(studentId, 10), date);
     }
-
-    const result = await parentService.getStudentDailyEvents(parseInt(studentId, 10), date);
 
     res.status(httpStatus.OK).json(
       new ApiResponse(
         httpStatus.OK,
         {
-          date,
+          date: date || null,
+          startDate: startDate || null,
+          endDate: endDate || null,
           studentId: parseInt(studentId, 10),
           classId: result.classId,
           events: result.events,
         },
-        'Lấy danh sách sự kiện trong ngày thành công'
+        'Lấy danh sách sự kiện thành công'
       )
     );
   } catch (error) {
