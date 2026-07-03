@@ -968,11 +968,9 @@ const getISOWeekAndYear = (date) => {
  * @param {number} targetDate - Midnight timestamp in seconds
  * @returns {Promise<Object|null>} Daily menu with details
  */
-export const getStudentMenu = async (studentId, targetDate) => {
+export const getStudentMenu = async (studentId, targetDate, dayFilter = null) => {
   const dateObj = new Date(targetDate * 1000);
   const { week, year } = getISOWeekAndYear(dateObj);
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const dayOfWeek = days[dateObj.getUTCDay()];
 
   const menuQuery = `
     SELECT 
@@ -993,18 +991,27 @@ export const getStudentMenu = async (studentId, targetDate) => {
 
   const menu = menuRows[0];
 
-  const detailsQuery = `
+  let detailsQuery = `
     SELECT 
       MenuDetailID AS menuDetailId,
+      DayOfWeek AS dayOfWeek,
       MealType AS mealType,
       DishName AS dishName,
       Calories AS calories,
       NutritionalDetails AS nutritionalDetails
     FROM MenuDetails
-    WHERE MenuID = ? AND DayOfWeek = ?
-    ORDER BY MenuDetailID ASC
+    WHERE MenuID = ?
   `;
-  const [detailsRows] = await pool.query(detailsQuery, [menu.menuId, dayOfWeek]);
+  const queryParams = [menu.menuId];
+
+  if (dayFilter) {
+    detailsQuery += ` AND DayOfWeek = ?`;
+    queryParams.push(dayFilter);
+  }
+
+  detailsQuery += ` ORDER BY MenuDetailID ASC`;
+
+  const [detailsRows] = await pool.query(detailsQuery, queryParams);
   
   return {
     menuId: menu.menuId,

@@ -502,12 +502,12 @@ const getChildDailySchedule = async (req, res, next) => {
       targetTimestamp = Math.floor(Date.now() / 1000);
     }
 
-    // Calculate UTC midnight of the target timestamp's local day
-    const targetDateObj = new Date(targetTimestamp * 1000);
+    // Calculate UTC midnight of the target timestamp's local day (GMT+7)
+    const localDateObj = new Date((targetTimestamp + 7 * 3600) * 1000);
     const midnightSeconds = Math.floor(Date.UTC(
-      targetDateObj.getFullYear(),
-      targetDateObj.getMonth(),
-      targetDateObj.getDate()
+      localDateObj.getUTCFullYear(),
+      localDateObj.getUTCMonth(),
+      localDateObj.getUTCDate()
     ) / 1000);
 
     const schedule = await parentService.getStudentDailySchedule(
@@ -556,12 +556,12 @@ const getChildDailyLessons = async (req, res, next) => {
       targetTimestamp = Math.floor(Date.now() / 1000);
     }
 
-    // Calculate UTC midnight of the target timestamp's local day
-    const targetDateObj = new Date(targetTimestamp * 1000);
+    // Calculate UTC midnight of the target timestamp's local day (GMT+7)
+    const localDateObj = new Date((targetTimestamp + 7 * 3600) * 1000);
     const midnightSeconds = Math.floor(Date.UTC(
-      targetDateObj.getFullYear(),
-      targetDateObj.getMonth(),
-      targetDateObj.getDate()
+      localDateObj.getUTCFullYear(),
+      localDateObj.getUTCMonth(),
+      localDateObj.getUTCDate()
     ) / 1000);
 
     const lessons = await parentService.getStudentDailyLessons(
@@ -610,12 +610,12 @@ const getChildDailyAlbums = async (req, res, next) => {
       targetTimestamp = Math.floor(Date.now() / 1000);
     }
 
-    // Calculate UTC midnight of the target timestamp's local day
-    const targetDateObj = new Date(targetTimestamp * 1000);
+    // Calculate UTC midnight of the target timestamp's local day (GMT+7)
+    const localDateObj = new Date((targetTimestamp + 7 * 3600) * 1000);
     const midnightSeconds = Math.floor(Date.UTC(
-      targetDateObj.getFullYear(),
-      targetDateObj.getMonth(),
-      targetDateObj.getDate()
+      localDateObj.getUTCFullYear(),
+      localDateObj.getUTCMonth(),
+      localDateObj.getUTCDate()
     ) / 1000);
 
     const albums = await parentService.getStudentDailyAlbums(
@@ -863,25 +863,29 @@ const getChildMenu = async (req, res, next) => {
     }
 
     let targetTimestamp;
+    let dayFilter = null;
     if (date) {
       targetTimestamp = parseInt(date, 10);
       if (isNaN(targetTimestamp)) {
         throw new ApiError(httpStatus.BAD_REQUEST, 'date phải là số nguyên hợp lệ (timestamp tính bằng giây)');
       }
+      const localDateObj = new Date((targetTimestamp + 7 * 3600) * 1000);
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      dayFilter = days[localDateObj.getUTCDay()];
     } else {
       // Default to current time
       targetTimestamp = Math.floor(Date.now() / 1000);
     }
 
-    // Calculate UTC midnight of the target timestamp's local day
-    const targetDateObj = new Date(targetTimestamp * 1000);
+    // Calculate UTC midnight of the target timestamp's local day (GMT+7)
+    const localDateObj = new Date((targetTimestamp + 7 * 3600) * 1000);
     const midnightSeconds = Math.floor(Date.UTC(
-      targetDateObj.getFullYear(),
-      targetDateObj.getMonth(),
-      targetDateObj.getDate()
+      localDateObj.getUTCFullYear(),
+      localDateObj.getUTCMonth(),
+      localDateObj.getUTCDate()
     ) / 1000);
 
-    const menu = await parentService.getStudentMenu(studentIdVal, midnightSeconds);
+    const menu = await parentService.getStudentMenu(studentIdVal, midnightSeconds, dayFilter);
 
     res.status(httpStatus.OK).json(
       new ApiResponse(
@@ -933,11 +937,11 @@ const getChildDailyActivities = async (req, res, next) => {
       targetTimestamp = Math.floor(Date.now() / 1000);
     }
 
-    // Calculate target local date elements
-    const targetDateObj = new Date(targetTimestamp * 1000);
-    const year = targetDateObj.getFullYear();
-    const month = String(targetDateObj.getMonth() + 1).padStart(2, '0');
-    const day = String(targetDateObj.getDate()).padStart(2, '0');
+    // Calculate target local date elements (GMT+7)
+    const localDateObj = new Date((targetTimestamp + 7 * 3600) * 1000);
+    const year = localDateObj.getUTCFullYear();
+    const month = String(localDateObj.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(localDateObj.getUTCDate()).padStart(2, '0');
     const logDateStr = `${year}-${month}-${day}`;
 
     const activities = await parentService.getDailyActivities(studentIdVal, logDateStr);

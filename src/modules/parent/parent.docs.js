@@ -1591,6 +1591,9 @@
  *                           menuDetailId:
  *                             type: integer
  *                             example: 1
+ *                           dayOfWeek:
+ *                             type: string
+ *                             example: Monday
  *                           mealType:
  *                             type: string
  *                             example: Breakfast
