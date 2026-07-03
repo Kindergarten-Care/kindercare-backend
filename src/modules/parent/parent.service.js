@@ -963,6 +963,38 @@ const getISOWeekAndYear = (date) => {
 };
 
 /**
+ * Calculates the schedule configuration (year, month, weekOrderInMonth) based on custom educational rules:
+ * - A week starts on Monday, ends on Sunday.
+ * - Week 1 of a month starts on the first Monday of that month.
+ * - Prior days belong to the last week of the previous month.
+ * @param {Date} date
+ * @returns {{ year: number, month: number, weekOrder: number }}
+ */
+const getScheduleConfigFromDate = (date) => {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const year = d.getUTCFullYear();
+  const month = d.getUTCMonth() + 1;
+
+  // Find the first Monday of the month
+  let firstMonday = new Date(Date.UTC(year, d.getUTCMonth(), 1));
+  while (firstMonday.getUTCDay() !== 1) {
+    firstMonday.setUTCDate(firstMonday.getUTCDate() + 1);
+  }
+
+  // If the date is before the first Monday of this month, it belongs to the previous month
+  if (d < firstMonday) {
+    const prevMonthLastDay = new Date(Date.UTC(year, d.getUTCMonth(), 0));
+    return getScheduleConfigFromDate(prevMonthLastDay);
+  }
+
+  const diffInMs = d.getTime() - firstMonday.getTime();
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+  const weekOrder = Math.floor(diffInDays / 7) + 1;
+
+  return { year, month, weekOrder };
+};
+
+/**
  * Get daily menu of a child's class by StudentID and MenuDate
  * @param {number} studentId
  * @param {number} targetDate - Midnight timestamp in seconds
@@ -1107,10 +1139,7 @@ export const getStudentWeeklyTimetable = async (studentId, dateParam = null) => 
   const tzOffset = 7 * 60 * 60 * 1000;
   const localTime = new Date(dateObj.getTime() + tzOffset);
   
-  const month = localTime.getUTCMonth() + 1;
-  const year = localTime.getUTCFullYear();
-  const day = localTime.getUTCDate();
-  const weekOrder = Math.ceil(day / 7);
+  const { year, month, weekOrder } = getScheduleConfigFromDate(localTime);
 
   // 3. Find MonthlySchedule
   let monthlyQuery = `
