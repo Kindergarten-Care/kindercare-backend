@@ -144,6 +144,31 @@
  *                         example: 1719532800
  *       401:
  *         description: Unauthorized
+ *   delete:
+ *     summary: Delete all notifications of the authenticated user
+ *     description: Permanently delete all notifications belonging to the currently logged-in user.
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully deleted all notifications
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Xóa tất cả thông báo thành công
+ *       401:
+ *         description: Unauthorized
  *
  * /notifications/read-all:
  *   put:
@@ -250,33 +275,6 @@
  *                     appId:
  *                       type: string
  *                       example: "1:1111111111:web:testabc123"
- * 
- * /notifications:
- *   delete:
- *     summary: Delete all notifications of the authenticated user
- *     description: Permanently delete all notifications belonging to the currently logged-in user.
- *     tags: [Notifications]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Successfully deleted all notifications
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 statusCode:
- *                   type: integer
- *                   example: 200
- *                 message:
- *                   type: string
- *                   example: Xóa tất cả thông báo thành công
- *       401:
- *         description: Unauthorized
  * 
  * /notifications/{id}:
  *   delete:

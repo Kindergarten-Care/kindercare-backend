@@ -1573,6 +1573,16 @@
  *                     menuDate:
  *                       type: integer
  *                       example: 1782172800
+ *                     weekNumber:
+ *                       type: integer
+ *                       example: 27
+ *                     year:
+ *                       type: integer
+ *                       example: 2026
+ *                     menuName:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Thực đơn tuần 1 tháng 7
  *                     details:
  *                       type: array
  *                       items:
