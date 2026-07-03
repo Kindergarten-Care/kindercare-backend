@@ -1208,6 +1208,61 @@ export const getStudentWeeklyTimetable = async (studentId, dateParam = null) => 
   };
 };
 
+/**
+ * Get daily events for a student (combines school, holiday, class, and student-specific events)
+ * @param {number} studentId
+ * @param {string} dateString - YYYY-MM-DD
+ * @returns {Promise<Object>} Object containing classId and daily events array
+ */
+export const getStudentDailyEvents = async (studentId, dateString) => {
+  // 1. Get ClassID of the student
+  const [studentRows] = await pool.query('SELECT ClassID FROM Students WHERE StudentID = ?', [studentId]);
+  if (studentRows.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy học sinh');
+  }
+  const classId = studentRows[0].ClassID;
+
+  // 2. Convert date string (YYYY-MM-DD) to startOfDay and endOfDay local (GMT+7) Unix timestamps in seconds
+  const [year, month, day] = dateString.split('-').map(Number);
+  const startOfDay = Math.floor(Date.UTC(year, month - 1, day, 0, 0, 0) / 1000) - 7 * 3600;
+  const endOfDay = Math.floor(Date.UTC(year, month - 1, day, 23, 59, 59) / 1000) - 7 * 3600;
+
+  // 3. Query multi-layer events
+  const query = `
+    SELECT DISTINCT 
+      e.EventID AS eventId, 
+      e.Title AS title, 
+      e.Description AS description, 
+      e.StartTime AS startTime, 
+      e.EndTime AS endTime, 
+      e.Location AS location, 
+      e.Status AS status, 
+      e.EventType AS eventType
+    FROM Events e
+    LEFT JOIN EventClasses ec ON e.EventID = ec.EventID
+    LEFT JOIN EventStudents es ON e.EventID = es.EventID
+    WHERE 
+      -- Filter events that overlap with or lie within the selected day
+      (e.StartTime <= ? AND e.EndTime >= ?)
+      
+      -- Filter authorization tiers
+      AND (
+        e.EventType IN ('School', 'Holiday')                   -- School-wide & holiday events
+        OR (e.EventType = 'Class' AND ec.ClassID = ?)          -- Class-level events
+        OR (e.EventType = 'Student' AND es.StudentID = ?)     -- Individual student events
+      )
+    ORDER BY e.StartTime ASC;
+  `;
+
+  const [events] = await pool.query(query, [endOfDay, startOfDay, classId || null, studentId]);
+
+  return {
+    classId,
+    events
+  };
+};
+
+
 
 
 

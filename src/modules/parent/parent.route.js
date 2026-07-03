@@ -65,6 +65,9 @@ router.get('/children/:studentId/badges', authenticate, authorize(4), parentCont
 // Generate QR token for attendance
 router.get('/children/:studentId/qr-token', authenticate, authorize(4), parentController.getQrToken);
 
+// Get daily events of a child
+router.get('/events/daily', authenticate, authorize(4), parentController.getChildDailyEvents);
+
 
 
 
