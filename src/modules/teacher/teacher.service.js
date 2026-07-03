@@ -167,6 +167,67 @@ export const updateTeacherProfile = async (teacherId, data) => {
 };
 
 /**
+ * Get Teacher Work History
+ */
+export const getTeacherWorkHistory = async (teacherId) => {
+  const query = `
+    SELECT 
+      HistoryID AS historyId,
+      Title AS title,
+      Tag AS tag,
+      Description AS description,
+      Kind AS kind,
+      EventDate AS eventDate
+    FROM TeacherWorkHistories
+    WHERE TeacherID = ?
+    ORDER BY EventDate DESC
+  `;
+  const [rows] = await pool.query(query, [teacherId]);
+  return rows;
+};
+
+/**
+ * Get Teacher Settings
+ */
+export const getTeacherSettings = async (userId) => {
+  const query = `
+    SELECT 
+      EmailEnabled AS emailEnabled,
+      PushEnabled AS pushEnabled,
+      WeeklyReportEnabled AS weeklyReportEnabled
+    FROM NotificationSettings
+    WHERE UserID = ?
+  `;
+  const [rows] = await pool.query(query, [userId]);
+  // Trả về default nếu chưa có setting
+  if (rows.length === 0) {
+    return {
+      emailEnabled: 1,
+      pushEnabled: 1,
+      weeklyReportEnabled: 0
+    };
+  }
+  return rows[0];
+};
+
+/**
+ * Update Teacher Settings
+ */
+export const updateTeacherSettings = async (userId, settings) => {
+  const { emailEnabled, pushEnabled, weeklyReportEnabled } = settings;
+  const query = `
+    INSERT INTO NotificationSettings (UserID, EmailEnabled, PushEnabled, WeeklyReportEnabled)
+    VALUES (?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE 
+      EmailEnabled = VALUES(EmailEnabled),
+      PushEnabled = VALUES(PushEnabled),
+      WeeklyReportEnabled = VALUES(WeeklyReportEnabled)
+  `;
+  await pool.query(query, [userId, emailEnabled, pushEnabled, weeklyReportEnabled]);
+  return true;
+};
+
+/**
  * Get leave requests for a teacher's classes
  * @param {number} teacherId 
  * @param {string} [status] Optional filter by status

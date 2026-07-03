@@ -95,6 +95,55 @@ export const updateProfile = async (req, res, next) => {
 };
 
 /**
+ * Get Teacher Work History
+ */
+export const getWorkHistory = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const history = await teacherService.getTeacherWorkHistory(teacherId);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, history, 'Lấy lịch sử công tác thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get Teacher Settings
+ */
+export const getSettings = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const settings = await teacherService.getTeacherSettings(userId);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, settings, 'Lấy cài đặt thông báo thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Update Teacher Settings
+ */
+export const updateSettings = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const settings = req.body;
+    await teacherService.updateTeacherSettings(userId, settings);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Cập nhật cài đặt thông báo thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get Leave Requests for classes taught by the teacher
  */
 export const getLeaveRequests = async (req, res, next) => {
