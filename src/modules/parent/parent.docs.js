@@ -1637,12 +1637,28 @@
  *         example: 1
  *       - in: query
  *         name: date
- *         required: true
+ *         required: false
  *         schema:
  *           type: string
  *           format: date
- *         description: Target date in YYYY-MM-DD format
+ *         description: Target date in YYYY-MM-DD format (Alternative to startDate/endDate)
  *         example: "2026-07-03"
+ *       - in: query
+ *         name: startDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date in YYYY-MM-DD format for range query
+ *         example: "2026-07-01"
+ *       - in: query
+ *         name: endDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date in YYYY-MM-DD format for range query
+ *         example: "2026-07-31"
  *     responses:
  *       200:
  *         description: Successfully retrieved daily events

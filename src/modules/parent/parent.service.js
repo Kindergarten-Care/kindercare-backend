@@ -1216,7 +1216,7 @@ export const getStudentWeeklyTimetable = async (studentId, dateParam = null) => 
  * @param {string} dateString - YYYY-MM-DD
  * @returns {Promise<Object>} Object containing classId and daily events array
  */
-export const getStudentDailyEvents = async (studentId, dateString) => {
+export const getStudentDailyEvents = async (studentId, startDateStr, endDateStr = null) => {
   // 1. Get ClassID of the student
   const [studentRows] = await pool.query('SELECT ClassID FROM Students WHERE StudentID = ?', [studentId]);
   if (studentRows.length === 0) {
@@ -1225,9 +1225,16 @@ export const getStudentDailyEvents = async (studentId, dateString) => {
   const classId = studentRows[0].ClassID;
 
   // 2. Convert date string (YYYY-MM-DD) to startOfDay and endOfDay local (GMT+7) Unix timestamps in seconds
-  const [year, month, day] = dateString.split('-').map(Number);
-  const startOfDay = Math.floor(Date.UTC(year, month - 1, day, 0, 0, 0) / 1000) - 7 * 3600;
-  const endOfDay = Math.floor(Date.UTC(year, month - 1, day, 23, 59, 59) / 1000) - 7 * 3600;
+  const [startYear, startMonth, startDay] = startDateStr.split('-').map(Number);
+  const startOfDay = Math.floor(Date.UTC(startYear, startMonth - 1, startDay, 0, 0, 0) / 1000) - 7 * 3600;
+
+  let endOfDay;
+  if (endDateStr) {
+    const [endYear, endMonth, endDay] = endDateStr.split('-').map(Number);
+    endOfDay = Math.floor(Date.UTC(endYear, endMonth - 1, endDay, 23, 59, 59) / 1000) - 7 * 3600;
+  } else {
+    endOfDay = Math.floor(Date.UTC(startYear, startMonth - 1, startDay, 23, 59, 59) / 1000) - 7 * 3600;
+  }
 
   // 3. Query multi-layer events
   const query = `
@@ -1244,7 +1251,7 @@ export const getStudentDailyEvents = async (studentId, dateString) => {
     LEFT JOIN EventClasses ec ON e.EventID = ec.EventID
     LEFT JOIN EventStudents es ON e.EventID = es.EventID
     WHERE 
-      -- Filter events that overlap with or lie within the selected day
+      -- Filter events that overlap with or lie within the selected day/range
       (e.StartTime <= ? AND e.EndTime >= ?)
       
       -- Filter authorization tiers
