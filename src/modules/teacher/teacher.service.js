@@ -732,6 +732,52 @@ export const getClassSchedule = async (classId, dateTimestamp) => {
 };
 
 /**
+ * Get class weekly schedule (Mock implementation returning active schedule)
+ */
+export const getWeeklySchedule = async (classId, dateTimestamp) => {
+  // To ensure the mock data is always returned, we query the most recent active MonthlySchedule
+  const query = `
+    SELECT 
+      ms.MonthTheme AS monthTheme, 
+      ws.WeekTheme AS weekTheme, 
+      wsd.DayOfWeek AS dayOfWeek, 
+      wsd.StartTime AS startTime, 
+      wsd.EndTime AS endTime, 
+      wsd.ActivityName AS activityName, 
+      wsd.ActivityType AS activityType, 
+      wsd.Details AS details
+    FROM MonthlySchedules ms
+    JOIN WeeklySchedules ws ON ms.MonthlyScheduleID = ws.MonthlyScheduleID
+    JOIN WeeklyScheduleDetails wsd ON ws.WeeklyScheduleID = wsd.WeeklyScheduleID
+    WHERE ms.ClassID = ? AND ms.IsActive = 1
+    ORDER BY ms.Year DESC, ms.Month DESC, ws.WeekOrder ASC, 
+             FIELD(wsd.DayOfWeek, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'),
+             wsd.StartTime ASC
+  `;
+  const [rows] = await pool.query(query, [classId]);
+  
+  if (!rows || rows.length === 0) {
+    return { monthTheme: null, weekTheme: null, details: [] };
+  }
+
+  // Group the results
+  const result = {
+    monthTheme: rows[0].monthTheme,
+    weekTheme: rows[0].weekTheme,
+    details: rows.map(row => ({
+      dayOfWeek: row.dayOfWeek,
+      startTime: row.startTime,
+      endTime: row.endTime,
+      activityName: row.activityName,
+      activityType: row.activityType,
+      details: row.details
+    }))
+  };
+
+  return result;
+};
+
+/**
  * Get parent UserIDs for a specific class
  */
 export const getClassParentsUserIds = async (classId) => {

@@ -53,6 +53,11 @@ router.get(
   teacherValidation.validateGetClassSchedule,
   teacherController.getClassSchedule
 );
+router.get(
+  '/classes/:classId/schedule/weekly',
+  teacherValidation.validateGetWeeklySchedule,
+  teacherController.getWeeklySchedule
+);
 
 
 // Attendance & Meals

@@ -568,6 +568,41 @@ export const getClassSchedule = async (req, res, next) => {
 };
 
 /**
+ * Get class weekly schedule
+ */
+export const getWeeklySchedule = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId } = req.params;
+    const { date } = req.query;
+
+    const numericClassId = Number(classId);
+
+    // Security check: Check if teacher teaches this class
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền xem lịch trình sinh hoạt của lớp này');
+    }
+
+    // Calculate target date timestamp (seconds) at start of day in UTC
+    let targetTimestamp;
+    if (date) {
+      targetTimestamp = Number(date);
+    } else {
+      targetTimestamp = Math.floor(Date.now() / 1000);
+    }
+
+    const schedule = await teacherService.getWeeklySchedule(numericClassId, targetTimestamp);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, schedule, 'Lấy lịch tuần của lớp học thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get Medical Requests for a class
  */
 export const getMedicalRequests = async (req, res, next) => {
