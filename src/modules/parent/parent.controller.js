@@ -1112,6 +1112,54 @@ const getChildWeeklyTimetable = async (req, res, next) => {
   }
 };
 
+const getChildDailyEvents = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { studentId, date } = req.query;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    if (!studentId) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Thiếu studentId');
+    }
+
+    if (!date) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Thiếu date (định dạng YYYY-MM-DD)');
+    }
+
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(date)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'date phải ở định dạng YYYY-MM-DD');
+    }
+
+    // Verify parent has access to this student
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin sự kiện của học sinh này');
+    }
+
+    const result = await parentService.getStudentDailyEvents(parseInt(studentId, 10), date);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        {
+          date,
+          studentId: parseInt(studentId, 10),
+          classId: result.classId,
+          events: result.events,
+        },
+        'Lấy danh sách sự kiện trong ngày thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyChildren,
   getMyProfile,
@@ -1140,6 +1188,7 @@ export default {
   changePassword,
   getChildBadges,
   getChildWeeklyTimetable,
+  getChildDailyEvents,
 };
 
 

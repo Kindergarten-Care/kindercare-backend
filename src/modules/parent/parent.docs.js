@@ -1618,6 +1618,103 @@
  *         description: Internal Server Error
  */
 
+/**
+ * @swagger
+ * /parent/events/daily:
+ *   get:
+ *     summary: Get daily events of a child
+ *     description: Retrieve all events (School, Holiday, Class, and Student-specific) for the child on a given date.
+ *     tags: ["Parent - Classroom"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the student
+ *         example: 1
+ *       - in: query
+ *         name: date
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Target date in YYYY-MM-DD format
+ *         example: "2026-07-03"
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved daily events
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách sự kiện trong ngày thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     date:
+ *                       type: string
+ *                       example: "2026-07-03"
+ *                     studentId:
+ *                       type: integer
+ *                       example: 1
+ *                     classId:
+ *                       type: integer
+ *                       nullable: true
+ *                       example: 1
+ *                     events:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           eventId:
+ *                             type: integer
+ *                             example: 1
+ *                           title:
+ *                             type: string
+ *                             example: Nghỉ lễ Quốc Khánh
+ *                           description:
+ *                             type: string
+ *                             nullable: true
+ *                             example: Toàn trường nghỉ học theo quy định.
+ *                           startTime:
+ *                             type: integer
+ *                             example: 1783000000
+ *                           endTime:
+ *                             type: integer
+ *                             example: 1783036800
+ *                           location:
+ *                             type: string
+ *                             nullable: true
+ *                             example: Tại nhà
+ *                           status:
+ *                             type: string
+ *                             example: Upcoming
+ *                           eventType:
+ *                             type: string
+ *                             enum: [Class, School, Holiday, Student]
+ *                             example: Holiday
+ *       400:
+ *         description: Bad Request - missing parameters or invalid date format
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a parent or not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
 // ─────────────────────────────────────────────────────────────
 //  GROUP 4 · Parent - Requests
 //  POST  /parent/leave-requests
