@@ -1121,18 +1121,6 @@ export const getStudentWeeklyTimetable = async (studentId, dateParam = null) => 
   let [monthlyRows] = await pool.query(monthlyQuery, [classId, month, year]);
   
   if (monthlyRows.length === 0) {
-    // Fallback to the latest active monthly schedule for this class
-    const fallbackQuery = `
-      SELECT MonthlyScheduleID AS monthlyScheduleId, MonthTheme AS monthTheme, Month AS month, Year AS year
-      FROM MonthlySchedules
-      WHERE ClassID = ? AND IsActive = 1
-      ORDER BY Year DESC, Month DESC
-      LIMIT 1
-    `;
-    [monthlyRows] = await pool.query(fallbackQuery, [classId]);
-  }
-
-  if (monthlyRows.length === 0) {
     return null; // No monthly schedule found
   }
 
@@ -1146,18 +1134,6 @@ export const getStudentWeeklyTimetable = async (studentId, dateParam = null) => 
     WHERE MonthlyScheduleID = ? AND WeekOrder = ?
   `;
   let [weeklyRows] = await pool.query(weeklyQuery, [targetMonthlyScheduleId, weekOrder]);
-
-  if (weeklyRows.length === 0) {
-    // Fallback to the first available weekly schedule under this monthly schedule
-    const fallbackWeeklyQuery = `
-      SELECT WeeklyScheduleID AS weeklyScheduleId, WeekTheme AS weekTheme, WeekOrder AS weekOrder
-      FROM WeeklySchedules
-      WHERE MonthlyScheduleID = ?
-      ORDER BY WeekOrder ASC
-      LIMIT 1
-    `;
-    [weeklyRows] = await pool.query(fallbackWeeklyQuery, [targetMonthlyScheduleId]);
-  }
 
   if (weeklyRows.length === 0) {
     return {
