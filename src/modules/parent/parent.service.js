@@ -948,22 +948,44 @@ export const getNewsfeedsByStudentId = async (studentId) => {
 };
 
 /**
+ * Calculates the ISO week number and year for a given date
+ * @param {Date} date
+ * @returns {{ week: number, year: number }}
+ */
+const getISOWeekAndYear = (date) => {
+  const tempDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const dayNum = tempDate.getUTCDay() || 7;
+  tempDate.setUTCDate(tempDate.getUTCDate() + 4 - dayNum);
+  const year = tempDate.getUTCFullYear();
+  const firstDayOfYear = new Date(Date.UTC(year, 0, 1));
+  const weekNumber = Math.ceil((((tempDate - firstDayOfYear) / 86400000) + 1) / 7);
+  return { week: weekNumber, year };
+};
+
+/**
  * Get daily menu of a child's class by StudentID and MenuDate
  * @param {number} studentId
  * @param {number} targetDate - Midnight timestamp in seconds
  * @returns {Promise<Object|null>} Daily menu with details
  */
 export const getStudentMenu = async (studentId, targetDate) => {
+  const dateObj = new Date(targetDate * 1000);
+  const { week, year } = getISOWeekAndYear(dateObj);
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayOfWeek = days[dateObj.getUTCDay()];
+
   const menuQuery = `
     SELECT 
       m.MenuID AS menuId,
       m.ClassID AS classId,
-      m.MenuDate AS menuDate
+      m.WeekNumber AS weekNumber,
+      m.Year AS year,
+      m.MenuName AS menuName
     FROM Menus m
     JOIN Students s ON m.ClassID = s.ClassID
-    WHERE s.StudentID = ? AND m.MenuDate = ?
+    WHERE s.StudentID = ? AND m.WeekNumber = ? AND m.Year = ?
   `;
-  const [menuRows] = await pool.query(menuQuery, [studentId, targetDate]);
+  const [menuRows] = await pool.query(menuQuery, [studentId, week, year]);
   
   if (menuRows.length === 0) {
     return null;
@@ -979,13 +1001,18 @@ export const getStudentMenu = async (studentId, targetDate) => {
       Calories AS calories,
       NutritionalDetails AS nutritionalDetails
     FROM MenuDetails
-    WHERE MenuID = ?
+    WHERE MenuID = ? AND DayOfWeek = ?
     ORDER BY MenuDetailID ASC
   `;
-  const [detailsRows] = await pool.query(detailsQuery, [menu.menuId]);
+  const [detailsRows] = await pool.query(detailsQuery, [menu.menuId, dayOfWeek]);
   
   return {
-    ...menu,
+    menuId: menu.menuId,
+    classId: menu.classId,
+    menuDate: targetDate,
+    weekNumber: menu.weekNumber,
+    year: menu.year,
+    menuName: menu.menuName,
     details: detailsRows
   };
 };
