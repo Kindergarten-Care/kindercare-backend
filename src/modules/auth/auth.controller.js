@@ -157,6 +157,41 @@ const logout = (_req, res) => {
     );
 };
 
+const changePassword = async (req, res, next) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        const userId = req.user.userId;
+
+        if (!currentPassword || !newPassword) {
+            throw new ApiError(httpStatus.BAD_REQUEST, 'Mật khẩu hiện tại và mật khẩu mới là bắt buộc');
+        }
+
+        // Lấy thông tin user
+        const [rows] = await pool.query('SELECT PasswordHash FROM Users WHERE UserID = ?', [userId]);
+        if (rows.length === 0) {
+            throw new ApiError(httpStatus.NOT_FOUND, 'Người dùng không tồn tại');
+        }
+
+        const user = rows[0];
+
+        // Kiểm tra mật khẩu cũ
+        const isPasswordValid = await bcrypt.compare(currentPassword, user.PasswordHash);
+        if (!isPasswordValid) {
+            throw new ApiError(httpStatus.UNAUTHORIZED, 'Mật khẩu hiện tại không chính xác');
+        }
+
+        // Cập nhật mật khẩu mới
+        const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+        await pool.query('UPDATE Users SET PasswordHash = ? WHERE UserID = ?', [hashedNewPassword, userId]);
+
+        res.status(httpStatus.OK).json(
+            new ApiResponse(httpStatus.OK, null, 'Đổi mật khẩu thành công')
+        );
+    } catch (error) {
+        next(error);
+    }
+};
+
 export default {
     login:          createLoginHandler(),
     loginAdmin:     createLoginHandler([1], ['Username']),
@@ -164,4 +199,5 @@ export default {
     loginTeacher:   createLoginHandler([3], ['Username', 'Email', 'Phone']),
     loginParent:    createLoginHandler([4], ['Username', 'Email', 'Phone']),
     logout,
+    changePassword,
 };
