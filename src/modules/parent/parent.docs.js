@@ -2944,6 +2944,112 @@
  *         description: Bad Request - invalid signature
  */
 
+/**
+ * @swagger
+ * /parent/invoices/{invoiceId}/pay-vnpay:
+ *   post:
+ *     summary: Create a VNPay payment order for an invoice
+ *     description: Builds a signed VNPay payment URL (HMAC-SHA512, redirect flow) and records a Transaction with Status='Pending'. The frontend should redirect the parent to the returned payUrl. VNPay will call the IPN endpoint (GET /parent/invoices/vnpay-ipn) to confirm the result — the IPN URL must be configured once on the VNPay merchant admin portal, it is not sent per-request like MoMo's.
+ *     tags: ["Parent - Billing"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: invoiceId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 11
+ *     responses:
+ *       200:
+ *         description: VNPay payment order created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Tạo đơn thanh toán VNPay thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     payUrl:
+ *                       type: string
+ *                       example: "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_Version=2.1.0&vnp_Command=pay&..."
+ *                     txnRef:
+ *                       type: string
+ *                       example: "111751234567890"
+ *       400:
+ *         description: Bad Request - invoice has no amount due
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - invoice does not belong to this parent's child
+ *       404:
+ *         description: Not Found - invoice not found
+ *       500:
+ *         description: Internal Server Error - failed to build VNPay order (e.g. missing VNPAY_TMN_CODE config)
+ */
+
+/**
+ * @swagger
+ * /parent/invoices/vnpay-ipn:
+ *   get:
+ *     summary: VNPay IPN callback (internal — called by VNPay servers)
+ *     description: |
+ *       Receives the asynchronous payment result from VNPay as a GET request with query parameters (not POST JSON like MoMo). Verifies the HMAC-SHA512 signature, looks up the matching Transaction (TransactionCode stored as '{txnRef}|{vnp_CreateDate}'), validates the amount, and guards against duplicate processing.
+ *       Always responds HTTP 200 with a JSON body `{ RspCode, Message }` per VNPay's contract — never an HTTP error status, to avoid triggering VNPay's retry mechanism unnecessarily. Not intended to be called by clients — no JWT auth, authenticated via VNPay's signature instead. The IPN URL must be registered once on the VNPay merchant admin portal.
+ *     tags: ["Parent - Billing"]
+ *     parameters:
+ *       - in: query
+ *         name: vnp_TxnRef
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: vnp_Amount
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: vnp_ResponseCode
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: vnp_TransactionStatus
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: vnp_SecureHash
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Always returned regardless of outcome — see RspCode for the actual result
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 RspCode:
+ *                   type: string
+ *                   description: "'00' success, '01' order not found, '02' already confirmed, '04' invalid amount, '97' invalid signature"
+ *                   example: "00"
+ *                 Message:
+ *                   type: string
+ *                   example: "Confirm Success"
+ */
+
 // ─────────────────────────────────────────────────────────────
 //  GROUP · Parent - Extracurriculars
 //  GET   /parent/extracurriculars

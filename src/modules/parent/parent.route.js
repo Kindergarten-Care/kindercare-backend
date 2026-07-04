@@ -108,6 +108,13 @@ router.post('/invoices/momo-ipn', parentController.momoIpn);
 // Create a MoMo payment order for an invoice, returns payUrl to redirect to
 router.post('/invoices/:invoiceId/pay-momo', authenticate, authorize(4), parentController.payInvoiceWithMomo);
 
+// VNPay IPN callback — called directly by VNPay servers (GET, query string), no JWT auth
+// (verified via signature). Configure this URL once on the VNPay merchant admin portal.
+router.get('/invoices/vnpay-ipn', parentController.vnpayIpn);
+
+// Create a VNPay payment order for an invoice, returns payUrl to redirect to
+router.post('/invoices/:invoiceId/pay-vnpay', authenticate, authorize(4), parentController.payInvoiceWithVnpay);
+
 // Get the catalog of extracurricular activities
 router.get('/extracurriculars', authenticate, authorize(4), parentController.getExtracurriculars);
 
