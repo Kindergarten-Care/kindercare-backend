@@ -11,12 +11,12 @@ import httpStatus from 'http-status';
 import logger from './config/logger.js';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpecs from './config/swagger.js';
-import './jobs/attendanceCron.js';
 import { initSocket } from './config/socket.js';
 import { startMonthlyBillingCron } from './jobs/monthlyBilling.cron.js';
 import { startPaymentReminderCron } from './jobs/paymentReminder.cron.js';
 import { startExtracurricularExpiryCron } from './jobs/extracurricularExpiry.cron.js';
 import { startMomoReconciliationCron } from './jobs/momoReconciliation.cron.js';
+import './jobs/attendanceCron.js';
 import './jobs/leaveRequestAttendanceCron.js';
 
 dotenv.config({

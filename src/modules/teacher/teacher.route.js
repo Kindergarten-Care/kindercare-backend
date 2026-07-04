@@ -16,6 +16,13 @@ router.get('/dashboard', teacherController.getDashboard);
 router.get('/profile', teacherController.getProfile);
 router.put('/profile', teacherValidation.validateUpdateProfile, teacherController.updateProfile);
 
+// Work History
+router.get('/work-history', teacherController.getWorkHistory);
+
+// Settings
+router.get('/settings', teacherController.getSettings);
+router.put('/settings', teacherController.updateSettings);
+
 // Leave Requests
 router.get('/leave-requests', teacherController.getLeaveRequests);
 router.get(
@@ -45,6 +52,11 @@ router.get(
   '/classes/:classId/schedule',
   teacherValidation.validateGetClassSchedule,
   teacherController.getClassSchedule
+);
+router.get(
+  '/classes/:classId/schedule/weekly',
+  teacherValidation.validateGetWeeklySchedule,
+  teacherController.getWeeklySchedule
 );
 
 
