@@ -15,6 +15,7 @@ import './jobs/attendanceCron.js';
 import { initSocket } from './config/socket.js';
 import { startMonthlyBillingCron } from './jobs/monthlyBilling.cron.js';
 import { startPaymentReminderCron } from './jobs/paymentReminder.cron.js';
+import './jobs/leaveRequestAttendanceCron.js';
 
 dotenv.config({
     path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env'
