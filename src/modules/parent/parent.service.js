@@ -10,6 +10,7 @@ import {
   activateExtracurricularsForInvoice,
 } from '../billing/billing.service.js';
 import { createMomoPayment as createMomoOrder, verifyMomoSignature, queryMomoTransactionStatus } from '../../utils/momo.js';
+import { createVnpayPaymentUrl, verifyVnpaySignature, queryVnpayTransactionStatus } from '../../utils/vnpay.js';
 import logger from '../../config/logger.js';
 import { getMonthKey } from '../../utils/dateHelpers.js';
 
@@ -1315,21 +1316,22 @@ export const getInvoicesByStudentId = async (studentId, filters = {}) => {
 
   let [rows] = await pool.query(query, values);
 
-  // Đối soát ngay các giao dịch MoMo còn Pending của các hóa đơn này, phòng trường hợp
-  // IPN chưa/không gọi tới server kịp (xem thêm reconcileMomoTransaction).
+  // Đối soát ngay các giao dịch (MoMo/VNPay) còn Pending của các hóa đơn này, phòng
+  // trường hợp IPN chưa/không gọi tới server kịp (xem thêm reconcilePendingTransaction).
   const invoiceIds = rows.map((r) => r.invoiceId);
   if (invoiceIds.length > 0) {
-    const [pendingMomoTx] = await pool.query(
-      `SELECT TransactionID, InvoiceID, TransactionCode
+    const [pendingTx] = await pool.query(
+      `SELECT TransactionID, InvoiceID, TransactionCode, PaymentMethod
        FROM Transactions
-       WHERE PaymentMethod = 'MoMo' AND Status = 'Pending' AND InvoiceID IN (?)`,
+       WHERE PaymentMethod IN ('MoMo', 'VNPay') AND Status = 'Pending' AND InvoiceID IN (?)`,
       [invoiceIds]
     );
-    if (pendingMomoTx.length > 0) {
-      await Promise.all(pendingMomoTx.map((t) => reconcileMomoTransaction({
+    if (pendingTx.length > 0) {
+      await Promise.all(pendingTx.map((t) => reconcilePendingTransaction({
         TransactionID: t.TransactionID,
         InvoiceID: t.InvoiceID,
         TransactionCode: t.TransactionCode,
+        PaymentMethod: t.PaymentMethod,
       })));
       [rows] = await pool.query(query, values);
     }
@@ -1382,14 +1384,15 @@ export const getInvoiceDetail = async (invoiceId) => {
 
   let [transactions] = await pool.query(transactionsQuery, [invoiceId]);
 
-  // Đối soát ngay các giao dịch MoMo còn Pending khi parent xem lại hóa đơn (vd sau khi
-  // quay về từ trang thanh toán), phòng trường hợp IPN chưa/không gọi tới server kịp.
-  const pendingMomoTx = transactions.filter((t) => t.paymentMethod === 'MoMo' && t.status === 'Pending');
-  if (pendingMomoTx.length > 0) {
-    await Promise.all(pendingMomoTx.map((t) => reconcileMomoTransaction({
+  // Đối soát ngay các giao dịch (MoMo/VNPay) còn Pending khi parent xem lại hóa đơn (vd
+  // sau khi quay về từ trang thanh toán), phòng trường hợp IPN chưa/không gọi tới server kịp.
+  const pendingTx = transactions.filter((t) => ['MoMo', 'VNPay'].includes(t.paymentMethod) && t.status === 'Pending');
+  if (pendingTx.length > 0) {
+    await Promise.all(pendingTx.map((t) => reconcilePendingTransaction({
       TransactionID: t.transactionId,
       InvoiceID: invoiceId,
       TransactionCode: t.transactionCode,
+      PaymentMethod: t.paymentMethod,
     })));
 
     const [[freshInvoiceRows], [freshTransactions]] = await Promise.all([
@@ -1467,6 +1470,35 @@ export const createMomoPayment = async (invoiceId) => {
 };
 
 /**
+ * Tính lại PaymentStatus của 1 hóa đơn dựa trên tổng các Transaction đã Success,
+ * kích hoạt ngoại khóa nếu đã Paid. Dùng chung cho mọi cổng thanh toán (MoMo, VNPay...).
+ * @param {number} invoiceId
+ */
+const recalculateInvoicePaymentStatus = async (invoiceId) => {
+  const [[{ totalPaid }]] = await pool.query(
+    `SELECT COALESCE(SUM(AmountPaid), 0) AS totalPaid
+     FROM Transactions WHERE InvoiceID = ? AND Status = 'Success'`,
+    [invoiceId]
+  );
+  const [[{ TotalAmount: totalAmount }]] = await pool.query(
+    'SELECT TotalAmount FROM Invoices WHERE InvoiceID = ?',
+    [invoiceId]
+  );
+
+  let paymentStatus = 'Unpaid';
+  if (Number(totalPaid) >= Number(totalAmount) && Number(totalAmount) > 0) {
+    paymentStatus = 'Paid';
+  } else if (Number(totalPaid) > 0) {
+    paymentStatus = 'Partial';
+  }
+
+  await pool.query('UPDATE Invoices SET PaymentStatus = ? WHERE InvoiceID = ?', [paymentStatus, invoiceId]);
+  if (paymentStatus === 'Paid') {
+    await activateExtracurricularsForInvoice(invoiceId);
+  }
+};
+
+/**
  * Áp dụng kết quả giao dịch MoMo (Success/Failed) lên Transaction + Invoice liên quan.
  * Dùng chung cho cả IPN callback và đối soát chủ động (query API).
  * @param {object} tx - { TransactionID, InvoiceID }
@@ -1477,28 +1509,7 @@ export const createMomoPayment = async (invoiceId) => {
 const applyMomoResult = async (tx, orderId, resultCode, logPrefix) => {
   if (Number(resultCode) === 0) {
     await pool.query('UPDATE Transactions SET Status = ? WHERE TransactionID = ?', ['Success', tx.TransactionID]);
-
-    const [[{ totalPaid }]] = await pool.query(
-      `SELECT COALESCE(SUM(AmountPaid), 0) AS totalPaid
-       FROM Transactions WHERE InvoiceID = ? AND Status = 'Success'`,
-      [tx.InvoiceID]
-    );
-    const [[{ TotalAmount: totalAmount }]] = await pool.query(
-      'SELECT TotalAmount FROM Invoices WHERE InvoiceID = ?',
-      [tx.InvoiceID]
-    );
-
-    let paymentStatus = 'Unpaid';
-    if (Number(totalPaid) >= Number(totalAmount) && Number(totalAmount) > 0) {
-      paymentStatus = 'Paid';
-    } else if (Number(totalPaid) > 0) {
-      paymentStatus = 'Partial';
-    }
-
-    await pool.query('UPDATE Invoices SET PaymentStatus = ? WHERE InvoiceID = ?', [paymentStatus, tx.InvoiceID]);
-    if (paymentStatus === 'Paid') {
-      await activateExtracurricularsForInvoice(tx.InvoiceID);
-    }
+    await recalculateInvoicePaymentStatus(tx.InvoiceID);
     logger.info(`${logPrefix} Thanh toán thành công cho InvoiceID ${tx.InvoiceID}, orderId ${orderId}`);
   } else {
     await pool.query('UPDATE Transactions SET Status = ? WHERE TransactionID = ?', ['Failed', tx.TransactionID]);
@@ -1569,6 +1580,166 @@ export const reconcilePendingMomoTransactions = async () => {
   }
 
   return pendingTx.length;
+};
+
+/**
+ * Tạo đơn thanh toán VNPay (redirect flow) cho 1 hóa đơn — build payUrl, insert
+ * Transaction Status='Pending'. TransactionCode lưu dạng '{txnRef}|{vnp_CreateDate}'
+ * vì API đối soát querydr của VNPay bắt buộc phải có lại đúng vnp_CreateDate gốc.
+ * @param {number} invoiceId
+ * @param {string} ipAddr - IP của parent đang thanh toán (VNPay bắt buộc)
+ */
+export const createVnpayPayment = async (invoiceId, ipAddr) => {
+  const [invoiceRows] = await pool.query(
+    'SELECT InvoiceID, TotalAmount, BillingMonth, InvoiceType FROM Invoices WHERE InvoiceID = ?',
+    [invoiceId]
+  );
+  if (invoiceRows.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy hóa đơn');
+  }
+  const invoice = invoiceRows[0];
+
+  if (Number(invoice.TotalAmount) <= 0) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Hóa đơn không có số tiền cần thanh toán');
+  }
+
+  // vnp_TxnRef giới hạn 34 ký tự nên không dùng UUID như MoMo — ghép invoiceId + timestamp là đủ duy nhất.
+  const txnRef = `${invoiceId}${Date.now()}`;
+  const orderInfo = `Thanh toan hoa don ${invoice.InvoiceType} ky ${invoice.BillingMonth} - KinderCare`;
+  const { payUrl, createDate } = createVnpayPaymentUrl({
+    txnRef,
+    amount: invoice.TotalAmount,
+    orderInfo,
+    ipAddr: ipAddr || '127.0.0.1',
+  });
+
+  await pool.query(
+    `INSERT INTO Transactions (InvoiceID, AmountPaid, PaymentMethod, TransactionCode, Status)
+     VALUES (?, ?, 'VNPay', ?, 'Pending')`,
+    [invoiceId, invoice.TotalAmount, `${txnRef}|${createDate}`]
+  );
+
+  return { payUrl, txnRef };
+};
+
+/**
+ * Áp dụng kết quả giao dịch VNPay (Success/Failed) lên Transaction + Invoice liên quan.
+ * Dùng chung cho cả IPN callback và đối soát chủ động (query API).
+ * @param {object} tx - { TransactionID, InvoiceID }
+ * @param {string} txnRef
+ * @param {boolean} isSuccess
+ * @param {string} logPrefix
+ */
+const applyVnpayResult = async (tx, txnRef, isSuccess, logPrefix) => {
+  if (isSuccess) {
+    await pool.query('UPDATE Transactions SET Status = ? WHERE TransactionID = ?', ['Success', tx.TransactionID]);
+    await recalculateInvoicePaymentStatus(tx.InvoiceID);
+    logger.info(`${logPrefix} Thanh toán thành công cho InvoiceID ${tx.InvoiceID}, txnRef ${txnRef}`);
+  } else {
+    await pool.query('UPDATE Transactions SET Status = ? WHERE TransactionID = ?', ['Failed', tx.TransactionID]);
+    logger.info(`${logPrefix} Thanh toán thất bại cho txnRef ${txnRef}`);
+  }
+};
+
+/**
+ * Xử lý IPN callback từ VNPay (GET, query string) — verify chữ ký, kiểm tra số tiền,
+ * chống xử lý trùng, cập nhật Transaction theo vnp_TxnRef. Trả về object { RspCode, Message }
+ * đúng chuẩn VNPay yêu cầu — controller phải trả nguyên object này dưới dạng JSON, HTTP 200.
+ * @param {Record<string,string>} query - req.query gốc từ VNPay
+ * @returns {Promise<{RspCode: string, Message: string}>}
+ */
+export const handleVnpayIpn = async (query) => {
+  const isValid = verifyVnpaySignature(query);
+  if (!isValid) {
+    logger.error(`[VNPay IPN] Chữ ký không hợp lệ cho txnRef: ${query.vnp_TxnRef}`);
+    return { RspCode: '97', Message: 'Invalid signature' };
+  }
+
+  const {
+    vnp_TxnRef: txnRef,
+    vnp_Amount: amount,
+    vnp_ResponseCode: responseCode,
+    vnp_TransactionStatus: transactionStatus,
+  } = query;
+
+  const [txRows] = await pool.query(
+    `SELECT TransactionID, InvoiceID, AmountPaid, Status FROM Transactions WHERE TransactionCode LIKE CONCAT(?, '|%')`,
+    [txnRef]
+  );
+  if (txRows.length === 0) {
+    logger.error(`[VNPay IPN] Không tìm thấy transaction cho txnRef: ${txnRef}`);
+    return { RspCode: '01', Message: 'Order not found' };
+  }
+  const tx = txRows[0];
+
+  if (Number(amount) !== Math.round(tx.AmountPaid) * 100) {
+    logger.error(`[VNPay IPN] Sai số tiền cho txnRef: ${txnRef}`);
+    return { RspCode: '04', Message: 'Invalid amount' };
+  }
+
+  if (tx.Status !== 'Pending') {
+    return { RspCode: '02', Message: 'Order already confirmed' };
+  }
+
+  const isSuccess = responseCode === '00' && transactionStatus === '00';
+  await applyVnpayResult(tx, txnRef, isSuccess, '[VNPay IPN]');
+
+  return { RspCode: '00', Message: 'Confirm Success' };
+};
+
+/**
+ * Đối soát 1 giao dịch VNPay còn Pending bằng cách chủ động hỏi VNPay trạng thái thật
+ * (API querydr) — dùng khi IPN không tới được server.
+ * @param {object} tx - { TransactionID, InvoiceID, TransactionCode }
+ */
+export const reconcileVnpayTransaction = async (tx) => {
+  const [txnRef, createDate] = tx.TransactionCode.split('|');
+  try {
+    const result = await queryVnpayTransactionStatus(txnRef, createDate, '127.0.0.1');
+    if (result.vnp_ResponseCode !== '00') {
+      // Query thất bại hoặc VNPay chưa ghi nhận được giao dịch này — bỏ qua, thử lại lần sau.
+      return;
+    }
+    if (result.vnp_TransactionStatus === '01') {
+      // Giao dịch còn đang xử lý, chưa có kết quả cuối cùng.
+      return;
+    }
+    const isSuccess = result.vnp_TransactionStatus === '00';
+    await applyVnpayResult(tx, txnRef, isSuccess, '[VNPay Reconcile]');
+  } catch (error) {
+    logger.error(`[VNPay Reconcile] Lỗi khi truy vấn txnRef ${txnRef}: ${error.message}`);
+  }
+};
+
+/**
+ * Quét toàn bộ Transaction VNPay còn Pending quá lâu (> 2 phút) và đối soát trực tiếp
+ * với VNPay. Dùng cho cron job — bù cho trường hợp IPN không gọi được tới server.
+ * @returns {Promise<number>} số giao dịch đã quét
+ */
+export const reconcilePendingVnpayTransactions = async () => {
+  const [pendingTx] = await pool.query(
+    `SELECT TransactionID, InvoiceID, TransactionCode
+     FROM Transactions
+     WHERE PaymentMethod = 'VNPay' AND Status = 'Pending' AND TransactionDate < UNIX_TIMESTAMP(NOW() - INTERVAL 2 MINUTE)`
+  );
+
+  for (const tx of pendingTx) {
+    await reconcileVnpayTransaction(tx);
+  }
+
+  return pendingTx.length;
+};
+
+/**
+ * Đối soát 1 giao dịch Pending, tự chọn cổng thanh toán tương ứng dựa vào PaymentMethod.
+ * Dùng ở các chỗ đọc dữ liệu (getInvoiceDetail, getInvoicesByStudentId) để không cần biết
+ * trước giao dịch thuộc cổng nào.
+ * @param {object} tx - { TransactionID, InvoiceID, TransactionCode, PaymentMethod }
+ */
+const reconcilePendingTransaction = (tx) => {
+  if (tx.PaymentMethod === 'MoMo') return reconcileMomoTransaction(tx);
+  if (tx.PaymentMethod === 'VNPay') return reconcileVnpayTransaction(tx);
+  return Promise.resolve();
 };
 
 /**
