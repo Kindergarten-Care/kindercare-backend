@@ -1279,7 +1279,6 @@ const payInvoiceWithMomo = async (req, res, next) => {
 
 const momoIpn = async (req, res, next) => {
   try {
-    logger.info(`[MoMo IPN] Content-Type: ${req.headers['content-type']}, body: ${JSON.stringify(req.body)}`);
     await parentService.handleMomoIpn(req.body);
     // MoMo yêu cầu phản hồi 204/200 rỗng để xác nhận đã nhận IPN
     res.status(httpStatus.NO_CONTENT).send();
