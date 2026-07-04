@@ -9,7 +9,7 @@
 
 | Khái niệm | Giải thích |
 |---|---|
-| 2 loại hóa đơn | `InvoiceType = 'TUITION'` (học phí theo gói, xuất theo chu kỳ) và `'MONTHLY'` (tiền ăn + ngoại khóa + phụ thu − hoàn tiền, xuất mỗi tháng). Một học sinh có thể có cả 2 loại hóa đơn trong cùng 1 tháng. |
+| 3 loại hóa đơn | `InvoiceType = 'TUITION'` (học phí theo gói, xuất theo chu kỳ), `'MONTHLY'` (tiền ăn + phụ thu − hoàn tiền, xuất mỗi tháng), `'EXTRACURRICULAR'` (hoạt động ngoại khóa đã đăng ký, gộp theo tháng — xem mục 2.6). Một học sinh có thể có cả 3 loại hóa đơn trong cùng 1 tháng. |
 | Format tháng | Mọi field tháng dùng string `'MM-YYYY'` (ví dụ `"08-2026"`), **không phải** `'YYYY-MM'`. Cẩn thận khi parse/sort. |
 | `TotalAmount` | Là trường tính sẵn ở BE, FE **không tự tính lại** — chỉ hiển thị giá trị BE trả về. |
 | `PaymentStatus` | 3 giá trị: `Unpaid` | `Partial` | `Paid`. Cập nhật tự động sau mỗi lần thanh toán (thủ công hoặc MoMo). |
@@ -209,11 +209,11 @@ GET /parent/children/{studentId}/invoices?type=&status=&from=&to=
       "periodRange": null,
       "tuitionFee": 0,
       "expectedMealFee": 1495000,
-      "extracurricularFee": 500000,
+      "extracurricularFee": 0,
       "surcharge": 0,
       "refundAmount": 65000,
       "discountAmount": 0,
-      "totalAmount": 1930000,
+      "totalAmount": 1430000,
       "paymentStatus": "Unpaid",
       "dueDate": 1786269600,
       "createdAt": 1783067067
@@ -224,9 +224,9 @@ GET /parent/children/{studentId}/invoices?type=&status=&from=&to=
 
 **UI gợi ý:**
 - Danh sách hóa đơn dạng card/table theo `billingMonth` giảm dần (BE đã sort sẵn `ORDER BY BillingMonth DESC, InvoiceID DESC` — FE không cần sort lại).
-- Tab lọc theo `type` (Tất cả / Học phí / Hàng tháng) và filter theo `status` (badge màu: Unpaid=đỏ/cam, Partial=vàng, Paid=xanh).
+- Tab lọc theo `type` (Tất cả / Học phí / Hàng tháng / Ngoại khóa) và filter theo `status` (badge màu: Unpaid=đỏ/cam, Partial=vàng, Paid=xanh).
 - Với hóa đơn `TUITION`, hiển thị `periodRange` (ví dụ "08-2026 - 10-2026") thay vì chỉ `billingMonth`, vì nó thể hiện cả chu kỳ gói.
-- Với hóa đơn `MONTHLY`, nếu `refundAmount > 0`, hiển thị nổi bật dòng "Hoàn tiền ăn tháng trước: -65,000đ" để phụ huynh hiểu vì sao tổng tiền giảm.
+- Với hóa đơn `MONTHLY`, nếu `refundAmount > 0`, hiển thị nổi bật dòng "Hoàn tiền ăn tháng trước: -65,000đ" để phụ huynh hiểu vì sao tổng tiền giảm. `extracurricularFee` trong MONTHLY luôn = 0 — tiền ngoại khóa giờ nằm ở hóa đơn `EXTRACURRICULAR` riêng (xem mục 2.6).
 - Nếu `dueDate` không null và `paymentStatus !== 'Paid'`, hiển thị hạn đóng (ví dụ "Hạn: 10/08/2026"). Nếu đã qua `dueDate`, đổi màu badge/text sang cảnh báo (ví dụ đỏ đậm "Quá hạn") để phụ huynh nhận biết ngay trong danh sách mà không cần mở chi tiết.
 
 ---
@@ -393,6 +393,116 @@ BE có 1 cron chạy **hàng ngày lúc 08:00** quét toàn bộ hóa đơn chư
 
 ---
 
+### 2.6 Đăng ký hoạt động ngoại khóa
+
+Đây là nguồn phát sinh hóa đơn `InvoiceType='EXTRACURRICULAR'` — **tách riêng khỏi hóa đơn MONTHLY** (không còn nằm trong `ExtracurricularFee` của invoice MONTHLY như thiết kế cũ). Mỗi tháng có tối đa 1 invoice EXTRACURRICULAR/học sinh, gộp tất cả hoạt động đăng ký trong tháng đó.
+
+**Vòng đời 1 enrollment:** `Pending` (vừa đăng ký, chờ thanh toán) → `Active` (invoice tháng đó đã thanh toán đủ) → mỗi tháng tiếp theo, cron tự tạo enrollment mới `Pending` + invoice mới cho tháng kế (nếu tháng trước vẫn `Active`) → phụ huynh phải thanh toán lại để enrollment tháng mới thành `Active`. Gọi `PATCH .../cancel` để dừng chu trình này (không hoàn tiền tháng hiện tại, chỉ ngừng gia hạn từ tháng sau).
+
+⏱️ **Tự động hủy nếu không thanh toán**: nếu 1 enrollment vẫn ở `Pending` quá **48 giờ** kể từ lúc tạo (`createdAt`), 1 cron chạy mỗi giờ sẽ tự động chuyển nó sang `Cancelled` và trừ đúng số tiền hoạt động đó ra khỏi `ExtracurricularFee` của invoice liên quan (invoice không bị xóa — có thể còn hoạt động khác trong đó). UI nên hiển thị đếm ngược "Thanh toán trước [createdAt + 48h] để giữ đăng ký" trên mỗi enrollment `Pending`, và làm mới danh sách định kỳ hoặc khi quay lại màn hình để phản ánh đúng nếu đã bị tự hủy.
+
+#### (a) Xem danh mục hoạt động
+
+```
+GET /parent/extracurriculars
+```
+
+**Response 200:**
+```json
+{
+  "success": true,
+  "data": [
+    { "activityId": 1, "activityName": "Vẽ sáng tạo", "monthlyFee": 500000, "description": "Lớp vẽ sáng tạo cho bé, 2 buổi/tuần" }
+  ]
+}
+```
+
+#### (b) Xem đăng ký hiện tại của con
+
+```
+GET /parent/children/{studentId}/extracurriculars?month=07-2026
+```
+
+`month` optional (`'MM-YYYY'`) — không truyền thì trả về toàn bộ lịch sử đăng ký.
+
+**Response 200:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "enrollmentId": 3,
+      "activityId": 1,
+      "activityName": "Vẽ sáng tạo",
+      "monthlyFee": 500000,
+      "registeredMonth": "07-2026",
+      "status": "Active",
+      "createdAt": 1783067067
+    }
+  ]
+}
+```
+
+`status` có 3 giá trị:
+| Status | Ý nghĩa |
+|---|---|
+| `Pending` | Vừa đăng ký hoặc vừa được gia hạn tự động sang tháng mới — **chưa** thanh toán invoice EXTRACURRICULAR của tháng đó |
+| `Active` | Invoice EXTRACURRICULAR của `registeredMonth` đã thanh toán đủ (`PaymentStatus='Paid'`) |
+| `Cancelled` | Đã hủy — vẫn áp dụng phí cho `registeredMonth` hiện tại (nếu đã Pending/Active), chỉ dừng gia hạn từ tháng sau |
+
+#### (c) Đăng ký hoạt động mới
+
+```
+POST /parent/children/{studentId}/extracurriculars
+```
+
+**Request body:**
+```json
+{ "activityId": 1 }
+```
+
+Đăng ký **có hiệu lực ngay tháng hiện tại** (`registeredMonth` = tháng hiện tại, không phải tháng sau). BE tự tìm hoặc tạo 1 invoice `EXTRACURRICULAR` Unpaid cho `(StudentID, tháng hiện tại)` và cộng phí hoạt động vào đó — nếu phụ huynh đăng ký thêm 1 hoạt động khác cùng tháng, phí sẽ **cộng dồn vào cùng 1 invoice** đó thay vì tạo invoice mới.
+
+**Response 201:**
+```json
+{
+  "success": true,
+  "data": {
+    "enrollmentId": 3,
+    "studentId": 19,
+    "activityId": 1,
+    "registeredMonth": "07-2026",
+    "status": "Pending",
+    "invoiceId": 11
+  }
+}
+```
+
+⚠️ **Quan trọng**: enrollment trả về ở trạng thái `Pending` — hoạt động **chưa** được coi là chính thức tham gia cho tới khi invoice `invoiceId` được thanh toán (`POST /parent/invoices/{invoiceId}/pay` hoặc `/pay-momo`). UI nên điều hướng thẳng phụ huynh sang bước thanh toán ngay sau khi đăng ký thành công, dùng `invoiceId` trả về.
+
+**Lỗi cần xử lý:** 400 nếu đã đăng ký hoạt động đó cho đúng tháng hiện tại rồi (unique constraint).
+
+#### (d) Hủy đăng ký
+
+```
+PATCH /parent/children/{studentId}/extracurriculars/{enrollmentId}/cancel
+```
+
+**Response 200:**
+```json
+{
+  "success": true,
+  "data": { "enrollmentId": 3, "status": "Cancelled" }
+}
+```
+
+**UI gợi ý:**
+- Nút "Hủy đăng ký" trong danh sách hoạt động của con, kèm dialog xác nhận.
+- Không có hoàn tiền trong mọi trường hợp — chỉ thông báo "Đã hủy, hoạt động sẽ không được gia hạn tự động vào tháng sau. Phí tháng hiện tại (nếu đã đăng ký/thanh toán) vẫn được giữ nguyên."
+- Vì mỗi tháng đều phát sinh 1 enrollment/invoice mới (gia hạn tự động), UI nên hiển thị rõ theo từng tháng trong lịch sử (`GET .../extracurriculars`) thay vì coi 1 hoạt động là "1 đăng ký duy nhất xuyên suốt".
+
+---
+
 ## 3. LUỒNG MÀN HÌNH GỢI Ý (PHỤ HUYNH)
 
 ```
@@ -436,6 +546,8 @@ BE có 1 cron chạy **hàng ngày lúc 08:00** quét toàn bộ hóa đơn chư
 - [ ] Route `/billing/payment-result` xử lý sau khi MoMo redirect về, gọi lại API xác nhận trạng thái thật
 - [ ] (Nếu cần) màn hình xác nhận thanh toán thủ công cho nhân viên (`POST /parent/invoices/:id/pay`)
 - [ ] Xử lý tap vào push notification `INVOICE_REMINDER` → điều hướng tới chi tiết hóa đơn theo `data.invoiceId`
+- [ ] Màn hình danh mục hoạt động ngoại khóa + đăng ký cho con (`GET /parent/extracurriculars`, `POST /parent/children/:id/extracurriculars`) — nhớ hiển thị rõ hiệu lực từ tháng sau
+- [ ] Danh sách đăng ký ngoại khóa của con + nút hủy (`GET`/`PATCH .../extracurriculars/:enrollmentId/cancel`) — phân biệt rõ 2 kết quả hủy trong/ngoài 48h
 
 ### Chung
 - [ ] Helper format `'MM-YYYY'` ↔ hiển thị tiếng Việt (ví dụ "08-2026" → "Tháng 8/2026")

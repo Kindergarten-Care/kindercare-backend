@@ -1287,6 +1287,99 @@ const momoIpn = async (req, res, next) => {
   }
 };
 
+const getExtracurriculars = async (req, res, next) => {
+  try {
+    const activities = await parentService.getExtracurriculars();
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, activities, 'Lấy danh sách hoạt động ngoại khóa thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getChildExtracurriculars = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { studentId } = req.params;
+    const { month } = req.query;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin của học sinh này');
+    }
+
+    const enrollments = await parentService.getStudentExtracurriculars(studentId, month);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, enrollments, 'Lấy danh sách đăng ký ngoại khóa thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const registerExtracurricular = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { studentId } = req.params;
+    const { activityId } = req.body;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    if (!activityId) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng cung cấp activityId');
+    }
+
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền đăng ký cho học sinh này');
+    }
+
+    const enrollment = await parentService.registerExtracurricular(studentId, activityId);
+
+    res.status(httpStatus.CREATED).json(
+      new ApiResponse(httpStatus.CREATED, enrollment, 'Đăng ký hoạt động ngoại khóa thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const cancelExtracurricular = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { studentId, enrollmentId } = req.params;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền hủy đăng ký cho học sinh này');
+    }
+
+    const result = await parentService.cancelExtracurricular(enrollmentId, parseInt(studentId, 10));
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, result, 'Hủy đăng ký hoạt động ngoại khóa thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyChildren,
   getMyProfile,
@@ -1321,6 +1414,10 @@ export default {
   payInvoice,
   payInvoiceWithMomo,
   momoIpn,
+  getExtracurriculars,
+  getChildExtracurriculars,
+  registerExtracurricular,
+  cancelExtracurricular,
 };
 
 

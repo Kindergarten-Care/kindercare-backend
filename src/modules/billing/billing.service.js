@@ -6,6 +6,7 @@ import { sendPushToUser } from '../notification/notification.service.js';
 
 const REMINDER_LEAD_DAYS = 3;
 const SECONDS_PER_DAY = 86400;
+const EXTRACURRICULAR_PENDING_EXPIRY_HOURS = 48;
 
 const TZ_OFFSET_SECONDS = 7 * 60 * 60;
 
@@ -218,22 +219,6 @@ export const expectedMealFee = async (studentId, billingMonth) => {
 };
 
 /**
- * Tổng phí ngoại khóa đã đăng ký Active trong tháng.
- * @param {number} studentId
- * @param {string} billingMonth - 'MM-YYYY'
- */
-export const extracurricularFee = async (studentId, billingMonth) => {
-  const [rows] = await pool.query(
-    `SELECT COALESCE(SUM(e.MonthlyFee), 0) AS total
-     FROM StudentExtracurriculars se
-     JOIN Extracurriculars e ON se.ActivityID = e.ActivityID
-     WHERE se.StudentID = ? AND se.RegisteredMonth = ? AND se.Status = 'Active'`,
-    [studentId, billingMonth]
-  );
-  return Number(rows[0].total);
-};
-
-/**
  * Tiền hoàn tiền ăn của tháng trước (nghỉ có phép, được miễn tiền ăn).
  * Đơn nghỉ đã auto-Approved sẵn — chỉ cần lọc IsMealFeeDeducted=1.
  * @param {number} studentId
@@ -279,9 +264,8 @@ export const refundForPrevMonth = async (studentId, prevMonth) => {
 export const generateMonthlyInvoice = async (studentId, billingMonth) => {
   const prevMonth = addMonths(billingMonth, -1);
 
-  const [meal, extra, refund] = await Promise.all([
+  const [meal, refund] = await Promise.all([
     expectedMealFee(studentId, billingMonth),
-    extracurricularFee(studentId, billingMonth),
     refundForPrevMonth(studentId, prevMonth),
   ]);
   const dueDate = getDueDate(billingMonth);
@@ -289,15 +273,14 @@ export const generateMonthlyInvoice = async (studentId, billingMonth) => {
   try {
     const [result] = await pool.query(
       `INSERT INTO Invoices
-         (StudentID, BillingMonth, ExpectedMealFee, ExtracurricularFee, Surcharge, RefundAmount, InvoiceType, DueDate)
-       VALUES (?, ?, ?, ?, 0, ?, 'MONTHLY', ?)`,
-      [studentId, billingMonth, meal, extra, refund, dueDate]
+         (StudentID, BillingMonth, ExpectedMealFee, Surcharge, RefundAmount, InvoiceType, DueDate)
+       VALUES (?, ?, ?, 0, ?, 'MONTHLY', ?)`,
+      [studentId, billingMonth, meal, refund, dueDate]
     );
     return {
       invoiceId: result.insertId,
       billingMonth,
       expectedMealFee: meal,
-      extracurricularFee: extra,
       refundAmount: refund,
       dueDate,
     };
@@ -356,11 +339,50 @@ export const runMonthlyBilling = async (billingMonth) => {
     else skipped++;
   }
 
+  const extracurricularCount = await renewExtracurricularEnrollments(resolvedBillingMonth);
+
   return {
     billingMonth: resolvedBillingMonth,
-    generated: { tuition: tuitionCount, monthly: monthlyCount },
+    generated: { tuition: tuitionCount, monthly: monthlyCount, extracurricular: extracurricularCount },
     skipped,
   };
+};
+
+/**
+ * Gia hạn ngoại khóa sang billingMonth cho mọi enrollment Active của tháng
+ * liền trước — tạo enrollment mới Status='Pending' (phụ huynh phải thanh
+ * toán lại mỗi tháng, không tự động Active) + cộng phí vào invoice
+ * EXTRACURRICULAR của tháng đó. Idempotent nhờ UNIQUE(StudentID, ActivityID,
+ * RegisteredMonth) trên StudentExtracurriculars.
+ * @param {string} billingMonth - 'MM-YYYY'
+ * @returns {Promise<number>} số enrollment đã gia hạn
+ */
+const renewExtracurricularEnrollments = async (billingMonth) => {
+  const prevMonth = addMonths(billingMonth, -1);
+
+  const [activeEnrollments] = await pool.query(
+    `SELECT se.StudentID, se.ActivityID, e.MonthlyFee
+     FROM StudentExtracurriculars se
+     JOIN Extracurriculars e ON se.ActivityID = e.ActivityID
+     WHERE se.RegisteredMonth = ? AND se.Status = 'Active'`,
+    [prevMonth]
+  );
+
+  let renewedCount = 0;
+  for (const enrollment of activeEnrollments) {
+    try {
+      const invoiceId = await addToExtracurricularInvoice(enrollment.StudentID, billingMonth, enrollment.MonthlyFee);
+      await pool.query(
+        `INSERT INTO StudentExtracurriculars (StudentID, ActivityID, RegisteredMonth, Status, InvoiceID)
+         VALUES (?, ?, ?, 'Pending', ?)`,
+        [enrollment.StudentID, enrollment.ActivityID, billingMonth, invoiceId]
+      );
+      renewedCount++;
+    } catch (error) {
+      if (error.code !== 'ER_DUP_ENTRY') throw error;
+    }
+  }
+  return renewedCount;
 };
 
 const getInvoiceById = async (invoiceId) => {
@@ -438,6 +460,9 @@ export const recordPayment = async (invoiceId, amountPaid, method, code) => {
   }
 
   await pool.query('UPDATE Invoices SET PaymentStatus = ? WHERE InvoiceID = ?', [paymentStatus, invoiceId]);
+  if (paymentStatus === 'Paid') {
+    await activateExtracurricularsForInvoice(invoiceId);
+  }
 
   return {
     transactionId: txResult.insertId,
@@ -447,6 +472,54 @@ export const recordPayment = async (invoiceId, amountPaid, method, code) => {
     totalAmount,
     paymentStatus,
   };
+};
+
+/**
+ * Khi 1 invoice EXTRACURRICULAR được thanh toán đủ (Paid), kích hoạt
+ * (Status='Active') mọi enrollment Pending gắn với invoice đó. Gọi từ
+ * cả recordPayment (thanh toán thủ công) và MoMo IPN handler.
+ * @param {number} invoiceId
+ */
+export const activateExtracurricularsForInvoice = async (invoiceId) => {
+  await pool.query(
+    `UPDATE StudentExtracurriculars SET Status = 'Active'
+     WHERE InvoiceID = ? AND Status = 'Pending'`,
+    [invoiceId]
+  );
+};
+
+/**
+ * Lấy hoặc tạo invoice EXTRACURRICULAR Unpaid cho 1 học sinh/tháng, rồi
+ * cộng thêm phí hoạt động mới vào ExtracurricularFee (gộp nhiều hoạt
+ * động đăng ký cùng tháng vào 1 invoice duy nhất).
+ * @param {number} studentId
+ * @param {string} billingMonth - 'MM-YYYY'
+ * @param {number} activityFee
+ * @returns {Promise<number>} invoiceId
+ */
+export const addToExtracurricularInvoice = async (studentId, billingMonth, activityFee) => {
+  const [existing] = await pool.query(
+    `SELECT InvoiceID FROM Invoices
+     WHERE StudentID = ? AND BillingMonth = ? AND InvoiceType = 'EXTRACURRICULAR' AND PaymentStatus != 'Paid'`,
+    [studentId, billingMonth]
+  );
+
+  if (existing.length > 0) {
+    const invoiceId = existing[0].InvoiceID;
+    await pool.query(
+      'UPDATE Invoices SET ExtracurricularFee = ExtracurricularFee + ? WHERE InvoiceID = ?',
+      [activityFee, invoiceId]
+    );
+    return invoiceId;
+  }
+
+  const dueDate = getDueDate(billingMonth);
+  const [result] = await pool.query(
+    `INSERT INTO Invoices (StudentID, BillingMonth, ExtracurricularFee, InvoiceType, PaymentStatus, DueDate)
+     VALUES (?, ?, ?, 'EXTRACURRICULAR', 'Unpaid', ?)`,
+    [studentId, billingMonth, activityFee, dueDate]
+  );
+  return result.insertId;
 };
 
 /**
@@ -529,4 +602,38 @@ const notifyParentsOfInvoice = async (invoice, kind) => {
   );
 
   return true;
+};
+
+/**
+ * Tự động hủy các enrollment ngoại khóa còn Pending quá 48h kể từ lúc
+ * đăng ký/gia hạn (CreatedAt) — coi như phụ huynh không thanh toán.
+ * Trừ đúng số tiền hoạt động đó ra khỏi ExtracurricularFee của invoice
+ * liên kết (không xóa/hủy invoice — có thể còn hoạt động khác trong đó
+ * vẫn Pending/Active).
+ * @param {number} [nowSec] - unix timestamp hiện tại (giây), default = Date.now()
+ * @returns {Promise<number>} số enrollment đã bị hủy
+ */
+export const expirePendingExtracurriculars = async (nowSec) => {
+  const now = nowSec ?? Math.floor(Date.now() / 1000);
+  const expiryThreshold = now - EXTRACURRICULAR_PENDING_EXPIRY_HOURS * 3600;
+
+  const [expiredRows] = await pool.query(
+    `SELECT se.EnrollmentID, se.InvoiceID, e.MonthlyFee
+     FROM StudentExtracurriculars se
+     JOIN Extracurriculars e ON se.ActivityID = e.ActivityID
+     WHERE se.Status = 'Pending' AND se.CreatedAt <= ?`,
+    [expiryThreshold]
+  );
+
+  for (const row of expiredRows) {
+    await pool.query('UPDATE StudentExtracurriculars SET Status = ? WHERE EnrollmentID = ?', ['Cancelled', row.EnrollmentID]);
+    if (row.InvoiceID) {
+      await pool.query(
+        'UPDATE Invoices SET ExtracurricularFee = GREATEST(ExtracurricularFee - ?, 0) WHERE InvoiceID = ?',
+        [row.MonthlyFee, row.InvoiceID]
+      );
+    }
+  }
+
+  return expiredRows.length;
 };

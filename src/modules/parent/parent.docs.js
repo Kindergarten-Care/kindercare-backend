@@ -17,6 +17,8 @@
  *     description: "Proxy pickup/drop-off authorizations and QR attendance token"
  *   - name: "Parent - Billing"
  *     description: "View and pay a child's tuition/monthly invoices"
+ *   - name: "Parent - Extracurriculars"
+ *     description: "Browse and manage a child's extracurricular activity enrollments"
  */
 
 // ─────────────────────────────────────────────────────────────
@@ -2940,4 +2942,265 @@
  *         description: IPN received and processed
  *       400:
  *         description: Bad Request - invalid signature
+ */
+
+// ─────────────────────────────────────────────────────────────
+//  GROUP · Parent - Extracurriculars
+//  GET   /parent/extracurriculars
+//  GET   /parent/children/:studentId/extracurriculars
+//  POST  /parent/children/:studentId/extracurriculars
+//  PATCH /parent/children/:studentId/extracurriculars/:enrollmentId/cancel
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /parent/extracurriculars:
+ *   get:
+ *     summary: Get the catalog of extracurricular activities
+ *     description: Returns all activities available to register for (school-wide catalog, not tied to a specific child).
+ *     tags: ["Parent - Extracurriculars"]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved activity catalog
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách hoạt động ngoại khóa thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       activityId:
+ *                         type: integer
+ *                         example: 1
+ *                       activityName:
+ *                         type: string
+ *                         example: "Vẽ sáng tạo"
+ *                       monthlyFee:
+ *                         type: number
+ *                         example: 500000
+ *                       description:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "Lớp vẽ sáng tạo cho bé, 2 buổi/tuần"
+ *       401:
+ *         description: Unauthorized
+ */
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/extracurriculars:
+ *   get:
+ *     summary: Get a child's extracurricular enrollments
+ *     description: Returns all enrollment records of a child, optionally filtered by month.
+ *     tags: ["Parent - Extracurriculars"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 19
+ *       - in: query
+ *         name: month
+ *         schema:
+ *           type: string
+ *         description: "'MM-YYYY', filters by RegisteredMonth"
+ *         example: "08-2026"
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved enrollments
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách đăng ký ngoại khóa thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       enrollmentId:
+ *                         type: integer
+ *                         example: 3
+ *                       activityId:
+ *                         type: integer
+ *                         example: 1
+ *                       activityName:
+ *                         type: string
+ *                         example: "Vẽ sáng tạo"
+ *                       monthlyFee:
+ *                         type: number
+ *                         example: 500000
+ *                       registeredMonth:
+ *                         type: string
+ *                         example: "08-2026"
+ *                       status:
+ *                         type: string
+ *                         enum: [Pending, Active, Cancelled]
+ *                         example: Active
+ *                       createdAt:
+ *                         type: integer
+ *                         description: Unix timestamp (seconds)
+ *                         example: 1783067067
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - child does not belong to this parent
+ *   post:
+ *     summary: Register a child for an extracurricular activity
+ *     description: |
+ *       Enrollment takes effect from the CURRENT month (RegisteredMonth = this month). Creates or reuses an unpaid EXTRACURRICULAR invoice for that month/student (multiple activities registered the same month are merged into one invoice via ExtracurricularFee). The enrollment starts as `Pending` and only becomes `Active` once that invoice is paid in full (via POST /parent/invoices/{invoiceId}/pay or /pay-momo) — see activateExtracurricularsForInvoice.
+ *       Each following month, a monthly cron automatically renews any still-`Active` enrollment into a new `Pending` enrollment + invoice for the next month — the parent must pay again each month to keep it `Active`. Cancelling stops this renewal (see the cancel endpoint below).
+ *     tags: ["Parent - Extracurriculars"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 19
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [activityId]
+ *             properties:
+ *               activityId:
+ *                 type: integer
+ *                 example: 1
+ *     responses:
+ *       201:
+ *         description: Enrollment created successfully (Pending, awaiting payment)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 201
+ *                 message:
+ *                   type: string
+ *                   example: Đăng ký hoạt động ngoại khóa thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     enrollmentId:
+ *                       type: integer
+ *                       example: 3
+ *                     studentId:
+ *                       type: integer
+ *                       example: 19
+ *                     activityId:
+ *                       type: integer
+ *                       example: 1
+ *                     registeredMonth:
+ *                       type: string
+ *                       example: "07-2026"
+ *                     status:
+ *                       type: string
+ *                       example: Pending
+ *                     invoiceId:
+ *                       type: integer
+ *                       description: The EXTRACURRICULAR invoice this enrollment is billed under — pay this to activate.
+ *                       example: 11
+ *       400:
+ *         description: Bad Request - missing activityId, or already enrolled in this activity for that month
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - child does not belong to this parent
+ *       404:
+ *         description: Not Found - activity not found
+ */
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/extracurriculars/{enrollmentId}/cancel:
+ *   patch:
+ *     summary: Cancel a child's extracurricular enrollment
+ *     description: |
+ *       Sets Status='Cancelled'. No refund is issued for the current RegisteredMonth regardless of whether it was Pending or already Active/paid — cancelling only prevents the monthly renewal cron from creating a new enrollment/invoice for the following month.
+ *     tags: ["Parent - Extracurriculars"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 19
+ *       - in: path
+ *         name: enrollmentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 3
+ *     responses:
+ *       200:
+ *         description: Enrollment cancelled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Hủy đăng ký hoạt động ngoại khóa thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     enrollmentId:
+ *                       type: integer
+ *                       example: 3
+ *                     status:
+ *                       type: string
+ *                       example: Cancelled
+ *       400:
+ *         description: Bad Request - enrollment already cancelled
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - enrollment does not belong to this parent's child
+ *       404:
+ *         description: Not Found - enrollment not found
  */
