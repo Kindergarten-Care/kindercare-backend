@@ -9,7 +9,7 @@ import {
   addToExtracurricularInvoice,
   activateExtracurricularsForInvoice,
 } from '../billing/billing.service.js';
-import { createMomoPayment as createMomoOrder, verifyMomoSignature } from '../../utils/momo.js';
+import { createMomoPayment as createMomoOrder, verifyMomoSignature, queryMomoTransactionStatus } from '../../utils/momo.js';
 import logger from '../../config/logger.js';
 import { getMonthKey } from '../../utils/dateHelpers.js';
 
@@ -1322,8 +1322,8 @@ export const getInvoicesByStudentId = async (studentId, filters = {}) => {
  * @param {number} invoiceId
  */
 export const getInvoiceDetail = async (invoiceId) => {
-  const [invoiceRows] = await pool.query(
-    `SELECT
+  const invoiceQuery = `
+    SELECT
        InvoiceID          AS invoiceId,
        StudentID           AS studentId,
        PackageID           AS packageId,
@@ -1341,16 +1341,9 @@ export const getInvoiceDetail = async (invoiceId) => {
        DueDate             AS dueDate,
        CreatedAt           AS createdAt
      FROM Invoices
-     WHERE InvoiceID = ?`,
-    [invoiceId]
-  );
-
-  if (invoiceRows.length === 0) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy hóa đơn');
-  }
-
-  const [transactions] = await pool.query(
-    `SELECT
+     WHERE InvoiceID = ?`;
+  const transactionsQuery = `
+    SELECT
        TransactionID    AS transactionId,
        AmountPaid       AS amountPaid,
        PaymentMethod    AS paymentMethod,
@@ -1359,9 +1352,32 @@ export const getInvoiceDetail = async (invoiceId) => {
        Status           AS status
      FROM Transactions
      WHERE InvoiceID = ?
-     ORDER BY TransactionDate DESC`,
-    [invoiceId]
-  );
+     ORDER BY TransactionDate DESC`;
+
+  const [invoiceRows] = await pool.query(invoiceQuery, [invoiceId]);
+  if (invoiceRows.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy hóa đơn');
+  }
+
+  let [transactions] = await pool.query(transactionsQuery, [invoiceId]);
+
+  // Đối soát ngay các giao dịch MoMo còn Pending khi parent xem lại hóa đơn (vd sau khi
+  // quay về từ trang thanh toán), phòng trường hợp IPN chưa/không gọi tới server kịp.
+  const pendingMomoTx = transactions.filter((t) => t.paymentMethod === 'MoMo' && t.status === 'Pending');
+  if (pendingMomoTx.length > 0) {
+    await Promise.all(pendingMomoTx.map((t) => reconcileMomoTransaction({
+      TransactionID: t.transactionId,
+      InvoiceID: invoiceId,
+      TransactionCode: t.transactionCode,
+    })));
+
+    const [[freshInvoiceRows], [freshTransactions]] = await Promise.all([
+      pool.query(invoiceQuery, [invoiceId]),
+      pool.query(transactionsQuery, [invoiceId]),
+    ]);
+    invoiceRows[0] = freshInvoiceRows[0];
+    transactions = freshTransactions;
+  }
 
   return { ...invoiceRows[0], transactions };
 };
@@ -1430,29 +1446,14 @@ export const createMomoPayment = async (invoiceId) => {
 };
 
 /**
- * Xử lý IPN callback từ MoMo — verify chữ ký, cập nhật Transaction theo orderId
- * (lưu ở TransactionCode), tính lại PaymentStatus nếu thanh toán thành công.
- * @param {object} payload - body gửi từ MoMo
+ * Áp dụng kết quả giao dịch MoMo (Success/Failed) lên Transaction + Invoice liên quan.
+ * Dùng chung cho cả IPN callback và đối soát chủ động (query API).
+ * @param {object} tx - { TransactionID, InvoiceID }
+ * @param {string} orderId
+ * @param {number} resultCode
+ * @param {string} logPrefix - tiền tố log, vd '[MoMo IPN]' hoặc '[MoMo Reconcile]'
  */
-export const handleMomoIpn = async (payload) => {
-  const isValid = verifyMomoSignature(payload);
-  if (!isValid) {
-    logger.error(`[MoMo IPN] Chữ ký không hợp lệ cho orderId: ${payload.orderId}`);
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Chữ ký không hợp lệ');
-  }
-
-  const { orderId, resultCode } = payload;
-
-  const [txRows] = await pool.query(
-    'SELECT TransactionID, InvoiceID, AmountPaid FROM Transactions WHERE TransactionCode = ?',
-    [orderId]
-  );
-  if (txRows.length === 0) {
-    logger.error(`[MoMo IPN] Không tìm thấy transaction cho orderId: ${orderId}`);
-    return;
-  }
-  const tx = txRows[0];
-
+const applyMomoResult = async (tx, orderId, resultCode, logPrefix) => {
   if (Number(resultCode) === 0) {
     await pool.query('UPDATE Transactions SET Status = ? WHERE TransactionID = ?', ['Success', tx.TransactionID]);
 
@@ -1477,11 +1478,76 @@ export const handleMomoIpn = async (payload) => {
     if (paymentStatus === 'Paid') {
       await activateExtracurricularsForInvoice(tx.InvoiceID);
     }
-    logger.info(`[MoMo IPN] Thanh toán thành công cho InvoiceID ${tx.InvoiceID}, orderId ${orderId}`);
+    logger.info(`${logPrefix} Thanh toán thành công cho InvoiceID ${tx.InvoiceID}, orderId ${orderId}`);
   } else {
     await pool.query('UPDATE Transactions SET Status = ? WHERE TransactionID = ?', ['Failed', tx.TransactionID]);
-    logger.info(`[MoMo IPN] Thanh toán thất bại cho orderId ${orderId}, resultCode ${resultCode}`);
+    logger.info(`${logPrefix} Thanh toán thất bại cho orderId ${orderId}, resultCode ${resultCode}`);
   }
+};
+
+/**
+ * Xử lý IPN callback từ MoMo — verify chữ ký, cập nhật Transaction theo orderId
+ * (lưu ở TransactionCode), tính lại PaymentStatus nếu thanh toán thành công.
+ * @param {object} payload - body gửi từ MoMo
+ */
+export const handleMomoIpn = async (payload) => {
+  const isValid = verifyMomoSignature(payload);
+  if (!isValid) {
+    logger.error(`[MoMo IPN] Chữ ký không hợp lệ cho orderId: ${payload.orderId}`);
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Chữ ký không hợp lệ');
+  }
+
+  const { orderId, resultCode } = payload;
+
+  const [txRows] = await pool.query(
+    'SELECT TransactionID, InvoiceID, AmountPaid FROM Transactions WHERE TransactionCode = ?',
+    [orderId]
+  );
+  if (txRows.length === 0) {
+    logger.error(`[MoMo IPN] Không tìm thấy transaction cho orderId: ${orderId}`);
+    return;
+  }
+
+  await applyMomoResult(txRows[0], orderId, resultCode, '[MoMo IPN]');
+};
+
+/**
+ * Đối soát 1 giao dịch MoMo còn Pending bằng cách chủ động hỏi MoMo trạng thái thật
+ * (dùng khi IPN không tới được server). Bỏ qua an toàn nếu giao dịch đã được xử lý
+ * hoặc MoMo trả lỗi (transaction chưa tồn tại/hết hạn phía MoMo).
+ * @param {object} tx - { TransactionID, InvoiceID, TransactionCode }
+ */
+export const reconcileMomoTransaction = async (tx) => {
+  try {
+    const result = await queryMomoTransactionStatus(tx.TransactionCode);
+    // resultCode 1000/7000/7002 = MoMo còn đang xử lý, chưa có kết quả cuối cùng — bỏ qua, thử lại lần sau.
+    if ([1000, 7000, 7002].includes(Number(result.resultCode))) {
+      return;
+    }
+    await applyMomoResult(tx, tx.TransactionCode, result.resultCode, '[MoMo Reconcile]');
+  } catch (error) {
+    logger.error(`[MoMo Reconcile] Lỗi khi truy vấn orderId ${tx.TransactionCode}: ${error.message}`);
+  }
+};
+
+/**
+ * Quét toàn bộ Transaction MoMo còn Pending quá lâu (mặc định > 2 phút, để tránh
+ * đối soát đơn vừa tạo còn chưa kịp thanh toán) và đối soát trực tiếp với MoMo.
+ * Dùng cho cron job — bù cho trường hợp IPN không gọi được tới server.
+ * @returns {Promise<number>} số giao dịch đã quét
+ */
+export const reconcilePendingMomoTransactions = async () => {
+  const [pendingTx] = await pool.query(
+    `SELECT TransactionID, InvoiceID, TransactionCode
+     FROM Transactions
+     WHERE PaymentMethod = 'MoMo' AND Status = 'Pending' AND TransactionDate < UNIX_TIMESTAMP(NOW() - INTERVAL 2 MINUTE)`
+  );
+
+  for (const tx of pendingTx) {
+    await reconcileMomoTransaction(tx);
+  }
+
+  return pendingTx.length;
 };
 
 /**

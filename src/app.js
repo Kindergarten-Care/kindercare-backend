@@ -15,6 +15,7 @@ import { initSocket } from './config/socket.js';
 import { startMonthlyBillingCron } from './jobs/monthlyBilling.cron.js';
 import { startPaymentReminderCron } from './jobs/paymentReminder.cron.js';
 import { startExtracurricularExpiryCron } from './jobs/extracurricularExpiry.cron.js';
+import { startMomoReconciliationCron } from './jobs/momoReconciliation.cron.js';
 
 dotenv.config({
     path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env'
@@ -61,5 +62,6 @@ server.listen(PORT, () => {
 startMonthlyBillingCron();
 startPaymentReminderCron();
 startExtracurricularExpiryCron();
+startMomoReconciliationCron();
 
 export default app;
