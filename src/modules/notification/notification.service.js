@@ -1,4 +1,5 @@
-import admin from '../../config/firebase.js';
+import { getMessaging } from 'firebase-admin/messaging';
+import firebaseApp from '../../config/firebase.js';
 import pool from '../../config/db.js';
 import logger from '../../config/logger.js';
 import { emitNotificationToUser } from '../../config/socket.js';
@@ -55,7 +56,7 @@ export const sendPushToUser = async (userId, title, body, dataPayload = {}, isCr
       apns: { headers: { 'apns-priority': isCritical ? '10' : '5' } },
     };
 
-    const response = await admin.messaging().sendEachForMulticast(message);
+    const response = await getMessaging(firebaseApp).sendEachForMulticast(message);
     logger.info(`[FCM] Sent ${response.successCount} ok, ${response.failureCount} failed for UserID: ${userId}`);
 
     // 6. Prune invalid tokens

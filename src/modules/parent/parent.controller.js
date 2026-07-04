@@ -502,12 +502,12 @@ const getChildDailySchedule = async (req, res, next) => {
       targetTimestamp = Math.floor(Date.now() / 1000);
     }
 
-    // Calculate UTC midnight of the target timestamp's local day
-    const targetDateObj = new Date(targetTimestamp * 1000);
+    // Calculate UTC midnight of the target timestamp's local day (GMT+7)
+    const localDateObj = new Date((targetTimestamp + 7 * 3600) * 1000);
     const midnightSeconds = Math.floor(Date.UTC(
-      targetDateObj.getFullYear(),
-      targetDateObj.getMonth(),
-      targetDateObj.getDate()
+      localDateObj.getUTCFullYear(),
+      localDateObj.getUTCMonth(),
+      localDateObj.getUTCDate()
     ) / 1000);
 
     const schedule = await parentService.getStudentDailySchedule(
@@ -556,12 +556,12 @@ const getChildDailyLessons = async (req, res, next) => {
       targetTimestamp = Math.floor(Date.now() / 1000);
     }
 
-    // Calculate UTC midnight of the target timestamp's local day
-    const targetDateObj = new Date(targetTimestamp * 1000);
+    // Calculate UTC midnight of the target timestamp's local day (GMT+7)
+    const localDateObj = new Date((targetTimestamp + 7 * 3600) * 1000);
     const midnightSeconds = Math.floor(Date.UTC(
-      targetDateObj.getFullYear(),
-      targetDateObj.getMonth(),
-      targetDateObj.getDate()
+      localDateObj.getUTCFullYear(),
+      localDateObj.getUTCMonth(),
+      localDateObj.getUTCDate()
     ) / 1000);
 
     const lessons = await parentService.getStudentDailyLessons(
@@ -610,12 +610,12 @@ const getChildDailyAlbums = async (req, res, next) => {
       targetTimestamp = Math.floor(Date.now() / 1000);
     }
 
-    // Calculate UTC midnight of the target timestamp's local day
-    const targetDateObj = new Date(targetTimestamp * 1000);
+    // Calculate UTC midnight of the target timestamp's local day (GMT+7)
+    const localDateObj = new Date((targetTimestamp + 7 * 3600) * 1000);
     const midnightSeconds = Math.floor(Date.UTC(
-      targetDateObj.getFullYear(),
-      targetDateObj.getMonth(),
-      targetDateObj.getDate()
+      localDateObj.getUTCFullYear(),
+      localDateObj.getUTCMonth(),
+      localDateObj.getUTCDate()
     ) / 1000);
 
     const albums = await parentService.getStudentDailyAlbums(
@@ -708,6 +708,25 @@ const createProxyAuthorization = async (req, res, next) => {
     );
 
     logger.info(`Parent ID ${parentId} created Proxy Authorization ID ${newAuth.authorizationId} for Student ID ${studentId}`);
+
+    // Notify teachers of the student's class
+    const [studentInfo, teacherIds] = await Promise.all([
+      getStudentBasicInfo(studentIdVal),
+      getTeacherIdsByStudentId(studentIdVal),
+    ]);
+    const studentLabel = studentInfo
+      ? `${studentInfo.fullName} (${studentInfo.className})`
+      : `ID: ${studentIdVal}`;
+    await Promise.all(
+      teacherIds.map((tid) =>
+        sendPushToUser(
+          tid,
+          'Đăng ký đón hộ mới',
+          `Bé ${studentLabel} có đăng ký người đón hộ mới từ phụ huynh (${proxyName.trim()}). Vui lòng kiểm tra.`,
+          { type: 'PROXY_AUTHORIZATION', studentId: String(studentIdVal), authorizationId: String(newAuth.authorizationId) }
+        )
+      )
+    );
 
     res.status(httpStatus.CREATED).json(
       new ApiResponse(
@@ -844,25 +863,29 @@ const getChildMenu = async (req, res, next) => {
     }
 
     let targetTimestamp;
+    let dayFilter = null;
     if (date) {
       targetTimestamp = parseInt(date, 10);
       if (isNaN(targetTimestamp)) {
         throw new ApiError(httpStatus.BAD_REQUEST, 'date phải là số nguyên hợp lệ (timestamp tính bằng giây)');
       }
+      const localDateObj = new Date((targetTimestamp + 7 * 3600) * 1000);
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      dayFilter = days[localDateObj.getUTCDay()];
     } else {
       // Default to current time
       targetTimestamp = Math.floor(Date.now() / 1000);
     }
 
-    // Calculate UTC midnight of the target timestamp's local day
-    const targetDateObj = new Date(targetTimestamp * 1000);
+    // Calculate UTC midnight of the target timestamp's local day (GMT+7)
+    const localDateObj = new Date((targetTimestamp + 7 * 3600) * 1000);
     const midnightSeconds = Math.floor(Date.UTC(
-      targetDateObj.getFullYear(),
-      targetDateObj.getMonth(),
-      targetDateObj.getDate()
+      localDateObj.getUTCFullYear(),
+      localDateObj.getUTCMonth(),
+      localDateObj.getUTCDate()
     ) / 1000);
 
-    const menu = await parentService.getStudentMenu(studentIdVal, midnightSeconds);
+    const menu = await parentService.getStudentMenu(studentIdVal, midnightSeconds, dayFilter);
 
     res.status(httpStatus.OK).json(
       new ApiResponse(
@@ -914,11 +937,11 @@ const getChildDailyActivities = async (req, res, next) => {
       targetTimestamp = Math.floor(Date.now() / 1000);
     }
 
-    // Calculate target local date elements
-    const targetDateObj = new Date(targetTimestamp * 1000);
-    const year = targetDateObj.getFullYear();
-    const month = String(targetDateObj.getMonth() + 1).padStart(2, '0');
-    const day = String(targetDateObj.getDate()).padStart(2, '0');
+    // Calculate target local date elements (GMT+7)
+    const localDateObj = new Date((targetTimestamp + 7 * 3600) * 1000);
+    const year = localDateObj.getUTCFullYear();
+    const month = String(localDateObj.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(localDateObj.getUTCDate()).padStart(2, '0');
     const logDateStr = `${year}-${month}-${day}`;
 
     const activities = await parentService.getDailyActivities(studentIdVal, logDateStr);
@@ -930,6 +953,335 @@ const getChildDailyActivities = async (req, res, next) => {
         'Lấy nhật ký hoạt động ngày của bé thành công'
       )
     );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateMyProfile = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const { fullName, phoneNumber, email, idCard, job, address } = req.body;
+
+    let avatarUrl;
+    if (req.file) {
+      avatarUrl = await uploadToSpace(req.file, 'parents/parents-profile-avatar');
+    }
+
+    const updated = await parentService.updateParentProfile(parentId, {
+      fullName,
+      phoneNumber,
+      email,
+      idCard,
+      job,
+      address,
+      avatarUrl,
+    });
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, updated, 'Cập nhật thông tin phụ huynh thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getChildDetail = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const { studentId } = req.params;
+    const studentIdVal = parseInt(studentId, 10);
+
+    if (isNaN(studentIdVal)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'studentId phải là số hợp lệ');
+    }
+
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentIdVal);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin của học sinh này');
+    }
+
+    const student = await parentService.getStudentDetailById(studentIdVal);
+    if (!student) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy học sinh');
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, student, 'Lấy thông tin học sinh thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getChildRelatives = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const { studentId } = req.params;
+    const studentIdVal = parseInt(studentId, 10);
+
+    if (isNaN(studentIdVal)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'studentId phải là số hợp lệ');
+    }
+
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentIdVal);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin của học sinh này');
+    }
+
+    const relatives = await parentService.getStudentRelatives(studentIdVal);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, relatives, 'Lấy danh sách người thân của học sinh thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getChildBadges = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const studentIdVal = parseInt(req.params.studentId, 10);
+    if (isNaN(studentIdVal)) throw new ApiError(httpStatus.BAD_REQUEST, 'studentId phải là số hợp lệ');
+
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentIdVal);
+    if (!hasAccess) throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin của học sinh này');
+
+    const badges = await parentService.getStudentBadges(studentIdVal);
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, badges, 'Lấy danh sách huy hiệu của bé thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const changePassword = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const { currentPassword, newPassword, confirmNewPassword } = req.body;
+
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng cung cấp đầy đủ mật khẩu hiện tại, mật khẩu mới và xác nhận mật khẩu mới');
+    }
+    if (newPassword.length < 6) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Mật khẩu mới phải có ít nhất 6 ký tự');
+    }
+    if (newPassword !== confirmNewPassword) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Mật khẩu mới và xác nhận mật khẩu không khớp');
+    }
+    if (currentPassword === newPassword) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Mật khẩu mới không được trùng với mật khẩu hiện tại');
+    }
+
+    await parentService.changePassword(parentId, currentPassword, newPassword);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Đổi mật khẩu thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getChildWeeklyTimetable = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const { studentId } = req.params;
+    const { date } = req.query; // optional Unix timestamp in seconds
+    const studentIdVal = parseInt(studentId, 10);
+
+    if (isNaN(studentIdVal)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'studentId phải là số hợp lệ');
+    }
+
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentIdVal);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin của học sinh này');
+    }
+
+    const dateParam = date ? parseInt(date, 10) : null;
+    const timetable = await parentService.getStudentWeeklyTimetable(studentIdVal, dateParam);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, timetable, 'Lấy thời khóa biểu tuần của học sinh thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getChildDailyEvents = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { studentId, date, startDate, endDate } = req.query;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    if (!studentId) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Thiếu studentId');
+    }
+
+    let result;
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+    if (startDate && endDate) {
+      if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'startDate và endDate phải ở định dạng YYYY-MM-DD');
+      }
+      const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
+      if (!hasAccess) {
+        throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin sự kiện của học sinh này');
+      }
+      result = await parentService.getStudentDailyEvents(parseInt(studentId, 10), startDate, endDate);
+    } else {
+      if (!date) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Thiếu date hoặc cặp (startDate, endDate)');
+      }
+      if (!dateRegex.test(date)) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'date phải ở định dạng YYYY-MM-DD');
+      }
+      const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
+      if (!hasAccess) {
+        throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin sự kiện của học sinh này');
+      }
+      result = await parentService.getStudentDailyEvents(parseInt(studentId, 10), date);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        {
+          date: date || null,
+          startDate: startDate || null,
+          endDate: endDate || null,
+          studentId: parseInt(studentId, 10),
+          classId: result.classId,
+          events: result.events,
+        },
+        'Lấy danh sách sự kiện thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getChildInvoices = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { studentId } = req.params;
+    const { type, status, from, to } = req.query;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin của học sinh này');
+    }
+
+    const invoices = await parentService.getInvoicesByStudentId(studentId, { type, status, from, to });
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, invoices, 'Lấy danh sách hóa đơn thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getInvoiceDetail = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { invoiceId } = req.params;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    const hasAccess = await parentService.isParentOfInvoice(invoiceId, parentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập hóa đơn này');
+    }
+
+    const invoice = await parentService.getInvoiceDetail(invoiceId);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, invoice, 'Lấy chi tiết hóa đơn thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const payInvoice = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { invoiceId } = req.params;
+    const { amountPaid, paymentMethod, transactionCode } = req.body;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    if (!amountPaid || !paymentMethod) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng cung cấp amountPaid và paymentMethod');
+    }
+
+    const hasAccess = await parentService.isParentOfInvoice(invoiceId, parentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền thanh toán hóa đơn này');
+    }
+
+    const result = await parentService.createPayment(invoiceId, amountPaid, paymentMethod, transactionCode);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, result, 'Thanh toán hóa đơn thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const payInvoiceWithMomo = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { invoiceId } = req.params;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    const hasAccess = await parentService.isParentOfInvoice(invoiceId, parentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền thanh toán hóa đơn này');
+    }
+
+    const result = await parentService.createMomoPayment(invoiceId);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, result, 'Tạo đơn thanh toán MoMo thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const momoIpn = async (req, res, next) => {
+  try {
+    await parentService.handleMomoIpn(req.body);
+    // MoMo yêu cầu phản hồi 204/200 rỗng để xác nhận đã nhận IPN
+    res.status(httpStatus.NO_CONTENT).send();
   } catch (error) {
     next(error);
   }
@@ -957,6 +1309,18 @@ export default {
   createProxyAuthorization,
   getChildProxyAuthorizations,
   cancelProxyAuthorization,
+  getChildDetail,
+  getChildRelatives,
+  updateMyProfile,
+  changePassword,
+  getChildBadges,
+  getChildWeeklyTimetable,
+  getChildDailyEvents,
+  getChildInvoices,
+  getInvoiceDetail,
+  payInvoice,
+  payInvoiceWithMomo,
+  momoIpn,
 };
 
 
