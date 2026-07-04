@@ -52,7 +52,7 @@ export const createVnpayPaymentUrl = ({ txnRef, amount, orderInfo, ipAddr }) => 
   const tmnCode = process.env.VNPAY_TMN_CODE;
   const secretKey = process.env.VNPAY_HASH_SECRET;
   const vnpUrl = process.env.VNPAY_URL;
-  const returnUrl = process.env.VNPAY_RETURN_URL;
+  const returnUrl = `${process.env.VNPAY_RETURN_URL}/billing/payment-result`;
 
   const createDate = formatVnpayDate(new Date());
   const expireDate = formatVnpayDate(new Date(Date.now() + 15 * 60 * 1000));
