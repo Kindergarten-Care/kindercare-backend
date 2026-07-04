@@ -61,6 +61,37 @@ export const createMomoPayment = async ({ invoiceId, amount, orderInfo }) => {
 };
 
 /**
+ * Truy vấn trạng thái giao dịch trực tiếp từ MoMo — dùng để đối soát khi IPN
+ * không tới được server (bị chặn, lỗi mạng, sandbox không gửi...).
+ * @param {string} orderId
+ * @returns {Promise<{resultCode: number, message: string, transId?: number}>}
+ */
+export const queryMomoTransactionStatus = async (orderId) => {
+  const partnerCode = process.env.MOMO_PARTNER_CODE;
+  const accessKey = process.env.MOMO_ACCESS_KEY;
+  const secretKey = process.env.MOMO_SECRET_KEY;
+  const queryEndpoint = process.env.MOMO_ENDPOINT.replace(/\/create$/, '/query');
+  const requestId = orderId;
+
+  const rawSignature =
+    `accessKey=${accessKey}&orderId=${orderId}&partnerCode=${partnerCode}&requestId=${requestId}`;
+  const signature = sign(rawSignature, secretKey);
+
+  const { data } = await axios.post(queryEndpoint, {
+    partnerCode,
+    requestId,
+    orderId,
+    lang: 'vi',
+    signature,
+  }, {
+    headers: { 'Content-Type': 'application/json' },
+    timeout: 15000,
+  });
+
+  return data;
+};
+
+/**
  * Xác thực chữ ký của IPN callback từ MoMo.
  * @param {object} payload - body gửi từ MoMo
  * @returns {boolean}
