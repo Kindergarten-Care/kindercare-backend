@@ -4,12 +4,14 @@ import httpStatus from 'http-status';
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
-import { recordPayment as recordPaymentInBilling } from '../billing/billing.service.js';
+import {
+  recordPayment as recordPaymentInBilling,
+  addToExtracurricularInvoice,
+  activateExtracurricularsForInvoice,
+} from '../billing/billing.service.js';
 import { createMomoPayment as createMomoOrder, verifyMomoSignature } from '../../utils/momo.js';
 import logger from '../../config/logger.js';
-import { getMonthKey, addMonths } from '../../utils/dateHelpers.js';
-
-const EXTRACURRICULAR_CANCEL_REFUND_WINDOW_HOURS = 48;
+import { getMonthKey } from '../../utils/dateHelpers.js';
 
 /**
  * Get all children of a parent by ParentID
@@ -1472,6 +1474,9 @@ export const handleMomoIpn = async (payload) => {
     }
 
     await pool.query('UPDATE Invoices SET PaymentStatus = ? WHERE InvoiceID = ?', [paymentStatus, tx.InvoiceID]);
+    if (paymentStatus === 'Paid') {
+      await activateExtracurricularsForInvoice(tx.InvoiceID);
+    }
     logger.info(`[MoMo IPN] Thanh toán thành công cho InvoiceID ${tx.InvoiceID}, orderId ${orderId}`);
   } else {
     await pool.query('UPDATE Transactions SET Status = ? WHERE TransactionID = ?', ['Failed', tx.TransactionID]);
@@ -1517,56 +1522,63 @@ export const getStudentExtracurriculars = async (studentId, month) => {
 };
 
 /**
- * Đăng ký 1 hoạt động ngoại khóa cho học sinh. Luôn có hiệu lực từ THÁNG
- * KẾ TIẾP tháng hiện tại (không đụng vào invoice MONTHLY của tháng hiện
- * tại — nó có thể đã được cron tạo sẵn rồi).
+ * Đăng ký 1 hoạt động ngoại khóa cho học sinh — có hiệu lực NGAY tháng
+ * hiện tại. Tạo/nối vào 1 invoice EXTRACURRICULAR riêng của tháng đó
+ * (gộp nhiều hoạt động cùng tháng vào 1 invoice). Enrollment ở trạng
+ * thái Pending cho tới khi invoice đó được thanh toán đủ → tự động
+ * chuyển Active (xem activateExtracurricularsForInvoice).
  * @param {number} studentId
  * @param {number} activityId
  */
 export const registerExtracurricular = async (studentId, activityId) => {
   const [activityRows] = await pool.query(
-    'SELECT ActivityID FROM Extracurriculars WHERE ActivityID = ?',
+    'SELECT ActivityID, MonthlyFee FROM Extracurriculars WHERE ActivityID = ?',
     [activityId]
   );
   if (activityRows.length === 0) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy hoạt động ngoại khóa');
   }
+  const activity = activityRows[0];
 
   const currentMonth = getMonthKey(Math.floor(Date.now() / 1000));
-  const effectiveMonth = addMonths(currentMonth, 1);
 
-  try {
-    const [result] = await pool.query(
-      `INSERT INTO StudentExtracurriculars (StudentID, ActivityID, RegisteredMonth, Status)
-       VALUES (?, ?, ?, 'Active')`,
-      [studentId, activityId, effectiveMonth]
-    );
-    return {
-      enrollmentId: result.insertId,
-      studentId,
-      activityId,
-      registeredMonth: effectiveMonth,
-      status: 'Active',
-    };
-  } catch (error) {
-    if (error.code === 'ER_DUP_ENTRY') {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'Học sinh đã đăng ký hoạt động này cho tháng đó rồi');
-    }
-    throw error;
+  const [existingEnrollment] = await pool.query(
+    `SELECT EnrollmentID FROM StudentExtracurriculars
+     WHERE StudentID = ? AND ActivityID = ? AND RegisteredMonth = ?`,
+    [studentId, activityId, currentMonth]
+  );
+  if (existingEnrollment.length > 0) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Học sinh đã đăng ký hoạt động này cho tháng đó rồi');
   }
+
+  const invoiceId = await addToExtracurricularInvoice(studentId, currentMonth, Number(activity.MonthlyFee));
+
+  const [result] = await pool.query(
+    `INSERT INTO StudentExtracurriculars (StudentID, ActivityID, RegisteredMonth, Status, InvoiceID)
+     VALUES (?, ?, ?, 'Pending', ?)`,
+    [studentId, activityId, currentMonth, invoiceId]
+  );
+
+  return {
+    enrollmentId: result.insertId,
+    studentId,
+    activityId,
+    registeredMonth: currentMonth,
+    status: 'Pending',
+    invoiceId,
+  };
 };
 
 /**
- * Hủy đăng ký ngoại khóa. Hủy trong 48h kể từ lúc đăng ký (CreatedAt) →
- * Status='RefundedCancelled', KHÔNG tính phí (như chưa từng đăng ký).
- * Hủy sau 48h → Status='Cancelled', vẫn tính phí cho RegisteredMonth đã
- * cam kết (chỉ không đăng ký lại cho các tháng sau).
+ * Hủy đăng ký ngoại khóa. Không hoàn tiền dù đang Pending hay Active —
+ * chỉ ngăn không gia hạn sang các tháng sau (renewExtracurricularEnrollments
+ * chỉ gia hạn enrollment còn Status='Active' của tháng liền trước).
  * @param {number} enrollmentId
  * @param {number} studentId - để verify quyền sở hữu
  */
 export const cancelExtracurricular = async (enrollmentId, studentId) => {
   const [rows] = await pool.query(
-    'SELECT EnrollmentID, StudentID, Status, CreatedAt FROM StudentExtracurriculars WHERE EnrollmentID = ?',
+    'SELECT EnrollmentID, StudentID, Status FROM StudentExtracurriculars WHERE EnrollmentID = ?',
     [enrollmentId]
   );
   if (rows.length === 0) {
@@ -1577,18 +1589,13 @@ export const cancelExtracurricular = async (enrollmentId, studentId) => {
   if (enrollment.StudentID !== studentId) {
     throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền hủy đăng ký này');
   }
-  if (enrollment.Status !== 'Active') {
+  if (enrollment.Status === 'Cancelled') {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Đăng ký này đã được hủy trước đó');
   }
 
-  const now = Math.floor(Date.now() / 1000);
-  const hoursSinceCreated = (now - Number(enrollment.CreatedAt)) / 3600;
-  const isWithinRefundWindow = hoursSinceCreated <= EXTRACURRICULAR_CANCEL_REFUND_WINDOW_HOURS;
-  const newStatus = isWithinRefundWindow ? 'RefundedCancelled' : 'Cancelled';
+  await pool.query('UPDATE StudentExtracurriculars SET Status = ? WHERE EnrollmentID = ?', ['Cancelled', enrollmentId]);
 
-  await pool.query('UPDATE StudentExtracurriculars SET Status = ? WHERE EnrollmentID = ?', [newStatus, enrollmentId]);
-
-  return { enrollmentId, status: newStatus, refunded: isWithinRefundWindow };
+  return { enrollmentId, status: 'Cancelled' };
 };
 
 

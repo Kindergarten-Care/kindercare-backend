@@ -3061,7 +3061,7 @@
  *                         example: "08-2026"
  *                       status:
  *                         type: string
- *                         enum: [Active, Cancelled, RefundedCancelled]
+ *                         enum: [Pending, Active, Cancelled]
  *                         example: Active
  *                       createdAt:
  *                         type: integer
@@ -3073,7 +3073,9 @@
  *         description: Forbidden - child does not belong to this parent
  *   post:
  *     summary: Register a child for an extracurricular activity
- *     description: Enrollment always takes effect from NEXT month (RegisteredMonth = current month + 1) regardless of when it's submitted — this guarantees it never modifies a MONTHLY invoice that may have already been generated for the current month by the billing cron.
+ *     description: |
+ *       Enrollment takes effect from the CURRENT month (RegisteredMonth = this month). Creates or reuses an unpaid EXTRACURRICULAR invoice for that month/student (multiple activities registered the same month are merged into one invoice via ExtracurricularFee). The enrollment starts as `Pending` and only becomes `Active` once that invoice is paid in full (via POST /parent/invoices/{invoiceId}/pay or /pay-momo) — see activateExtracurricularsForInvoice.
+ *       Each following month, a monthly cron automatically renews any still-`Active` enrollment into a new `Pending` enrollment + invoice for the next month — the parent must pay again each month to keep it `Active`. Cancelling stops this renewal (see the cancel endpoint below).
  *     tags: ["Parent - Extracurriculars"]
  *     security:
  *       - bearerAuth: []
@@ -3097,7 +3099,7 @@
  *                 example: 1
  *     responses:
  *       201:
- *         description: Enrollment created successfully
+ *         description: Enrollment created successfully (Pending, awaiting payment)
  *         content:
  *           application/json:
  *             schema:
@@ -3126,10 +3128,14 @@
  *                       example: 1
  *                     registeredMonth:
  *                       type: string
- *                       example: "08-2026"
+ *                       example: "07-2026"
  *                     status:
  *                       type: string
- *                       example: Active
+ *                       example: Pending
+ *                     invoiceId:
+ *                       type: integer
+ *                       description: The EXTRACURRICULAR invoice this enrollment is billed under — pay this to activate.
+ *                       example: 11
  *       400:
  *         description: Bad Request - missing activityId, or already enrolled in this activity for that month
  *       401:
@@ -3146,9 +3152,7 @@
  *   patch:
  *     summary: Cancel a child's extracurricular enrollment
  *     description: |
- *       Cancellation policy:
- *       - Within 48 hours of enrollment (CreatedAt) → Status becomes `RefundedCancelled`. The activity is excluded from ExtracurricularFee entirely, as if never registered.
- *       - After 48 hours → Status becomes `Cancelled`. The fee for the already-committed RegisteredMonth still applies (still included in ExtracurricularFee); it simply won't be enrolled again for future months.
+ *       Sets Status='Cancelled'. No refund is issued for the current RegisteredMonth regardless of whether it was Pending or already Active/paid — cancelling only prevents the monthly renewal cron from creating a new enrollment/invoice for the following month.
  *     tags: ["Parent - Extracurriculars"]
  *     security:
  *       - bearerAuth: []
@@ -3190,12 +3194,7 @@
  *                       example: 3
  *                     status:
  *                       type: string
- *                       enum: [Cancelled, RefundedCancelled]
- *                       example: RefundedCancelled
- *                     refunded:
- *                       type: boolean
- *                       description: true if cancelled within the 48-hour window
- *                       example: true
+ *                       example: Cancelled
  *       400:
  *         description: Bad Request - enrollment already cancelled
  *       401:
