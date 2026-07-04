@@ -389,6 +389,24 @@ export const addSurcharge = async (invoiceId, amount, note) => {
 };
 
 /**
+ * Sửa hạn đóng của 1 hóa đơn (gia hạn/rút ngắn thủ công bởi hiệu trưởng).
+ * Reset ReminderSentAt/OverdueReminderSentAt để cron nhắc nhở tính lại đúng
+ * theo hạn mới, tránh bỏ sót nhắc nhở khi gia hạn hoặc nhắc sai khi rút ngắn hạn.
+ * @param {number} invoiceId
+ * @param {number} dueDate - unix timestamp (giây)
+ */
+export const updateDueDate = async (invoiceId, dueDate) => {
+  await getInvoiceById(invoiceId);
+
+  await pool.query(
+    'UPDATE Invoices SET DueDate = ?, ReminderSentAt = NULL, OverdueReminderSentAt = NULL WHERE InvoiceID = ?',
+    [dueDate, invoiceId]
+  );
+
+  return getInvoiceById(invoiceId);
+};
+
+/**
  * Ghi nhận thanh toán cho 1 hóa đơn — insert Transaction, cập nhật PaymentStatus
  * dựa trên SUM(AmountPaid) các transaction Success so với TotalAmount.
  * @param {number} invoiceId

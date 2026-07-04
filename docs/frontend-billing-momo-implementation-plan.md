@@ -142,6 +142,41 @@ PATCH /billing/invoices/{invoiceId}/surcharge
 
 ---
 
+### 1.4 Sửa hạn đóng của 1 hóa đơn (gia hạn thủ công)
+
+```
+PATCH /billing/invoices/{invoiceId}/due-date
+```
+
+**Request body:**
+```json
+{ "dueDate": "2026-08-20" }
+```
+
+> `dueDate` là string `'YYYY-MM-DD'` (không phải unix timestamp) — BE tự convert sang 00:00 giờ GMT+7. Dùng date picker thường ở FE, không cần input timestamp thô.
+
+**Response 200:**
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Cập nhật hạn đóng thành công",
+  "data": { "invoice": { /* full Invoices row, raw DB column names (PascalCase) */ } }
+}
+```
+
+> Khi gọi API này, BE tự động reset lại trạng thái "đã nhắc" của hóa đơn — nghĩa là nếu hạn cũ đã trôi qua và hệ thống đã gửi nhắc quá hạn, sau khi gia hạn thì cron nhắc nhở sẽ tính lại từ đầu theo hạn mới (không bị bỏ sót nhắc nhở, cũng không nhắc sai theo hạn cũ).
+
+**UI gợi ý:** trong trang chi tiết hóa đơn (view hiệu trưởng), nút "Gia hạn đóng" mở date picker chọn `dueDate` mới (mặc định hiện giá trị `dueDate` hiện tại nếu có), submit xong refetch lại chi tiết hóa đơn.
+
+**Lỗi cần xử lý:**
+| Status | Nguyên nhân | UI xử lý |
+|---|---|---|
+| 400 | Thiếu `dueDate` hoặc sai định dạng (phải là `YYYY-MM-DD`) | Validate ở FE trước khi gửi, dùng date picker để tránh nhập tay sai format |
+| 404 | Không tìm thấy hóa đơn | Hiện lỗi |
+
+---
+
 ## 2. NHÓM API — PHỤ HUYNH (`/parent/*`)
 
 Dành cho app/web phụ huynh, hiển thị và thanh toán hóa đơn của con.
@@ -391,6 +426,7 @@ BE có 1 cron chạy **hàng ngày lúc 08:00** quét toàn bộ hóa đơn chư
 - [ ] Màn hình đăng ký gói học phí cho học sinh (`POST /billing/students/:id/tuition-plan`)
 - [ ] Nút chạy hóa đơn hàng tháng thủ công + dialog xác nhận (`POST /billing/run-monthly`)
 - [ ] Modal thêm phụ thu trong trang chi tiết hóa đơn (`PATCH /billing/invoices/:id/surcharge`) — nhớ UI rõ ràng về việc **cộng dồn**
+- [ ] Nút gia hạn/sửa hạn đóng trong trang chi tiết hóa đơn (`PATCH /billing/invoices/:id/due-date`), dùng date picker gửi `'YYYY-MM-DD'`
 
 ### Phía Phụ huynh
 - [ ] Danh sách hóa đơn của con, filter theo `type`/`status`/`from`/`to` (`GET /parent/children/:id/invoices`)

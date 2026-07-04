@@ -271,3 +271,71 @@
  *       500:
  *         description: Internal Server Error
  */
+
+// ─────────────────────────────────────────────────────────────
+//  GROUP 4 · Billing - Due Date
+//  PATCH /billing/invoices/:invoiceId/due-date
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /billing/invoices/{invoiceId}/due-date:
+ *   patch:
+ *     summary: Update the due date of an invoice
+ *     description: Manually overrides an invoice's DueDate (e.g. to grant a payment extension). Resets ReminderSentAt and OverdueReminderSentAt so the daily reminder cron re-evaluates against the new due date instead of skipping it as already-notified.
+ *     tags: ["Billing"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: invoiceId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 9
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [dueDate]
+ *             properties:
+ *               dueDate:
+ *                 type: string
+ *                 description: "'YYYY-MM-DD', interpreted at 00:00 GMT+7"
+ *                 example: "2026-08-20"
+ *     responses:
+ *       200:
+ *         description: Due date updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Cập nhật hạn đóng thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     invoice:
+ *                       type: object
+ *                       description: Full updated Invoices row (raw DB column names)
+ *       400:
+ *         description: Bad Request - missing or invalid dueDate (must be YYYY-MM-DD)
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a principal
+ *       404:
+ *         description: Not Found - invoice not found
+ *       500:
+ *         description: Internal Server Error
+ */
