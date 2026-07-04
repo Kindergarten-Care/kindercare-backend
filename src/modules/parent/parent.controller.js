@@ -1287,6 +1287,42 @@ const momoIpn = async (req, res, next) => {
   }
 };
 
+const payInvoiceWithVnpay = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { invoiceId } = req.params;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    const hasAccess = await parentService.isParentOfInvoice(invoiceId, parentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền thanh toán hóa đơn này');
+    }
+
+    const result = await parentService.createVnpayPayment(invoiceId, req.ip);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, result, 'Tạo đơn thanh toán VNPay thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const vnpayIpn = async (req, res, next) => {
+  try {
+    // VNPay yêu cầu luôn trả HTTP 200 kèm JSON { RspCode, Message } — không throw lỗi HTTP,
+    // để tránh VNPay hiểu nhầm là timeout và tiếp tục retry.
+    const result = await parentService.handleVnpayIpn(req.query);
+    res.status(httpStatus.OK).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getExtracurriculars = async (req, res, next) => {
   try {
     const activities = await parentService.getExtracurriculars();
@@ -1414,6 +1450,8 @@ export default {
   payInvoice,
   payInvoiceWithMomo,
   momoIpn,
+  payInvoiceWithVnpay,
+  vnpayIpn,
   getExtracurriculars,
   getChildExtracurriculars,
   registerExtracurricular,
