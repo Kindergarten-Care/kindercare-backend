@@ -220,6 +220,28 @@ export const validateGetClassSchedule = (req, res, next) => {
 };
 
 /**
+ * Validate class weekly schedule query parameters
+ */
+export const validateGetWeeklySchedule = (req, res, next) => {
+  const { classId } = req.params;
+  const { date } = req.query;
+
+  const numericClassId = Number(classId);
+  if (isNaN(numericClassId)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId phải là một số nguyên hợp lệ'));
+  }
+
+  if (date !== undefined && date !== null) {
+    const numericDate = Number(date);
+    if (isNaN(numericDate) || numericDate < 0) {
+      return next(new ApiError(httpStatus.BAD_REQUEST, 'Ngày lọc (date) phải là một số nguyên Unix timestamp hợp lệ'));
+    }
+  }
+
+  next();
+};
+
+/**
  * Validate get medical requests query parameters
  */
 export const validateGetMedicalRequests = (req, res, next) => {

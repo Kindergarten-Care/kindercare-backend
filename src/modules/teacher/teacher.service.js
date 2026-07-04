@@ -167,6 +167,67 @@ export const updateTeacherProfile = async (teacherId, data) => {
 };
 
 /**
+ * Get Teacher Work History
+ */
+export const getTeacherWorkHistory = async (teacherId) => {
+  const query = `
+    SELECT 
+      HistoryID AS historyId,
+      Title AS title,
+      Tag AS tag,
+      Description AS description,
+      Kind AS kind,
+      EventDate AS eventDate
+    FROM TeacherWorkHistories
+    WHERE TeacherID = ?
+    ORDER BY EventDate DESC
+  `;
+  const [rows] = await pool.query(query, [teacherId]);
+  return rows;
+};
+
+/**
+ * Get Teacher Settings
+ */
+export const getTeacherSettings = async (userId) => {
+  const query = `
+    SELECT 
+      EmailEnabled AS emailEnabled,
+      PushEnabled AS pushEnabled,
+      WeeklyReportEnabled AS weeklyReportEnabled
+    FROM NotificationSettings
+    WHERE UserID = ?
+  `;
+  const [rows] = await pool.query(query, [userId]);
+  // Trả về default nếu chưa có setting
+  if (rows.length === 0) {
+    return {
+      emailEnabled: 1,
+      pushEnabled: 1,
+      weeklyReportEnabled: 0
+    };
+  }
+  return rows[0];
+};
+
+/**
+ * Update Teacher Settings
+ */
+export const updateTeacherSettings = async (userId, settings) => {
+  const { emailEnabled, pushEnabled, weeklyReportEnabled } = settings;
+  const query = `
+    INSERT INTO NotificationSettings (UserID, EmailEnabled, PushEnabled, WeeklyReportEnabled)
+    VALUES (?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE 
+      EmailEnabled = VALUES(EmailEnabled),
+      PushEnabled = VALUES(PushEnabled),
+      WeeklyReportEnabled = VALUES(WeeklyReportEnabled)
+  `;
+  await pool.query(query, [userId, emailEnabled, pushEnabled, weeklyReportEnabled]);
+  return true;
+};
+
+/**
  * Get leave requests for a teacher's classes
  * @param {number} teacherId 
  * @param {string} [status] Optional filter by status
@@ -698,6 +759,74 @@ export const getClassSchedule = async (classId, dateTimestamp) => {
   `;
   const [rows] = await pool.query(query, [classId, dateTimestamp]);
   return rows;
+};
+
+/**
+ * Get class weekly schedule
+ */
+export const getWeeklySchedule = async (classId, dateTimestamp) => {
+  const query = `
+    SELECT 
+      ms.Month AS month,
+      ms.Year AS year,
+      ms.MonthTheme AS monthTheme, 
+      ws.WeekOrder AS weekOrder,
+      ws.WeekTheme AS weekTheme, 
+      wsd.DayOfWeek AS dayOfWeek, 
+      wsd.StartTime AS startTime, 
+      wsd.EndTime AS endTime, 
+      wsd.ActivityName AS activityName, 
+      wsd.ActivityType AS activityType, 
+      wsd.Details AS details
+    FROM MonthlySchedules ms
+    JOIN WeeklySchedules ws ON ms.MonthlyScheduleID = ws.MonthlyScheduleID
+    JOIN WeeklyScheduleDetails wsd ON ws.WeeklyScheduleID = wsd.WeeklyScheduleID
+    WHERE ms.ClassID = ? AND ms.IsActive = 1
+    ORDER BY ms.Year DESC, ms.Month DESC, ws.WeekOrder ASC, 
+             FIELD(wsd.DayOfWeek, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'),
+             wsd.StartTime ASC
+  `;
+  const [rows] = await pool.query(query, [classId]);
+  
+  if (!rows || rows.length === 0) {
+    return null;
+  }
+
+  // Group the results
+  const result = {
+    month: rows[0].month,
+    year: rows[0].year,
+    monthTheme: rows[0].monthTheme,
+    weeks: []
+  };
+
+  const weeksMap = new Map();
+
+  rows.forEach(row => {
+    if (!weeksMap.has(row.weekOrder)) {
+      weeksMap.set(row.weekOrder, {
+        weekOrder: row.weekOrder,
+        weekTheme: row.weekTheme,
+        days: {}
+      });
+    }
+    const week = weeksMap.get(row.weekOrder);
+    
+    if (!week.days[row.dayOfWeek]) {
+      week.days[row.dayOfWeek] = [];
+    }
+    
+    week.days[row.dayOfWeek].push({
+      startTime: row.startTime,
+      endTime: row.endTime,
+      activityName: row.activityName,
+      activityType: row.activityType,
+      details: row.details
+    });
+  });
+
+  result.weeks = Array.from(weeksMap.values());
+  return result;
 };
 
 /**

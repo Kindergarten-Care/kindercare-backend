@@ -95,6 +95,55 @@ export const updateProfile = async (req, res, next) => {
 };
 
 /**
+ * Get Teacher Work History
+ */
+export const getWorkHistory = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const history = await teacherService.getTeacherWorkHistory(teacherId);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, history, 'Lấy lịch sử công tác thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get Teacher Settings
+ */
+export const getSettings = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const settings = await teacherService.getTeacherSettings(userId);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, settings, 'Lấy cài đặt thông báo thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Update Teacher Settings
+ */
+export const updateSettings = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const settings = req.body;
+    await teacherService.updateTeacherSettings(userId, settings);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Cập nhật cài đặt thông báo thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get Leave Requests for classes taught by the teacher
  */
 export const getLeaveRequests = async (req, res, next) => {
@@ -512,6 +561,41 @@ export const getClassSchedule = async (req, res, next) => {
 
     res.status(httpStatus.OK).json(
       new ApiResponse(httpStatus.OK, schedule, 'Lấy lịch trình sinh hoạt lớp học thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get class weekly schedule
+ */
+export const getWeeklySchedule = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId } = req.params;
+    const { date } = req.query;
+
+    const numericClassId = Number(classId);
+
+    // Security check: Check if teacher teaches this class
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền xem lịch trình sinh hoạt của lớp này');
+    }
+
+    // Calculate target date timestamp (seconds) at start of day in UTC
+    let targetTimestamp;
+    if (date) {
+      targetTimestamp = Number(date);
+    } else {
+      targetTimestamp = Math.floor(Date.now() / 1000);
+    }
+
+    const schedule = await teacherService.getWeeklySchedule(numericClassId, targetTimestamp);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, schedule, 'Lấy lịch tuần của lớp học thành công')
     );
   } catch (error) {
     next(error);
