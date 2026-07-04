@@ -6,6 +6,7 @@ import { sendPushToUser } from '../notification/notification.service.js';
 
 const REMINDER_LEAD_DAYS = 3;
 const SECONDS_PER_DAY = 86400;
+const EXTRACURRICULAR_PENDING_EXPIRY_HOURS = 48;
 
 const TZ_OFFSET_SECONDS = 7 * 60 * 60;
 
@@ -601,4 +602,38 @@ const notifyParentsOfInvoice = async (invoice, kind) => {
   );
 
   return true;
+};
+
+/**
+ * Tự động hủy các enrollment ngoại khóa còn Pending quá 48h kể từ lúc
+ * đăng ký/gia hạn (CreatedAt) — coi như phụ huynh không thanh toán.
+ * Trừ đúng số tiền hoạt động đó ra khỏi ExtracurricularFee của invoice
+ * liên kết (không xóa/hủy invoice — có thể còn hoạt động khác trong đó
+ * vẫn Pending/Active).
+ * @param {number} [nowSec] - unix timestamp hiện tại (giây), default = Date.now()
+ * @returns {Promise<number>} số enrollment đã bị hủy
+ */
+export const expirePendingExtracurriculars = async (nowSec) => {
+  const now = nowSec ?? Math.floor(Date.now() / 1000);
+  const expiryThreshold = now - EXTRACURRICULAR_PENDING_EXPIRY_HOURS * 3600;
+
+  const [expiredRows] = await pool.query(
+    `SELECT se.EnrollmentID, se.InvoiceID, e.MonthlyFee
+     FROM StudentExtracurriculars se
+     JOIN Extracurriculars e ON se.ActivityID = e.ActivityID
+     WHERE se.Status = 'Pending' AND se.CreatedAt <= ?`,
+    [expiryThreshold]
+  );
+
+  for (const row of expiredRows) {
+    await pool.query('UPDATE StudentExtracurriculars SET Status = ? WHERE EnrollmentID = ?', ['Cancelled', row.EnrollmentID]);
+    if (row.InvoiceID) {
+      await pool.query(
+        'UPDATE Invoices SET ExtracurricularFee = GREATEST(ExtracurricularFee - ?, 0) WHERE InvoiceID = ?',
+        [row.MonthlyFee, row.InvoiceID]
+      );
+    }
+  }
+
+  return expiredRows.length;
 };

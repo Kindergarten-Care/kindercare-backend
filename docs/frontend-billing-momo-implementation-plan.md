@@ -399,6 +399,8 @@ BE có 1 cron chạy **hàng ngày lúc 08:00** quét toàn bộ hóa đơn chư
 
 **Vòng đời 1 enrollment:** `Pending` (vừa đăng ký, chờ thanh toán) → `Active` (invoice tháng đó đã thanh toán đủ) → mỗi tháng tiếp theo, cron tự tạo enrollment mới `Pending` + invoice mới cho tháng kế (nếu tháng trước vẫn `Active`) → phụ huynh phải thanh toán lại để enrollment tháng mới thành `Active`. Gọi `PATCH .../cancel` để dừng chu trình này (không hoàn tiền tháng hiện tại, chỉ ngừng gia hạn từ tháng sau).
 
+⏱️ **Tự động hủy nếu không thanh toán**: nếu 1 enrollment vẫn ở `Pending` quá **48 giờ** kể từ lúc tạo (`createdAt`), 1 cron chạy mỗi giờ sẽ tự động chuyển nó sang `Cancelled` và trừ đúng số tiền hoạt động đó ra khỏi `ExtracurricularFee` của invoice liên quan (invoice không bị xóa — có thể còn hoạt động khác trong đó). UI nên hiển thị đếm ngược "Thanh toán trước [createdAt + 48h] để giữ đăng ký" trên mỗi enrollment `Pending`, và làm mới danh sách định kỳ hoặc khi quay lại màn hình để phản ánh đúng nếu đã bị tự hủy.
+
 #### (a) Xem danh mục hoạt động
 
 ```
