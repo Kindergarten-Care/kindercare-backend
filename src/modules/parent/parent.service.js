@@ -1801,12 +1801,37 @@ export const registerExtracurricular = async (studentId, activityId) => {
   const currentMonth = getMonthKey(Math.floor(Date.now() / 1000));
 
   const [existingEnrollment] = await pool.query(
-    `SELECT EnrollmentID FROM StudentExtracurriculars
+    `SELECT EnrollmentID, Status, InvoiceID FROM StudentExtracurriculars
      WHERE StudentID = ? AND ActivityID = ? AND RegisteredMonth = ?`,
     [studentId, activityId, currentMonth]
   );
   if (existingEnrollment.length > 0) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Học sinh đã đăng ký hoạt động này cho tháng đó rồi');
+    const existing = existingEnrollment[0];
+    if (existing.Status !== 'Cancelled') {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Học sinh đã đăng ký hoạt động này cho tháng đó rồi');
+    }
+
+    // Đã hủy trước đó trong cùng tháng — khôi phục lại enrollment cũ thay vì tạo mới,
+    // vì hủy thủ công không hoàn tiền (phí đã cộng vào invoice từ trước, cộng lại sẽ bị trùng).
+    const [[invoice]] = await pool.query(
+      'SELECT PaymentStatus FROM Invoices WHERE InvoiceID = ?',
+      [existing.InvoiceID]
+    );
+    const revivedStatus = invoice?.PaymentStatus === 'Paid' ? 'Active' : 'Pending';
+
+    await pool.query(
+      'UPDATE StudentExtracurriculars SET Status = ? WHERE EnrollmentID = ?',
+      [revivedStatus, existing.EnrollmentID]
+    );
+
+    return {
+      enrollmentId: existing.EnrollmentID,
+      studentId,
+      activityId,
+      registeredMonth: currentMonth,
+      status: revivedStatus,
+      invoiceId: existing.InvoiceID,
+    };
   }
 
   const invoiceId = await addToExtracurricularInvoice(studentId, currentMonth, Number(activity.MonthlyFee));
