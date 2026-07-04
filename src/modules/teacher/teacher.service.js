@@ -732,13 +732,15 @@ export const getClassSchedule = async (classId, dateTimestamp) => {
 };
 
 /**
- * Get class weekly schedule (Mock implementation returning active schedule)
+ * Get class weekly schedule
  */
 export const getWeeklySchedule = async (classId, dateTimestamp) => {
-  // To ensure the mock data is always returned, we query the most recent active MonthlySchedule
   const query = `
     SELECT 
+      ms.Month AS month,
+      ms.Year AS year,
       ms.MonthTheme AS monthTheme, 
+      ws.WeekOrder AS weekOrder,
       ws.WeekTheme AS weekTheme, 
       wsd.DayOfWeek AS dayOfWeek, 
       wsd.StartTime AS startTime, 
@@ -757,23 +759,43 @@ export const getWeeklySchedule = async (classId, dateTimestamp) => {
   const [rows] = await pool.query(query, [classId]);
   
   if (!rows || rows.length === 0) {
-    return { monthTheme: null, weekTheme: null, details: [] };
+    return null;
   }
 
   // Group the results
   const result = {
+    month: rows[0].month,
+    year: rows[0].year,
     monthTheme: rows[0].monthTheme,
-    weekTheme: rows[0].weekTheme,
-    details: rows.map(row => ({
-      dayOfWeek: row.dayOfWeek,
+    weeks: []
+  };
+
+  const weeksMap = new Map();
+
+  rows.forEach(row => {
+    if (!weeksMap.has(row.weekOrder)) {
+      weeksMap.set(row.weekOrder, {
+        weekOrder: row.weekOrder,
+        weekTheme: row.weekTheme,
+        days: {}
+      });
+    }
+    const week = weeksMap.get(row.weekOrder);
+    
+    if (!week.days[row.dayOfWeek]) {
+      week.days[row.dayOfWeek] = [];
+    }
+    
+    week.days[row.dayOfWeek].push({
       startTime: row.startTime,
       endTime: row.endTime,
       activityName: row.activityName,
       activityType: row.activityType,
       details: row.details
-    }))
-  };
+    });
+  });
 
+  result.weeks = Array.from(weeksMap.values());
   return result;
 };
 
