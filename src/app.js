@@ -13,6 +13,10 @@ import swaggerUi from 'swagger-ui-express';
 import swaggerSpecs from './config/swagger.js';
 import './jobs/attendanceCron.js';
 import { initSocket } from './config/socket.js';
+import { startMonthlyBillingCron } from './jobs/monthlyBilling.cron.js';
+import { startPaymentReminderCron } from './jobs/paymentReminder.cron.js';
+import { startExtracurricularExpiryCron } from './jobs/extracurricularExpiry.cron.js';
+import { startMomoReconciliationCron } from './jobs/momoReconciliation.cron.js';
 import './jobs/leaveRequestAttendanceCron.js';
 
 dotenv.config({
@@ -56,5 +60,10 @@ server.listen(PORT, () => {
     logger.info(`🔌 Socket.IO is ready on ws://localhost:${PORT}`);
     logger.info(`=============================================`);
 });
+
+startMonthlyBillingCron();
+startPaymentReminderCron();
+startExtracurricularExpiryCron();
+startMomoReconciliationCron();
 
 export default app;
