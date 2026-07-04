@@ -218,7 +218,9 @@ export const expectedMealFee = async (studentId, billingMonth) => {
 };
 
 /**
- * Tổng phí ngoại khóa đã đăng ký Active trong tháng.
+ * Tổng phí ngoại khóa của tháng. Tính cho cả 'Active' và 'Cancelled' vì
+ * hủy sau 48h vẫn phải trả phí tháng đã đăng ký — chỉ 'RefundedCancelled'
+ * (hủy trong 48h) mới được loại khỏi hóa đơn.
  * @param {number} studentId
  * @param {string} billingMonth - 'MM-YYYY'
  */
@@ -227,7 +229,7 @@ export const extracurricularFee = async (studentId, billingMonth) => {
     `SELECT COALESCE(SUM(e.MonthlyFee), 0) AS total
      FROM StudentExtracurriculars se
      JOIN Extracurriculars e ON se.ActivityID = e.ActivityID
-     WHERE se.StudentID = ? AND se.RegisteredMonth = ? AND se.Status = 'Active'`,
+     WHERE se.StudentID = ? AND se.RegisteredMonth = ? AND se.Status IN ('Active', 'Cancelled')`,
     [studentId, billingMonth]
   );
   return Number(rows[0].total);

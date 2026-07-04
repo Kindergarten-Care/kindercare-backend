@@ -108,5 +108,17 @@ router.post('/invoices/momo-ipn', parentController.momoIpn);
 // Create a MoMo payment order for an invoice, returns payUrl to redirect to
 router.post('/invoices/:invoiceId/pay-momo', authenticate, authorize(4), parentController.payInvoiceWithMomo);
 
+// Get the catalog of extracurricular activities
+router.get('/extracurriculars', authenticate, authorize(4), parentController.getExtracurriculars);
+
+// Get a child's extracurricular enrollments
+router.get('/children/:studentId/extracurriculars', authenticate, authorize(4), parentController.getChildExtracurriculars);
+
+// Register a child for an extracurricular activity (effective next month)
+router.post('/children/:studentId/extracurriculars', authenticate, authorize(4), parentController.registerExtracurricular);
+
+// Cancel a child's extracurricular enrollment
+router.patch('/children/:studentId/extracurriculars/:enrollmentId/cancel', authenticate, authorize(4), parentController.cancelExtracurricular);
+
 export default router;
 

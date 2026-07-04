@@ -393,6 +393,105 @@ BE có 1 cron chạy **hàng ngày lúc 08:00** quét toàn bộ hóa đơn chư
 
 ---
 
+### 2.6 Đăng ký hoạt động ngoại khóa
+
+Đây là nguồn phát sinh `extracurricularFee` trong hóa đơn MONTHLY (mục 2.1/2.2) — trước đây hệ thống chỉ tính phí này nếu có sẵn dữ liệu trong DB, giờ phụ huynh có thể tự đăng ký qua API.
+
+#### (a) Xem danh mục hoạt động
+
+```
+GET /parent/extracurriculars
+```
+
+**Response 200:**
+```json
+{
+  "success": true,
+  "data": [
+    { "activityId": 1, "activityName": "Vẽ sáng tạo", "monthlyFee": 500000, "description": "Lớp vẽ sáng tạo cho bé, 2 buổi/tuần" }
+  ]
+}
+```
+
+#### (b) Xem đăng ký hiện tại của con
+
+```
+GET /parent/children/{studentId}/extracurriculars?month=08-2026
+```
+
+`month` optional (`'MM-YYYY'`) — không truyền thì trả về toàn bộ lịch sử đăng ký.
+
+**Response 200:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "enrollmentId": 3,
+      "activityId": 1,
+      "activityName": "Vẽ sáng tạo",
+      "monthlyFee": 500000,
+      "registeredMonth": "08-2026",
+      "status": "Active",
+      "createdAt": 1783067067
+    }
+  ]
+}
+```
+
+`status` có 3 giá trị:
+| Status | Ý nghĩa |
+|---|---|
+| `Active` | Đang đăng ký bình thường |
+| `Cancelled` | Đã hủy sau 48h kể từ lúc đăng ký — **vẫn bị tính phí** cho `registeredMonth` đó |
+| `RefundedCancelled` | Đã hủy trong vòng 48h kể từ lúc đăng ký — **không bị tính phí gì cả**, coi như chưa từng đăng ký |
+
+#### (c) Đăng ký hoạt động mới
+
+```
+POST /parent/children/{studentId}/extracurriculars
+```
+
+**Request body:**
+```json
+{ "activityId": 1 }
+```
+
+⚠️ **Quan trọng**: đăng ký **luôn có hiệu lực từ tháng kế tiếp** tháng hiện tại (`registeredMonth` = tháng sau), **bất kể đăng ký vào ngày nào trong tháng**. Điều này để tránh đụng vào hóa đơn MONTHLY tháng hiện tại nếu nó đã được cron tạo sẵn rồi. UI cần hiển thị rõ ràng cho phụ huynh biết: "Hoạt động sẽ bắt đầu tính phí từ tháng [X]", tránh gây hiểu lầm là có hiệu lực ngay.
+
+**Response 201:**
+```json
+{
+  "success": true,
+  "data": { "enrollmentId": 3, "studentId": 19, "activityId": 1, "registeredMonth": "08-2026", "status": "Active" }
+}
+```
+
+**Lỗi cần xử lý:** 400 nếu đã đăng ký hoạt động đó cho đúng tháng đó rồi (unique constraint).
+
+#### (d) Hủy đăng ký
+
+```
+PATCH /parent/children/{studentId}/extracurriculars/{enrollmentId}/cancel
+```
+
+**Response 200:**
+```json
+{
+  "success": true,
+  "data": { "enrollmentId": 3, "status": "RefundedCancelled", "refunded": true }
+}
+```
+
+**UI gợi ý:**
+- Nút "Hủy đăng ký" trong danh sách hoạt động của con, kèm dialog xác nhận.
+- Sau khi hủy, đọc field `refunded` trong response để hiển thị đúng thông báo:
+  - `refunded: true` → "Đã hủy và không phát sinh phí" (hủy trong 48h).
+  - `refunded: false` → "Đã hủy — vẫn áp dụng phí cho tháng [registeredMonth] đã đăng ký, sẽ không tiếp tục các tháng sau" (hủy sau 48h).
+- Cân nhắc hiển thị đếm ngược "còn X giờ để hủy miễn phí" trên mỗi enrollment `Active` mới đăng ký (tính từ `createdAt` + 48h), giúp phụ huynh biết còn kịp hủy không mất phí hay không.
+
+---
+
 ## 3. LUỒNG MÀN HÌNH GỢI Ý (PHỤ HUYNH)
 
 ```
@@ -436,6 +535,8 @@ BE có 1 cron chạy **hàng ngày lúc 08:00** quét toàn bộ hóa đơn chư
 - [ ] Route `/billing/payment-result` xử lý sau khi MoMo redirect về, gọi lại API xác nhận trạng thái thật
 - [ ] (Nếu cần) màn hình xác nhận thanh toán thủ công cho nhân viên (`POST /parent/invoices/:id/pay`)
 - [ ] Xử lý tap vào push notification `INVOICE_REMINDER` → điều hướng tới chi tiết hóa đơn theo `data.invoiceId`
+- [ ] Màn hình danh mục hoạt động ngoại khóa + đăng ký cho con (`GET /parent/extracurriculars`, `POST /parent/children/:id/extracurriculars`) — nhớ hiển thị rõ hiệu lực từ tháng sau
+- [ ] Danh sách đăng ký ngoại khóa của con + nút hủy (`GET`/`PATCH .../extracurriculars/:enrollmentId/cancel`) — phân biệt rõ 2 kết quả hủy trong/ngoài 48h
 
 ### Chung
 - [ ] Helper format `'MM-YYYY'` ↔ hiển thị tiếng Việt (ví dụ "08-2026" → "Tháng 8/2026")
