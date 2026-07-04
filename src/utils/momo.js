@@ -18,7 +18,9 @@ export const createMomoPayment = async ({ invoiceId, amount, orderInfo }) => {
   const secretKey = process.env.MOMO_SECRET_KEY;
   const endpoint = process.env.MOMO_ENDPOINT;
   const redirectUrl = `${process.env.MOMO_REDIRECT_BASE_URL}/billing/payment-result`;
-  const ipnUrl = `${process.env.API_URL}/parent/invoices/momo-ipn`;
+  // Cho phép override tạm bằng MOMO_IPN_URL (vd để test bằng webhook.site)
+  // mà không đụng vào API_URL — vốn còn dùng cho việc khác.
+  const ipnUrl = process.env.MOMO_IPN_URL || `${process.env.API_URL}/parent/invoices/momo-ipn`;
 
   const orderId = `INV${invoiceId}-${randomUUID()}`;
   const requestId = orderId;
