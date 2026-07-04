@@ -532,18 +532,22 @@ export const getClassStudentsAttendance = async (classId, dateTimestamp) => {
 export const getClassMenu = async (classId, dateTimestamp) => {
   const query = `
     SELECT 
-      MenuID AS menuId,
-      ClassID AS classId,
-      MenuDate AS menuDate,
-      MealType AS mealType,
-      DishName AS dishName,
-      Calories AS calories,
-      NutritionalDetails AS nutritionalDetails
-    FROM Menus
-    WHERE ClassID = ? AND MenuDate = ?
-    ORDER BY MenuID
+      md.MenuDetailID AS menuDetailId,
+      md.MenuID AS menuId,
+      md.DayOfWeek AS dayOfWeek,
+      md.MealType AS mealType,
+      md.DishName AS dishName,
+      md.Calories AS calories,
+      md.NutritionalDetails AS nutritionalDetails
+    FROM Menus m
+    JOIN MenuDetails md ON m.MenuID = md.MenuID
+    WHERE m.ClassID = ? 
+      AND m.Year = YEAR(FROM_UNIXTIME(?))
+      AND m.WeekNumber = WEEK(FROM_UNIXTIME(?), 1)
+      AND md.DayOfWeek = DAYNAME(FROM_UNIXTIME(?))
+    ORDER BY FIELD(md.MealType, 'Breakfast', 'Lunch', 'Snack')
   `;
-  const [rows] = await pool.query(query, [classId, dateTimestamp]);
+  const [rows] = await pool.query(query, [classId, dateTimestamp, dateTimestamp, dateTimestamp]);
   return rows;
 };
 
@@ -559,24 +563,50 @@ export const updateClassMenu = async (classId, dateTimestamp, menuData) => {
   try {
     await connection.beginTransaction();
 
-    // Remove existing menus for that day
-    const deleteQuery = `DELETE FROM Menus WHERE ClassID = ? AND MenuDate = ?`;
-    await connection.query(deleteQuery, [classId, dateTimestamp]);
+    // Find or create Menu for this week
+    const findMenuQuery = `
+      SELECT MenuID 
+      FROM Menus 
+      WHERE ClassID = ? 
+        AND Year = YEAR(FROM_UNIXTIME(?))
+        AND WeekNumber = WEEK(FROM_UNIXTIME(?), 1)
+    `;
+    const [menuRows] = await connection.query(findMenuQuery, [classId, dateTimestamp, dateTimestamp]);
+    
+    let menuId;
+    if (menuRows.length > 0) {
+      menuId = menuRows[0].MenuID;
+    } else {
+      const insertMenuQuery = `
+        INSERT INTO Menus (ClassID, WeekNumber, Year, MenuName)
+        VALUES (?, WEEK(FROM_UNIXTIME(?), 1), YEAR(FROM_UNIXTIME(?)), 'Thực đơn tuần')
+      `;
+      const [insertResult] = await connection.query(insertMenuQuery, [classId, dateTimestamp, dateTimestamp]);
+      menuId = insertResult.insertId;
+    }
 
-    // Insert new menus
+    // Determine DayOfWeek in English
+    const [dayRows] = await connection.query(`SELECT DAYNAME(FROM_UNIXTIME(?)) as dayName`, [dateTimestamp]);
+    const dayOfWeek = dayRows[0].dayName;
+
+    // Remove existing menu details for that day
+    const deleteQuery = `DELETE FROM MenuDetails WHERE MenuID = ? AND DayOfWeek = ?`;
+    await connection.query(deleteQuery, [menuId, dayOfWeek]);
+
+    // Insert new menu details
     const insertQuery = `
-      INSERT INTO Menus (ClassID, MenuDate, MealType, DishName) 
+      INSERT INTO MenuDetails (MenuID, DayOfWeek, MealType, DishName) 
       VALUES (?, ?, ?, ?)
     `;
 
     if (menuData.breakfastMenu) {
-      await connection.query(insertQuery, [classId, dateTimestamp, 'Breakfast', menuData.breakfastMenu]);
+      await connection.query(insertQuery, [menuId, dayOfWeek, 'Breakfast', menuData.breakfastMenu]);
     }
     if (menuData.lunchMenu) {
-      await connection.query(insertQuery, [classId, dateTimestamp, 'Lunch', menuData.lunchMenu]);
+      await connection.query(insertQuery, [menuId, dayOfWeek, 'Lunch', menuData.lunchMenu]);
     }
     if (menuData.afternoonSnackMenu) {
-      await connection.query(insertQuery, [classId, dateTimestamp, 'Snack', menuData.afternoonSnackMenu]);
+      await connection.query(insertQuery, [menuId, dayOfWeek, 'Snack', menuData.afternoonSnackMenu]);
     }
 
     await connection.commit();
