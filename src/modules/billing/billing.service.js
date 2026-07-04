@@ -2,6 +2,10 @@ import pool from '../../config/db.js';
 import ApiError from '../../utils/ApiError.js';
 import httpStatus from 'http-status';
 import { monthIndex, addMonths, getMonthKey } from '../../utils/dateHelpers.js';
+import { sendPushToUser } from '../notification/notification.service.js';
+
+const REMINDER_LEAD_DAYS = 3;
+const SECONDS_PER_DAY = 86400;
 
 const TZ_OFFSET_SECONDS = 7 * 60 * 60;
 
@@ -11,6 +15,18 @@ const parseMonthKeyToRange = (monthKey) => {
   const year = parseInt(yearStr, 10);
   const daysInMonth = new Date(year, month, 0).getDate();
   return { month, year, daysInMonth };
+};
+
+const DUE_DAY_OF_MONTH = 10;
+
+/**
+ * Hạn đóng của 1 hóa đơn = ngày 10 của billingMonth, 00:00 giờ GMT+7.
+ * @param {string} billingMonth - 'MM-YYYY'
+ * @returns {number} unix timestamp (giây)
+ */
+const getDueDate = (billingMonth) => {
+  const { month, year } = parseMonthKeyToRange(billingMonth);
+  return Math.floor(new Date(year, month - 1, DUE_DAY_OF_MONTH).getTime() / 1000) - TZ_OFFSET_SECONDS;
 };
 
 /**
@@ -83,15 +99,16 @@ const getPackageById = async (packageId) => {
  */
 export const generateTuitionInvoice = async (plan, pkg, billingMonth) => {
   const { tuitionFee, discountAmount, periodRange } = tuitionForCycle(plan, pkg, billingMonth);
+  const dueDate = getDueDate(billingMonth);
 
   try {
     const [result] = await pool.query(
       `INSERT INTO Invoices
-         (StudentID, PackageID, PeriodRange, BillingMonth, TuitionFee, DiscountAmount, InvoiceType)
-       VALUES (?, ?, ?, ?, ?, ?, 'TUITION')`,
-      [plan.StudentID, plan.PackageID, periodRange, billingMonth, tuitionFee, discountAmount]
+         (StudentID, PackageID, PeriodRange, BillingMonth, TuitionFee, DiscountAmount, InvoiceType, DueDate)
+       VALUES (?, ?, ?, ?, ?, ?, 'TUITION', ?)`,
+      [plan.StudentID, plan.PackageID, periodRange, billingMonth, tuitionFee, discountAmount, dueDate]
     );
-    return { invoiceId: result.insertId, tuitionFee, discountAmount, periodRange, billingMonth };
+    return { invoiceId: result.insertId, tuitionFee, discountAmount, periodRange, billingMonth, dueDate };
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') {
       return null;
@@ -267,13 +284,14 @@ export const generateMonthlyInvoice = async (studentId, billingMonth) => {
     extracurricularFee(studentId, billingMonth),
     refundForPrevMonth(studentId, prevMonth),
   ]);
+  const dueDate = getDueDate(billingMonth);
 
   try {
     const [result] = await pool.query(
       `INSERT INTO Invoices
-         (StudentID, BillingMonth, ExpectedMealFee, ExtracurricularFee, Surcharge, RefundAmount, InvoiceType)
-       VALUES (?, ?, ?, ?, 0, ?, 'MONTHLY')`,
-      [studentId, billingMonth, meal, extra, refund]
+         (StudentID, BillingMonth, ExpectedMealFee, ExtracurricularFee, Surcharge, RefundAmount, InvoiceType, DueDate)
+       VALUES (?, ?, ?, ?, 0, ?, 'MONTHLY', ?)`,
+      [studentId, billingMonth, meal, extra, refund, dueDate]
     );
     return {
       invoiceId: result.insertId,
@@ -281,6 +299,7 @@ export const generateMonthlyInvoice = async (studentId, billingMonth) => {
       expectedMealFee: meal,
       extracurricularFee: extra,
       refundAmount: refund,
+      dueDate,
     };
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') {
@@ -410,4 +429,86 @@ export const recordPayment = async (invoiceId, amountPaid, method, code) => {
     totalAmount,
     paymentStatus,
   };
+};
+
+/**
+ * Quét các hóa đơn chưa Paid cần nhắc hạn đóng, gửi push cho phụ huynh của học sinh.
+ * Chạy hàng ngày. Đánh dấu ReminderSentAt/OverdueReminderSentAt để không gửi trùng.
+ * - Sắp tới hạn: còn đúng REMINDER_LEAD_DAYS ngày, chưa từng nhắc.
+ * - Quá hạn: đã qua DueDate, chưa từng nhắc quá hạn (chỉ nhắc 1 lần).
+ * @param {number} [nowSec] - unix timestamp hiện tại (giây), default = Date.now()
+ */
+export const sendPaymentReminders = async (nowSec) => {
+  const now = nowSec ?? Math.floor(Date.now() / 1000);
+  const upcomingThreshold = now + REMINDER_LEAD_DAYS * SECONDS_PER_DAY;
+
+  const [upcomingInvoices] = await pool.query(
+    `SELECT i.InvoiceID, i.StudentID, i.DueDate, i.TotalAmount, i.InvoiceType, i.BillingMonth
+     FROM Invoices i
+     WHERE i.PaymentStatus != 'Paid'
+       AND i.DueDate IS NOT NULL
+       AND i.DueDate <= ? AND i.DueDate > ?
+       AND i.ReminderSentAt IS NULL`,
+    [upcomingThreshold, now]
+  );
+
+  const [overdueInvoices] = await pool.query(
+    `SELECT i.InvoiceID, i.StudentID, i.DueDate, i.TotalAmount, i.InvoiceType, i.BillingMonth
+     FROM Invoices i
+     WHERE i.PaymentStatus != 'Paid'
+       AND i.DueDate IS NOT NULL
+       AND i.DueDate <= ?
+       AND i.OverdueReminderSentAt IS NULL`,
+    [now]
+  );
+
+  let upcomingSent = 0;
+  let overdueSent = 0;
+
+  for (const invoice of upcomingInvoices) {
+    const sent = await notifyParentsOfInvoice(invoice, 'upcoming');
+    if (sent) {
+      await pool.query('UPDATE Invoices SET ReminderSentAt = ? WHERE InvoiceID = ?', [now, invoice.InvoiceID]);
+      upcomingSent++;
+    }
+  }
+
+  for (const invoice of overdueInvoices) {
+    const sent = await notifyParentsOfInvoice(invoice, 'overdue');
+    if (sent) {
+      await pool.query('UPDATE Invoices SET OverdueReminderSentAt = ? WHERE InvoiceID = ?', [now, invoice.InvoiceID]);
+      overdueSent++;
+    }
+  }
+
+  return { upcomingSent, overdueSent };
+};
+
+const notifyParentsOfInvoice = async (invoice, kind) => {
+  const [parentRows] = await pool.query(
+    'SELECT ParentID FROM StudentParents WHERE StudentID = ?',
+    [invoice.StudentID]
+  );
+  if (parentRows.length === 0) return false;
+
+  const studentLabel = `học sinh ID ${invoice.StudentID}`;
+  const amount = Number(invoice.TotalAmount).toLocaleString('vi-VN');
+  const title = kind === 'upcoming' ? 'Sắp đến hạn đóng học phí' : 'Hóa đơn đã quá hạn thanh toán';
+  const body = kind === 'upcoming'
+    ? `Hóa đơn tháng ${invoice.BillingMonth} của ${studentLabel} (${amount}đ) sắp đến hạn đóng. Vui lòng thanh toán sớm.`
+    : `Hóa đơn tháng ${invoice.BillingMonth} của ${studentLabel} (${amount}đ) đã quá hạn thanh toán. Vui lòng thanh toán để tránh gián đoạn dịch vụ.`;
+
+  await Promise.all(
+    parentRows.map((row) =>
+      sendPushToUser(
+        row.ParentID,
+        title,
+        body,
+        { type: 'INVOICE_REMINDER', invoiceId: String(invoice.InvoiceID), studentId: String(invoice.StudentID), kind },
+        kind === 'overdue'
+      )
+    )
+  );
+
+  return true;
 };

@@ -2669,6 +2669,11 @@
  *                       paymentStatus:
  *                         type: string
  *                         example: Unpaid
+ *                       dueDate:
+ *                         type: integer
+ *                         nullable: true
+ *                         description: Unix timestamp (seconds) — hạn đóng, ngày 10 của billingMonth
+ *                         example: 1786269600
  *                       createdAt:
  *                         type: integer
  *                         description: Unix timestamp (seconds)
@@ -2739,6 +2744,11 @@
  *                     paymentStatus:
  *                       type: string
  *                       example: Unpaid
+ *                     dueDate:
+ *                       type: integer
+ *                       nullable: true
+ *                       description: Unix timestamp (seconds) — hạn đóng, ngày 10 của billingMonth
+ *                       example: 1786269600
  *                     transactions:
  *                       type: array
  *                       items:

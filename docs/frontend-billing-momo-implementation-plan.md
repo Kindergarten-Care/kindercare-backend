@@ -13,6 +13,7 @@
 | Format tháng | Mọi field tháng dùng string `'MM-YYYY'` (ví dụ `"08-2026"`), **không phải** `'YYYY-MM'`. Cẩn thận khi parse/sort. |
 | `TotalAmount` | Là trường tính sẵn ở BE, FE **không tự tính lại** — chỉ hiển thị giá trị BE trả về. |
 | `PaymentStatus` | 3 giá trị: `Unpaid` | `Partial` | `Paid`. Cập nhật tự động sau mỗi lần thanh toán (thủ công hoặc MoMo). |
+| `dueDate` | Hạn đóng, unix timestamp giây, cố định = **ngày 10 của `billingMonth`**. Có thể `null` cho các invoice cũ tạo trước khi tính năng này ra đời. BE tự gửi push nhắc phụ huynh trước 3 ngày và khi quá hạn (xem mục 2.5) — FE chỉ cần hiển thị, không cần tự tính lịch nhắc. |
 | Timestamp | Toàn hệ thống dùng Unix timestamp (giây), không phải milliseconds — nhớ `× 1000` khi tạo `Date` ở JS. |
 | Vai trò | 2 nhóm actor dùng các API khác nhau: **Hiệu trưởng** (roleId=2) dùng nhóm `/billing/*`; **Phụ huynh** (roleId=4) dùng nhóm `/parent/*`. |
 
@@ -179,6 +180,7 @@ GET /parent/children/{studentId}/invoices?type=&status=&from=&to=
       "discountAmount": 0,
       "totalAmount": 1930000,
       "paymentStatus": "Unpaid",
+      "dueDate": 1786269600,
       "createdAt": 1783067067
     }
   ]
@@ -190,6 +192,7 @@ GET /parent/children/{studentId}/invoices?type=&status=&from=&to=
 - Tab lọc theo `type` (Tất cả / Học phí / Hàng tháng) và filter theo `status` (badge màu: Unpaid=đỏ/cam, Partial=vàng, Paid=xanh).
 - Với hóa đơn `TUITION`, hiển thị `periodRange` (ví dụ "08-2026 - 10-2026") thay vì chỉ `billingMonth`, vì nó thể hiện cả chu kỳ gói.
 - Với hóa đơn `MONTHLY`, nếu `refundAmount > 0`, hiển thị nổi bật dòng "Hoàn tiền ăn tháng trước: -65,000đ" để phụ huynh hiểu vì sao tổng tiền giảm.
+- Nếu `dueDate` không null và `paymentStatus !== 'Paid'`, hiển thị hạn đóng (ví dụ "Hạn: 10/08/2026"). Nếu đã qua `dueDate`, đổi màu badge/text sang cảnh báo (ví dụ đỏ đậm "Quá hạn") để phụ huynh nhận biết ngay trong danh sách mà không cần mở chi tiết.
 
 ---
 
@@ -213,6 +216,7 @@ GET /parent/invoices/{invoiceId}
     "billingMonth": "08-2026",
     "totalAmount": 1930000,
     "paymentStatus": "Unpaid",
+    "dueDate": 1786269600,
     "transactions": [
       {
         "transactionId": 3,
@@ -338,6 +342,22 @@ BE cấu hình `MOMO_REDIRECT_BASE_URL` = domain app phụ huynh (ví dụ `http
 
 ---
 
+### 2.5 Nhắc hạn đóng học phí (tự động, BE-only — FE không cần gọi API)
+
+BE có 1 cron chạy **hàng ngày lúc 08:00** quét toàn bộ hóa đơn chưa `Paid` và gửi push notification (qua Firebase, dùng cơ chế thông báo đã có sẵn trong app):
+
+| Loại nhắc | Điều kiện | Nội dung |
+|---|---|---|
+| Sắp đến hạn | `dueDate` còn đúng 3 ngày, chưa từng được nhắc | "Sắp đến hạn đóng học phí" |
+| Quá hạn | `dueDate` đã qua, chưa từng được nhắc quá hạn | "Hóa đơn đã quá hạn thanh toán" (gửi **1 lần duy nhất**, không lặp lại mỗi ngày) |
+
+**FE không cần implement gì cho phần này** — chỉ cần đảm bảo:
+1. App đã đăng ký FCM token đúng cách (endpoint `POST /notifications/register-token` đã có sẵn từ trước) để nhận được push.
+2. Khi nhận notification có `data.type === 'INVOICE_REMINDER'`, tap vào notification nên điều hướng thẳng tới trang chi tiết hóa đơn tương ứng bằng `data.invoiceId` (payload đầy đủ: `{ type: 'INVOICE_REMINDER', invoiceId, studentId, kind: 'upcoming' | 'overdue' }`).
+3. Ở màn hình danh sách/chi tiết hóa đơn, tự tính và hiển thị trạng thái "sắp đến hạn"/"quá hạn" dựa trên `dueDate` so với thời gian hiện tại (client-side), **không cần chờ push** để hiển thị — push chỉ là kênh chủ động nhắc nhở, không phải nguồn duy nhất để biết trạng thái.
+
+---
+
 ## 3. LUỒNG MÀN HÌNH GỢI Ý (PHỤ HUYNH)
 
 ```
@@ -374,16 +394,19 @@ BE cấu hình `MOMO_REDIRECT_BASE_URL` = domain app phụ huynh (ví dụ `http
 
 ### Phía Phụ huynh
 - [ ] Danh sách hóa đơn của con, filter theo `type`/`status`/`from`/`to` (`GET /parent/children/:id/invoices`)
+- [ ] Hiển thị hạn đóng (`dueDate`) trong danh sách + cảnh báo trực quan khi đã quá hạn
 - [ ] Trang chi tiết hóa đơn + timeline giao dịch (`GET /parent/invoices/:id`)
 - [ ] Nút thanh toán MoMo → redirect `payUrl` (`POST /parent/invoices/:id/pay-momo`)
 - [ ] Route `/billing/payment-result` xử lý sau khi MoMo redirect về, gọi lại API xác nhận trạng thái thật
 - [ ] (Nếu cần) màn hình xác nhận thanh toán thủ công cho nhân viên (`POST /parent/invoices/:id/pay`)
+- [ ] Xử lý tap vào push notification `INVOICE_REMINDER` → điều hướng tới chi tiết hóa đơn theo `data.invoiceId`
 
 ### Chung
 - [ ] Helper format `'MM-YYYY'` ↔ hiển thị tiếng Việt (ví dụ "08-2026" → "Tháng 8/2026")
 - [ ] Helper format Unix timestamp giây → ngày giờ hiển thị (nhân 1000 trước khi tạo `Date`)
 - [ ] Helper format tiền VNĐ (ví dụ dùng `Intl.NumberFormat('vi-VN')`)
 - [ ] Badge màu theo `paymentStatus`: `Unpaid` (đỏ/cam), `Partial` (vàng), `Paid` (xanh)
+- [ ] Helper tính trạng thái hạn đóng client-side: so `dueDate` với `now` để hiện "Còn N ngày" / "Quá hạn N ngày" (không phụ thuộc vào push notification)
 
 ---
 
@@ -394,3 +417,4 @@ BE cấu hình `MOMO_REDIRECT_BASE_URL` = domain app phụ huynh (ví dụ `http
 - **`Surcharge` cộng dồn, không set đè** — nếu FE có ý định sửa/xóa phụ thu đã thêm, hiện tại **chưa có API riêng** để trừ/reset — cần yêu cầu BE bổ sung nếu nghiệp vụ cần sửa sai.
 - **Chưa có API danh sách `PaymentPackages`** cho dropdown chọn gói khi đăng ký học phí — nếu cần động (không hardcode), báo BE bổ sung `GET /billing/packages` hoặc endpoint tương đương.
 - **MoMo sandbox cần domain public thật** để nhận IPN — nếu FE dev trên `localhost`, luồng MoMo IPN sẽ không tự động cập nhật (vì BE test/production mới có domain public cấu hình IPN URL) — cần test đủ điều kiện trên môi trường `web-test.kindercare.app` trở lên, không test được đầy đủ trên localhost.
+- **`dueDate` có thể là `null`** cho các hóa đơn tạo trước khi tính năng nhắc hạn được triển khai (dữ liệu cũ trong DB) — FE cần xử lý trường hợp null, không hiển thị hạn đóng hoặc cảnh báo quá hạn cho các hóa đơn này.

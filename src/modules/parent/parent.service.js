@@ -1302,6 +1302,7 @@ export const getInvoicesByStudentId = async (studentId, filters = {}) => {
        DiscountAmount      AS discountAmount,
        TotalAmount         AS totalAmount,
        PaymentStatus       AS paymentStatus,
+       DueDate             AS dueDate,
        CreatedAt           AS createdAt
      FROM Invoices
      WHERE ${conditions.join(' AND ')}
@@ -1332,6 +1333,7 @@ export const getInvoiceDetail = async (invoiceId) => {
        DiscountAmount      AS discountAmount,
        TotalAmount         AS totalAmount,
        PaymentStatus       AS paymentStatus,
+       DueDate             AS dueDate,
        CreatedAt           AS createdAt
      FROM Invoices
      WHERE InvoiceID = ?`,

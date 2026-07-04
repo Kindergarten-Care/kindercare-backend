@@ -13,6 +13,7 @@ import swaggerUi from 'swagger-ui-express';
 import swaggerSpecs from './config/swagger.js';
 import { initSocket } from './config/socket.js';
 import { startMonthlyBillingCron } from './jobs/monthlyBilling.cron.js';
+import { startPaymentReminderCron } from './jobs/paymentReminder.cron.js';
 
 dotenv.config({
     path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env'
@@ -57,5 +58,6 @@ server.listen(PORT, () => {
 });
 
 startMonthlyBillingCron();
+startPaymentReminderCron();
 
 export default app;
