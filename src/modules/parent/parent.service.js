@@ -1293,8 +1293,8 @@ export const getInvoicesByStudentId = async (studentId, filters = {}) => {
   if (from) { conditions.push('BillingMonth >= ?'); values.push(from); }
   if (to) { conditions.push('BillingMonth <= ?'); values.push(to); }
 
-  const [rows] = await pool.query(
-    `SELECT
+  const query = `
+    SELECT
        InvoiceID          AS invoiceId,
        InvoiceType        AS invoiceType,
        BillingMonth        AS billingMonth,
@@ -1311,9 +1311,30 @@ export const getInvoicesByStudentId = async (studentId, filters = {}) => {
        CreatedAt           AS createdAt
      FROM Invoices
      WHERE ${conditions.join(' AND ')}
-     ORDER BY BillingMonth DESC, InvoiceID DESC`,
-    values
-  );
+     ORDER BY BillingMonth DESC, InvoiceID DESC`;
+
+  let [rows] = await pool.query(query, values);
+
+  // Đối soát ngay các giao dịch MoMo còn Pending của các hóa đơn này, phòng trường hợp
+  // IPN chưa/không gọi tới server kịp (xem thêm reconcileMomoTransaction).
+  const invoiceIds = rows.map((r) => r.invoiceId);
+  if (invoiceIds.length > 0) {
+    const [pendingMomoTx] = await pool.query(
+      `SELECT TransactionID, InvoiceID, TransactionCode
+       FROM Transactions
+       WHERE PaymentMethod = 'MoMo' AND Status = 'Pending' AND InvoiceID IN (?)`,
+      [invoiceIds]
+    );
+    if (pendingMomoTx.length > 0) {
+      await Promise.all(pendingMomoTx.map((t) => reconcileMomoTransaction({
+        TransactionID: t.TransactionID,
+        InvoiceID: t.InvoiceID,
+        TransactionCode: t.TransactionCode,
+      })));
+      [rows] = await pool.query(query, values);
+    }
+  }
+
   return rows;
 };
 
