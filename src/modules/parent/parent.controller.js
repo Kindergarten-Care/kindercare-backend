@@ -1171,6 +1171,122 @@ const getChildDailyEvents = async (req, res, next) => {
   }
 };
 
+const getChildInvoices = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { studentId } = req.params;
+    const { type, status, from, to } = req.query;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    const hasAccess = await parentService.isParentOfStudent(parentId, studentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin của học sinh này');
+    }
+
+    const invoices = await parentService.getInvoicesByStudentId(studentId, { type, status, from, to });
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, invoices, 'Lấy danh sách hóa đơn thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getInvoiceDetail = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { invoiceId } = req.params;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    const hasAccess = await parentService.isParentOfInvoice(invoiceId, parentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập hóa đơn này');
+    }
+
+    const invoice = await parentService.getInvoiceDetail(invoiceId);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, invoice, 'Lấy chi tiết hóa đơn thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const payInvoice = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { invoiceId } = req.params;
+    const { amountPaid, paymentMethod, transactionCode } = req.body;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    if (!amountPaid || !paymentMethod) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng cung cấp amountPaid và paymentMethod');
+    }
+
+    const hasAccess = await parentService.isParentOfInvoice(invoiceId, parentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền thanh toán hóa đơn này');
+    }
+
+    const result = await parentService.createPayment(invoiceId, amountPaid, paymentMethod, transactionCode);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, result, 'Thanh toán hóa đơn thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const payInvoiceWithMomo = async (req, res, next) => {
+  try {
+    const parentId = req.user.userId;
+    const roleId = req.user.roleId;
+    const { invoiceId } = req.params;
+
+    if (roleId !== 4) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ phụ huynh mới có quyền truy cập thông tin này');
+    }
+
+    const hasAccess = await parentService.isParentOfInvoice(invoiceId, parentId);
+    if (!hasAccess) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền thanh toán hóa đơn này');
+    }
+
+    const result = await parentService.createMomoPayment(invoiceId);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, result, 'Tạo đơn thanh toán MoMo thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const momoIpn = async (req, res, next) => {
+  try {
+    await parentService.handleMomoIpn(req.body);
+    // MoMo yêu cầu phản hồi 204/200 rỗng để xác nhận đã nhận IPN
+    res.status(httpStatus.NO_CONTENT).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyChildren,
   getMyProfile,
@@ -1200,6 +1316,11 @@ export default {
   getChildBadges,
   getChildWeeklyTimetable,
   getChildDailyEvents,
+  getChildInvoices,
+  getInvoiceDetail,
+  payInvoice,
+  payInvoiceWithMomo,
+  momoIpn,
 };
 
 

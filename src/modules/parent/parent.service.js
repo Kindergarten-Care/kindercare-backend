@@ -4,6 +4,9 @@ import httpStatus from 'http-status';
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
+import { recordPayment as recordPaymentInBilling } from '../billing/billing.service.js';
+import { createMomoPayment as createMomoOrder, verifyMomoSignature } from '../../utils/momo.js';
+import logger from '../../config/logger.js';
 
 /**
  * Get all children of a parent by ParentID
@@ -1269,6 +1272,210 @@ export const getStudentDailyEvents = async (studentId, startDateStr, endDateStr 
     classId,
     events
   };
+};
+
+/**
+ * Lấy danh sách hóa đơn của 1 học sinh, có thể lọc theo type/status/khoảng thời gian.
+ * @param {number} studentId
+ * @param {object} filters - { type?, status?, from?, to? } — from/to là 'MM-YYYY'
+ */
+export const getInvoicesByStudentId = async (studentId, filters = {}) => {
+  const { type, status, from, to } = filters;
+
+  const conditions = ['StudentID = ?'];
+  const values = [studentId];
+
+  if (type) { conditions.push('InvoiceType = ?'); values.push(type); }
+  if (status) { conditions.push('PaymentStatus = ?'); values.push(status); }
+  if (from) { conditions.push('BillingMonth >= ?'); values.push(from); }
+  if (to) { conditions.push('BillingMonth <= ?'); values.push(to); }
+
+  const [rows] = await pool.query(
+    `SELECT
+       InvoiceID          AS invoiceId,
+       InvoiceType        AS invoiceType,
+       BillingMonth        AS billingMonth,
+       PeriodRange         AS periodRange,
+       TuitionFee          AS tuitionFee,
+       ExpectedMealFee     AS expectedMealFee,
+       ExtracurricularFee  AS extracurricularFee,
+       Surcharge           AS surcharge,
+       RefundAmount        AS refundAmount,
+       DiscountAmount      AS discountAmount,
+       TotalAmount         AS totalAmount,
+       PaymentStatus       AS paymentStatus,
+       DueDate             AS dueDate,
+       CreatedAt           AS createdAt
+     FROM Invoices
+     WHERE ${conditions.join(' AND ')}
+     ORDER BY BillingMonth DESC, InvoiceID DESC`,
+    values
+  );
+  return rows;
+};
+
+/**
+ * Lấy chi tiết 1 hóa đơn kèm danh sách transaction.
+ * @param {number} invoiceId
+ */
+export const getInvoiceDetail = async (invoiceId) => {
+  const [invoiceRows] = await pool.query(
+    `SELECT
+       InvoiceID          AS invoiceId,
+       StudentID           AS studentId,
+       PackageID           AS packageId,
+       InvoiceType        AS invoiceType,
+       BillingMonth        AS billingMonth,
+       PeriodRange         AS periodRange,
+       TuitionFee          AS tuitionFee,
+       ExpectedMealFee     AS expectedMealFee,
+       ExtracurricularFee  AS extracurricularFee,
+       Surcharge           AS surcharge,
+       RefundAmount        AS refundAmount,
+       DiscountAmount      AS discountAmount,
+       TotalAmount         AS totalAmount,
+       PaymentStatus       AS paymentStatus,
+       DueDate             AS dueDate,
+       CreatedAt           AS createdAt
+     FROM Invoices
+     WHERE InvoiceID = ?`,
+    [invoiceId]
+  );
+
+  if (invoiceRows.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy hóa đơn');
+  }
+
+  const [transactions] = await pool.query(
+    `SELECT
+       TransactionID    AS transactionId,
+       AmountPaid       AS amountPaid,
+       PaymentMethod    AS paymentMethod,
+       TransactionCode  AS transactionCode,
+       TransactionDate  AS transactionDate,
+       Status           AS status
+     FROM Transactions
+     WHERE InvoiceID = ?
+     ORDER BY TransactionDate DESC`,
+    [invoiceId]
+  );
+
+  return { ...invoiceRows[0], transactions };
+};
+
+/**
+ * Kiểm tra 1 hóa đơn có thuộc về học sinh của phụ huynh hay không.
+ * @param {number} invoiceId
+ * @param {number} parentId
+ * @returns {Promise<boolean>}
+ */
+export const isParentOfInvoice = async (invoiceId, parentId) => {
+  const [rows] = await pool.query(
+    `SELECT 1
+     FROM Invoices i
+     JOIN StudentParents sp ON i.StudentID = sp.StudentID
+     WHERE i.InvoiceID = ? AND sp.ParentID = ?`,
+    [invoiceId, parentId]
+  );
+  return rows.length > 0;
+};
+
+/**
+ * Phụ huynh ghi nhận thanh toán cho 1 hóa đơn của con.
+ * @param {number} invoiceId
+ * @param {number} amountPaid
+ * @param {string} paymentMethod
+ * @param {string} [transactionCode]
+ */
+export const createPayment = async (invoiceId, amountPaid, paymentMethod, transactionCode) => {
+  return recordPaymentInBilling(invoiceId, amountPaid, paymentMethod, transactionCode);
+};
+
+/**
+ * Tạo đơn thanh toán MoMo cho 1 hóa đơn — gọi MoMo tạo đơn, insert Transaction
+ * Status='Pending' với TransactionCode = orderId để đối chiếu khi IPN gọi về.
+ * @param {number} invoiceId
+ */
+export const createMomoPayment = async (invoiceId) => {
+  const [invoiceRows] = await pool.query(
+    'SELECT InvoiceID, TotalAmount, BillingMonth, InvoiceType FROM Invoices WHERE InvoiceID = ?',
+    [invoiceId]
+  );
+  if (invoiceRows.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy hóa đơn');
+  }
+  const invoice = invoiceRows[0];
+
+  if (Number(invoice.TotalAmount) <= 0) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Hóa đơn không có số tiền cần thanh toán');
+  }
+
+  const orderInfo = `Thanh toan hoa don ${invoice.InvoiceType} ky ${invoice.BillingMonth} - KinderCare`;
+  const { payUrl, orderId } = await createMomoOrder({
+    invoiceId,
+    amount: invoice.TotalAmount,
+    orderInfo,
+  });
+
+  await pool.query(
+    `INSERT INTO Transactions (InvoiceID, AmountPaid, PaymentMethod, TransactionCode, Status)
+     VALUES (?, ?, 'MoMo', ?, 'Pending')`,
+    [invoiceId, invoice.TotalAmount, orderId]
+  );
+
+  return { payUrl, orderId };
+};
+
+/**
+ * Xử lý IPN callback từ MoMo — verify chữ ký, cập nhật Transaction theo orderId
+ * (lưu ở TransactionCode), tính lại PaymentStatus nếu thanh toán thành công.
+ * @param {object} payload - body gửi từ MoMo
+ */
+export const handleMomoIpn = async (payload) => {
+  const isValid = verifyMomoSignature(payload);
+  if (!isValid) {
+    logger.error(`[MoMo IPN] Chữ ký không hợp lệ cho orderId: ${payload.orderId}`);
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Chữ ký không hợp lệ');
+  }
+
+  const { orderId, resultCode } = payload;
+
+  const [txRows] = await pool.query(
+    'SELECT TransactionID, InvoiceID, AmountPaid FROM Transactions WHERE TransactionCode = ?',
+    [orderId]
+  );
+  if (txRows.length === 0) {
+    logger.error(`[MoMo IPN] Không tìm thấy transaction cho orderId: ${orderId}`);
+    return;
+  }
+  const tx = txRows[0];
+
+  if (Number(resultCode) === 0) {
+    await pool.query('UPDATE Transactions SET Status = ? WHERE TransactionID = ?', ['Success', tx.TransactionID]);
+
+    const [[{ totalPaid }]] = await pool.query(
+      `SELECT COALESCE(SUM(AmountPaid), 0) AS totalPaid
+       FROM Transactions WHERE InvoiceID = ? AND Status = 'Success'`,
+      [tx.InvoiceID]
+    );
+    const [[{ TotalAmount: totalAmount }]] = await pool.query(
+      'SELECT TotalAmount FROM Invoices WHERE InvoiceID = ?',
+      [tx.InvoiceID]
+    );
+
+    let paymentStatus = 'Unpaid';
+    if (Number(totalPaid) >= Number(totalAmount) && Number(totalAmount) > 0) {
+      paymentStatus = 'Paid';
+    } else if (Number(totalPaid) > 0) {
+      paymentStatus = 'Partial';
+    }
+
+    await pool.query('UPDATE Invoices SET PaymentStatus = ? WHERE InvoiceID = ?', [paymentStatus, tx.InvoiceID]);
+    logger.info(`[MoMo IPN] Thanh toán thành công cho InvoiceID ${tx.InvoiceID}, orderId ${orderId}`);
+  } else {
+    await pool.query('UPDATE Transactions SET Status = ? WHERE TransactionID = ?', ['Failed', tx.TransactionID]);
+    logger.info(`[MoMo IPN] Thanh toán thất bại cho orderId ${orderId}, resultCode ${resultCode}`);
+  }
 };
 
 
