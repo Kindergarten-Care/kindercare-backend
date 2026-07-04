@@ -15,6 +15,8 @@
  *     description: "Leave requests and medication requests"
  *   - name: "Parent - Authorizations"
  *     description: "Proxy pickup/drop-off authorizations and QR attendance token"
+ *   - name: "Parent - Billing"
+ *     description: "View and pay a child's tuition/monthly invoices"
  */
 
 // ─────────────────────────────────────────────────────────────
@@ -2561,4 +2563,371 @@
  *         description: Not Found - proxy authorization not found
  *       500:
  *         description: Internal Server Error
+ */
+
+// ─────────────────────────────────────────────────────────────
+//  GROUP · Parent - Billing
+//  GET  /parent/children/:studentId/invoices
+//  GET  /parent/invoices/:invoiceId
+//  POST /parent/invoices/:invoiceId/pay
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/invoices:
+ *   get:
+ *     summary: Get invoices of a child
+ *     description: Returns the list of TUITION and MONTHLY invoices for a child, optionally filtered.
+ *     tags: ["Parent - Billing"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 19
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TUITION, MONTHLY]
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [Unpaid, Partial, Paid]
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *         description: "'MM-YYYY', inclusive lower bound on BillingMonth"
+ *         example: "01-2026"
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *         description: "'MM-YYYY', inclusive upper bound on BillingMonth"
+ *         example: "12-2026"
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved invoices
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách hóa đơn thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       invoiceId:
+ *                         type: integer
+ *                         example: 9
+ *                       invoiceType:
+ *                         type: string
+ *                         example: MONTHLY
+ *                       billingMonth:
+ *                         type: string
+ *                         example: "08-2026"
+ *                       periodRange:
+ *                         type: string
+ *                         nullable: true
+ *                         example: null
+ *                       tuitionFee:
+ *                         type: number
+ *                         example: 0
+ *                       expectedMealFee:
+ *                         type: number
+ *                         example: 1495000
+ *                       extracurricularFee:
+ *                         type: number
+ *                         example: 500000
+ *                       surcharge:
+ *                         type: number
+ *                         example: 0
+ *                       refundAmount:
+ *                         type: number
+ *                         example: 65000
+ *                       discountAmount:
+ *                         type: number
+ *                         example: 0
+ *                       totalAmount:
+ *                         type: number
+ *                         example: 1930000
+ *                       paymentStatus:
+ *                         type: string
+ *                         example: Unpaid
+ *                       createdAt:
+ *                         type: integer
+ *                         description: Unix timestamp (seconds)
+ *                         example: 1783067067
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a parent, or child does not belong to this parent
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/invoices/{invoiceId}:
+ *   get:
+ *     summary: Get detail of a single invoice
+ *     description: Returns full invoice breakdown plus its list of transactions.
+ *     tags: ["Parent - Billing"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: invoiceId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 9
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved invoice detail
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy chi tiết hóa đơn thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     invoiceId:
+ *                       type: integer
+ *                       example: 9
+ *                     studentId:
+ *                       type: integer
+ *                       example: 19
+ *                     packageId:
+ *                       type: integer
+ *                       nullable: true
+ *                       example: null
+ *                     invoiceType:
+ *                       type: string
+ *                       example: MONTHLY
+ *                     billingMonth:
+ *                       type: string
+ *                       example: "08-2026"
+ *                     totalAmount:
+ *                       type: number
+ *                       example: 1930000
+ *                     paymentStatus:
+ *                       type: string
+ *                       example: Unpaid
+ *                     transactions:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           transactionId:
+ *                             type: integer
+ *                             example: 3
+ *                           amountPaid:
+ *                             type: number
+ *                             example: 1930000
+ *                           paymentMethod:
+ *                             type: string
+ *                             example: "Chuyển khoản Bank"
+ *                           transactionCode:
+ *                             type: string
+ *                             nullable: true
+ *                             example: "MB-INV009-XYZ"
+ *                           transactionDate:
+ *                             type: integer
+ *                             description: Unix timestamp (seconds)
+ *                             example: 1783100000
+ *                           status:
+ *                             type: string
+ *                             example: Success
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - invoice does not belong to this parent's child
+ *       404:
+ *         description: Not Found - invoice not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/invoices/{invoiceId}/pay:
+ *   post:
+ *     summary: Pay an invoice (manual)
+ *     description: Manually records a payment transaction (e.g. cash, bank transfer already confirmed by staff) for an invoice and recalculates its PaymentStatus (Unpaid/Partial/Paid). For online MoMo payment use POST /parent/invoices/{invoiceId}/pay-momo instead.
+ *     tags: ["Parent - Billing"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: invoiceId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 9
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [amountPaid, paymentMethod]
+ *             properties:
+ *               amountPaid:
+ *                 type: number
+ *                 example: 1930000
+ *               paymentMethod:
+ *                 type: string
+ *                 example: "Chuyển khoản Bank"
+ *               transactionCode:
+ *                 type: string
+ *                 example: "MB-INV009-XYZ"
+ *     responses:
+ *       200:
+ *         description: Payment recorded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Thanh toán hóa đơn thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     transactionId:
+ *                       type: integer
+ *                       example: 3
+ *                     invoiceId:
+ *                       type: integer
+ *                       example: 9
+ *                     amountPaid:
+ *                       type: number
+ *                       example: 1930000
+ *                     totalPaid:
+ *                       type: number
+ *                       example: 1930000
+ *                     totalAmount:
+ *                       type: number
+ *                       example: 1930000
+ *                     paymentStatus:
+ *                       type: string
+ *                       example: Paid
+ *       400:
+ *         description: Bad Request - missing amountPaid or paymentMethod
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - invoice does not belong to this parent's child
+ *       404:
+ *         description: Not Found - invoice not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/invoices/{invoiceId}/pay-momo:
+ *   post:
+ *     summary: Create a MoMo payment order for an invoice
+ *     description: Calls the MoMo sandbox API to create a payment order (payWithMethod, redirect flow) and records a Transaction with Status='Pending'. The frontend should redirect the parent to the returned payUrl. MoMo will call the IPN endpoint (POST /parent/invoices/momo-ipn) to confirm the result.
+ *     tags: ["Parent - Billing"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: invoiceId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 9
+ *     responses:
+ *       200:
+ *         description: MoMo payment order created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Tạo đơn thanh toán MoMo thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     payUrl:
+ *                       type: string
+ *                       example: "https://test-payment.momo.vn/v2/gateway/pay/abc123"
+ *                     orderId:
+ *                       type: string
+ *                       example: "INV9-a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+ *       400:
+ *         description: Bad Request - invoice has no amount due
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - invoice does not belong to this parent's child
+ *       404:
+ *         description: Not Found - invoice not found
+ *       500:
+ *         description: Internal Server Error - failed to create MoMo order
+ */
+
+/**
+ * @swagger
+ * /parent/invoices/momo-ipn:
+ *   post:
+ *     summary: MoMo IPN callback (internal — called by MoMo servers)
+ *     description: Receives the asynchronous payment result from MoMo. Verifies the HMAC-SHA256 signature, then updates the matching Transaction (looked up by TransactionCode = orderId) to Success or Failed, and recalculates the invoice's PaymentStatus on success. Not intended to be called by clients — no JWT auth, authenticated via MoMo's signature instead.
+ *     tags: ["Parent - Billing"]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             description: Standard MoMo IPN payload (partnerCode, orderId, resultCode, signature, etc.)
+ *     responses:
+ *       204:
+ *         description: IPN received and processed
+ *       400:
+ *         description: Bad Request - invalid signature
  */

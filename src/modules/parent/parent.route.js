@@ -93,5 +93,20 @@ router.patch('/leave-requests/:requestId/cancel', authenticate, authorize(4), pa
 // Cancel a medication request
 router.patch('/medication-requests/:medRequestId/cancel', authenticate, authorize(4), parentController.cancelMedicationRequest);
 
+// Get invoices of a child
+router.get('/children/:studentId/invoices', authenticate, authorize(4), parentController.getChildInvoices);
+
+// Get detail of a single invoice
+router.get('/invoices/:invoiceId', authenticate, authorize(4), parentController.getInvoiceDetail);
+
+// Pay an invoice (manual, e.g. bank transfer recorded by parent)
+router.post('/invoices/:invoiceId/pay', authenticate, authorize(4), parentController.payInvoice);
+
+// MoMo IPN callback — called directly by MoMo servers, no JWT auth (verified via signature)
+router.post('/invoices/momo-ipn', parentController.momoIpn);
+
+// Create a MoMo payment order for an invoice, returns payUrl to redirect to
+router.post('/invoices/:invoiceId/pay-momo', authenticate, authorize(4), parentController.payInvoiceWithMomo);
+
 export default router;
 
