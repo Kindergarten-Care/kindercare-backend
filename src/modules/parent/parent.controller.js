@@ -502,13 +502,16 @@ const getChildDailySchedule = async (req, res, next) => {
       targetTimestamp = Math.floor(Date.now() / 1000);
     }
 
-    // Calculate UTC midnight of the target timestamp's local day (GMT+7)
+    // Calculate UTC midnight of the target timestamp's local day (GMT+7).
+    // localDateObj is shifted +7h so getUTC* reads the VN calendar day; Date.UTC
+    // of that day is midnight UTC of that day, which must be shifted back -7h
+    // to land on midnight VN time (matching how *Date columns are stored, e.g. getDueDate).
     const localDateObj = new Date((targetTimestamp + 7 * 3600) * 1000);
     const midnightSeconds = Math.floor(Date.UTC(
       localDateObj.getUTCFullYear(),
       localDateObj.getUTCMonth(),
       localDateObj.getUTCDate()
-    ) / 1000);
+    ) / 1000) - 7 * 3600;
 
     const schedule = await parentService.getStudentDailySchedule(
       parseInt(studentId, 10),
@@ -556,13 +559,16 @@ const getChildDailyLessons = async (req, res, next) => {
       targetTimestamp = Math.floor(Date.now() / 1000);
     }
 
-    // Calculate UTC midnight of the target timestamp's local day (GMT+7)
+    // Calculate UTC midnight of the target timestamp's local day (GMT+7).
+    // localDateObj is shifted +7h so getUTC* reads the VN calendar day; Date.UTC
+    // of that day is midnight UTC of that day, which must be shifted back -7h
+    // to land on midnight VN time (matching how *Date columns are stored, e.g. getDueDate).
     const localDateObj = new Date((targetTimestamp + 7 * 3600) * 1000);
     const midnightSeconds = Math.floor(Date.UTC(
       localDateObj.getUTCFullYear(),
       localDateObj.getUTCMonth(),
       localDateObj.getUTCDate()
-    ) / 1000);
+    ) / 1000) - 7 * 3600;
 
     const lessons = await parentService.getStudentDailyLessons(
       parseInt(studentId, 10),
@@ -610,13 +616,16 @@ const getChildDailyAlbums = async (req, res, next) => {
       targetTimestamp = Math.floor(Date.now() / 1000);
     }
 
-    // Calculate UTC midnight of the target timestamp's local day (GMT+7)
+    // Calculate UTC midnight of the target timestamp's local day (GMT+7).
+    // localDateObj is shifted +7h so getUTC* reads the VN calendar day; Date.UTC
+    // of that day is midnight UTC of that day, which must be shifted back -7h
+    // to land on midnight VN time (matching how *Date columns are stored, e.g. getDueDate).
     const localDateObj = new Date((targetTimestamp + 7 * 3600) * 1000);
     const midnightSeconds = Math.floor(Date.UTC(
       localDateObj.getUTCFullYear(),
       localDateObj.getUTCMonth(),
       localDateObj.getUTCDate()
-    ) / 1000);
+    ) / 1000) - 7 * 3600;
 
     const albums = await parentService.getStudentDailyAlbums(
       parseInt(studentId, 10),
@@ -877,13 +886,16 @@ const getChildMenu = async (req, res, next) => {
       targetTimestamp = Math.floor(Date.now() / 1000);
     }
 
-    // Calculate UTC midnight of the target timestamp's local day (GMT+7)
+    // Calculate UTC midnight of the target timestamp's local day (GMT+7).
+    // localDateObj is shifted +7h so getUTC* reads the VN calendar day; Date.UTC
+    // of that day is midnight UTC of that day, which must be shifted back -7h
+    // to land on midnight VN time (matching how *Date columns are stored, e.g. getDueDate).
     const localDateObj = new Date((targetTimestamp + 7 * 3600) * 1000);
     const midnightSeconds = Math.floor(Date.UTC(
       localDateObj.getUTCFullYear(),
       localDateObj.getUTCMonth(),
       localDateObj.getUTCDate()
-    ) / 1000);
+    ) / 1000) - 7 * 3600;
 
     const menu = await parentService.getStudentMenu(studentIdVal, midnightSeconds, dayFilter);
 
