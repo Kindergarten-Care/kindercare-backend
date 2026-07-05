@@ -2776,6 +2776,32 @@
  *                           status:
  *                             type: string
  *                             example: Success
+ *                     extracurricularItems:
+ *                       type: array
+ *                       description: Chỉ có khi invoiceType='EXTRACURRICULAR' — breakdown từng hoạt động gộp trong extracurricularFee
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           enrollmentId:
+ *                             type: integer
+ *                             example: 3
+ *                           activityId:
+ *                             type: integer
+ *                             example: 1
+ *                           activityName:
+ *                             type: string
+ *                             example: "Tiếng Anh Phonics"
+ *                           monthlyFee:
+ *                             type: number
+ *                             example: 500000
+ *                           status:
+ *                             type: string
+ *                             enum: [Pending, Active, Cancelled, Expired]
+ *                             example: Active
+ *                           feeRefunded:
+ *                             type: boolean
+ *                             description: Chỉ có ý nghĩa khi status là Cancelled/Expired — true nếu phí đã bị trừ khỏi extracurricularFee
+ *                             example: false
  *       401:
  *         description: Unauthorized
  *       403:

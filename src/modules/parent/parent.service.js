@@ -1409,7 +1409,33 @@ export const getInvoiceDetail = async (invoiceId) => {
     transactions = freshTransactions;
   }
 
-  return { ...invoiceRows[0], transactions };
+  const invoice = { ...invoiceRows[0], transactions };
+
+  // Hóa đơn EXTRACURRICULAR gộp phí nhiều hoạt động trong cùng tháng vào 1 số
+  // (extracurricularFee) — trả thêm breakdown từng hoạt động để phụ huynh biết rõ trong
+  // đó gồm những gì, thay vì chỉ thấy 1 con số tổng.
+  if (invoice.invoiceType === 'EXTRACURRICULAR') {
+    const [extracurricularItems] = await pool.query(
+      `SELECT
+         se.EnrollmentID   AS enrollmentId,
+         se.ActivityID     AS activityId,
+         e.ActivityName    AS activityName,
+         e.MonthlyFee      AS monthlyFee,
+         se.Status         AS status,
+         se.FeeRefunded    AS feeRefunded
+       FROM StudentExtracurriculars se
+       JOIN Extracurriculars e ON se.ActivityID = e.ActivityID
+       WHERE se.InvoiceID = ?
+       ORDER BY e.ActivityName ASC`,
+      [invoiceId]
+    );
+    invoice.extracurricularItems = extracurricularItems.map((item) => ({
+      ...item,
+      feeRefunded: Boolean(item.feeRefunded),
+    }));
+  }
+
+  return invoice;
 };
 
 /**
