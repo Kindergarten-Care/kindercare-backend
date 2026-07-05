@@ -12,6 +12,8 @@ export const startPaymentReminderCron = () => {
     } catch (error) {
       logger.error(`[Payment Reminder Cron] Lỗi khi gửi nhắc hạn đóng: ${error.message}`);
     }
+  }, {
+    timezone: 'Asia/Ho_Chi_Minh',
   });
 
   logger.info('[Payment Reminder Cron] Đã lên lịch nhắc hạn đóng học phí (08:00 hàng ngày)');

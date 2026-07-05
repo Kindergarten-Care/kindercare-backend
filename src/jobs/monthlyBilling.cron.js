@@ -13,6 +13,8 @@ export const startMonthlyBillingCron = () => {
     } catch (error) {
       logger.error(`[Billing Cron] Lỗi khi chạy hóa đơn hàng tháng: ${error.message}`);
     }
+  }, {
+    timezone: 'Asia/Ho_Chi_Minh',
   });
 
   logger.info('[Billing Cron] Đã lên lịch chạy hóa đơn hàng tháng (00:05 ngày 1 hàng tháng)');

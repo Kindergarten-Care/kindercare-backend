@@ -3,6 +3,7 @@ import ApiError from '../../utils/ApiError.js';
 import httpStatus from 'http-status';
 import { monthIndex, addMonths, getMonthKey } from '../../utils/dateHelpers.js';
 import { sendPushToUser } from '../notification/notification.service.js';
+import logger from '../../config/logger.js';
 
 const REMINDER_LEAD_DAYS = 3;
 const SECONDS_PER_DAY = 86400;
@@ -312,6 +313,7 @@ export const runMonthlyBilling = async (billingMonth) => {
   let tuitionCount = 0;
   let monthlyCount = 0;
   let skipped = 0;
+  const failedStudentIds = [];
 
   for (const row of plans) {
     const plan = {
@@ -328,23 +330,36 @@ export const runMonthlyBilling = async (billingMonth) => {
       DiscountPercentage: row.DiscountPercentage,
     };
 
-    if (isTuitionDue(plan, pkg, resolvedBillingMonth)) {
-      const tuitionInvoice = await generateTuitionInvoice(plan, pkg, resolvedBillingMonth);
-      if (tuitionInvoice) tuitionCount++;
-      else skipped++;
-    }
+    try {
+      if (isTuitionDue(plan, pkg, resolvedBillingMonth)) {
+        const tuitionInvoice = await generateTuitionInvoice(plan, pkg, resolvedBillingMonth);
+        if (tuitionInvoice) tuitionCount++;
+        else skipped++;
+      }
 
-    const monthlyInvoice = await generateMonthlyInvoice(row.StudentID, resolvedBillingMonth);
-    if (monthlyInvoice) monthlyCount++;
-    else skipped++;
+      const monthlyInvoice = await generateMonthlyInvoice(row.StudentID, resolvedBillingMonth);
+      if (monthlyInvoice) monthlyCount++;
+      else skipped++;
+    } catch (error) {
+      // Lỗi ở 1 học sinh (vd. thiếu BaseFees cho lớp/năm học) không được làm dừng cả cron —
+      // ghi nhận lại để hiệu trưởng biết học sinh nào chưa có hóa đơn tháng này, xử lý thủ công.
+      logger.error(`[Billing] Lỗi khi tạo hóa đơn cho StudentID ${row.StudentID}: ${error.message}`);
+      failedStudentIds.push(row.StudentID);
+    }
   }
 
-  const extracurricularCount = await renewExtracurricularEnrollments(resolvedBillingMonth);
+  let extracurricularCount = 0;
+  try {
+    extracurricularCount = await renewExtracurricularEnrollments(resolvedBillingMonth);
+  } catch (error) {
+    logger.error(`[Billing] Lỗi khi gia hạn ngoại khóa cho ${resolvedBillingMonth}: ${error.message}`);
+  }
 
   return {
     billingMonth: resolvedBillingMonth,
     generated: { tuition: tuitionCount, monthly: monthlyCount, extracurricular: extracurricularCount },
     skipped,
+    failedStudentIds,
   };
 };
 
@@ -379,7 +394,12 @@ const renewExtracurricularEnrollments = async (billingMonth) => {
       );
       renewedCount++;
     } catch (error) {
-      if (error.code !== 'ER_DUP_ENTRY') throw error;
+      if (error.code === 'ER_DUP_ENTRY') continue;
+      // Lỗi ở 1 enrollment không được làm dừng cả vòng gia hạn — các enrollment còn lại
+      // vẫn phải được xử lý, học sinh lỗi sẽ không có invoice ngoại khóa tháng này.
+      logger.error(
+        `[Billing] Lỗi khi gia hạn ngoại khóa StudentID ${enrollment.StudentID}, ActivityID ${enrollment.ActivityID}: ${error.message}`
+      );
     }
   }
   return renewedCount;
@@ -585,18 +605,28 @@ export const sendPaymentReminders = async (nowSec) => {
   let overdueSent = 0;
 
   for (const invoice of upcomingInvoices) {
-    const sent = await notifyParentsOfInvoice(invoice, 'upcoming');
-    if (sent) {
-      await pool.query('UPDATE Invoices SET ReminderSentAt = ? WHERE InvoiceID = ?', [now, invoice.InvoiceID]);
-      upcomingSent++;
+    try {
+      const sent = await notifyParentsOfInvoice(invoice, 'upcoming');
+      if (sent) {
+        await pool.query('UPDATE Invoices SET ReminderSentAt = ? WHERE InvoiceID = ?', [now, invoice.InvoiceID]);
+        upcomingSent++;
+      }
+    } catch (error) {
+      // Lỗi gửi nhắc cho 1 invoice (vd. push lỗi) không được làm dừng cả vòng quét —
+      // ReminderSentAt không set nên cron ngày sau sẽ tự thử lại cho tới khi quá hạn 3 ngày.
+      logger.error(`[Payment Reminder] Lỗi khi nhắc sắp đến hạn InvoiceID ${invoice.InvoiceID}: ${error.message}`);
     }
   }
 
   for (const invoice of overdueInvoices) {
-    const sent = await notifyParentsOfInvoice(invoice, 'overdue');
-    if (sent) {
-      await pool.query('UPDATE Invoices SET OverdueReminderSentAt = ? WHERE InvoiceID = ?', [now, invoice.InvoiceID]);
-      overdueSent++;
+    try {
+      const sent = await notifyParentsOfInvoice(invoice, 'overdue');
+      if (sent) {
+        await pool.query('UPDATE Invoices SET OverdueReminderSentAt = ? WHERE InvoiceID = ?', [now, invoice.InvoiceID]);
+        overdueSent++;
+      }
+    } catch (error) {
+      logger.error(`[Payment Reminder] Lỗi khi nhắc quá hạn InvoiceID ${invoice.InvoiceID}: ${error.message}`);
     }
   }
 
@@ -617,7 +647,7 @@ const notifyParentsOfInvoice = async (invoice, kind) => {
     ? `Hóa đơn tháng ${invoice.BillingMonth} của ${studentLabel} (${amount}đ) sắp đến hạn đóng. Vui lòng thanh toán sớm.`
     : `Hóa đơn tháng ${invoice.BillingMonth} của ${studentLabel} (${amount}đ) đã quá hạn thanh toán. Vui lòng thanh toán để tránh gián đoạn dịch vụ.`;
 
-  await Promise.all(
+  const results = await Promise.allSettled(
     parentRows.map((row) =>
       sendPushToUser(
         row.ParentID,
@@ -628,6 +658,13 @@ const notifyParentsOfInvoice = async (invoice, kind) => {
       )
     )
   );
+  results.forEach((result, i) => {
+    if (result.status === 'rejected') {
+      logger.error(
+        `[Payment Reminder] Lỗi gửi push ParentID ${parentRows[i].ParentID} cho InvoiceID ${invoice.InvoiceID}: ${result.reason?.message}`
+      );
+    }
+  });
 
   return true;
 };
