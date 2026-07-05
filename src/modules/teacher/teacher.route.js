@@ -1,6 +1,8 @@
 import express from 'express';
 import * as teacherController from './teacher.controller.js';
 import * as teacherValidation from './teacher.validation.js';
+import * as lessonPlanController from './sub/lessonPlan.controller.js';
+import * as lessonPlanValidation from './sub/lessonPlan.validation.js';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
 import { upload } from '../../utils/s3Upload.js';
 
@@ -143,5 +145,39 @@ router.post(
 router.put('/classes/:classId/schedule/:scheduleId/status', teacherValidation.validateUpdateScheduleStatus, teacherController.updateScheduleStatus);
 
 router.post('/attendance/scan', teacherValidation.validateScanQR, teacherController.scanQRAttendance);
+
+// =============================
+// Lesson Plans (Giáo án)
+// =============================
+router.get(
+  '/lesson-plans',
+  lessonPlanValidation.validateListLessonPlans,
+  lessonPlanController.getLessonPlans
+);
+router.get(
+  '/lesson-plans/:id',
+  lessonPlanValidation.validateLessonPlanIdParam,
+  lessonPlanController.getLessonPlanDetail
+);
+router.post(
+  '/lesson-plans',
+  lessonPlanValidation.validateUpsertLessonPlan,
+  lessonPlanController.upsertLessonPlan
+);
+router.post(
+  '/lesson-plans/:id/submit',
+  lessonPlanValidation.validateSubmitOrWithdraw,
+  lessonPlanController.submitLessonPlan
+);
+router.post(
+  '/lesson-plans/:id/withdraw',
+  lessonPlanValidation.validateSubmitOrWithdraw,
+  lessonPlanController.withdrawLessonPlan
+);
+router.patch(
+  '/lesson-plans/:id/items/:itemId/complete',
+  lessonPlanValidation.validateCompleteLessonPlanItem,
+  lessonPlanController.completeLessonPlanItem
+);
 
 export default router;
