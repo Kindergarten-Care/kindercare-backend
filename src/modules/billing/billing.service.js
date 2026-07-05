@@ -498,18 +498,29 @@ export const activateExtracurricularsForInvoice = async (invoiceId) => {
  * @returns {Promise<number>} invoiceId
  */
 export const addToExtracurricularInvoice = async (studentId, billingMonth, activityFee) => {
+  // Không lọc theo PaymentStatus — Invoices có UNIQUE(StudentID, BillingMonth, InvoiceType),
+  // nên chỉ có đúng 1 invoice EXTRACURRICULAR/học sinh/tháng dù đã Paid hay chưa. Lọc bỏ
+  // invoice đã Paid ở đây từng khiến code rơi xuống nhánh INSERT bên dưới và đụng unique
+  // constraint (Duplicate entry) khi đăng ký thêm hoạt động thứ 2 trong tháng đã thanh toán.
   const [existing] = await pool.query(
-    `SELECT InvoiceID FROM Invoices
-     WHERE StudentID = ? AND BillingMonth = ? AND InvoiceType = 'EXTRACURRICULAR' AND PaymentStatus != 'Paid'`,
+    `SELECT InvoiceID, PaymentStatus FROM Invoices
+     WHERE StudentID = ? AND BillingMonth = ? AND InvoiceType = 'EXTRACURRICULAR'`,
     [studentId, billingMonth]
   );
 
   if (existing.length > 0) {
-    const invoiceId = existing[0].InvoiceID;
+    const { InvoiceID: invoiceId, PaymentStatus: previousStatus } = existing[0];
     await pool.query(
       'UPDATE Invoices SET ExtracurricularFee = ExtracurricularFee + ? WHERE InvoiceID = ?',
       [activityFee, invoiceId]
     );
+
+    if (previousStatus === 'Paid') {
+      // Invoice này vừa được cộng thêm phí sau khi đã Paid từ trước — số đã trả (đủ cho
+      // TotalAmount cũ) giờ chắc chắn không đủ cho TotalAmount mới, luôn chuyển về Partial.
+      await pool.query("UPDATE Invoices SET PaymentStatus = 'Partial' WHERE InvoiceID = ?", [invoiceId]);
+    }
+
     return invoiceId;
   }
 
