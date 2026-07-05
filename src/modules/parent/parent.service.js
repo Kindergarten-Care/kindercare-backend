@@ -7,7 +7,7 @@ import bcrypt from 'bcryptjs';
 import {
   recordPayment as recordPaymentInBilling,
   addToExtracurricularInvoice,
-  activateExtracurricularsForInvoice,
+  recalculateInvoicePaymentStatus,
 } from '../billing/billing.service.js';
 import { createMomoPayment as createMomoOrder, verifyMomoSignature, queryMomoTransactionStatus } from '../../utils/momo.js';
 import { createVnpayPaymentUrl, verifyVnpaySignature, queryVnpayTransactionStatus } from '../../utils/vnpay.js';
@@ -1502,35 +1502,6 @@ export const createMomoPayment = async (invoiceId) => {
 };
 
 /**
- * Tính lại PaymentStatus của 1 hóa đơn dựa trên tổng các Transaction đã Success,
- * kích hoạt ngoại khóa nếu đã Paid. Dùng chung cho mọi cổng thanh toán (MoMo, VNPay...).
- * @param {number} invoiceId
- */
-const recalculateInvoicePaymentStatus = async (invoiceId) => {
-  const [[{ totalPaid }]] = await pool.query(
-    `SELECT COALESCE(SUM(AmountPaid), 0) AS totalPaid
-     FROM Transactions WHERE InvoiceID = ? AND Status = 'Success'`,
-    [invoiceId]
-  );
-  const [[{ TotalAmount: totalAmount }]] = await pool.query(
-    'SELECT TotalAmount FROM Invoices WHERE InvoiceID = ?',
-    [invoiceId]
-  );
-
-  let paymentStatus = 'Unpaid';
-  if (Number(totalPaid) >= Number(totalAmount) && Number(totalAmount) > 0) {
-    paymentStatus = 'Paid';
-  } else if (Number(totalPaid) > 0) {
-    paymentStatus = 'Partial';
-  }
-
-  await pool.query('UPDATE Invoices SET PaymentStatus = ? WHERE InvoiceID = ?', [paymentStatus, invoiceId]);
-  if (paymentStatus === 'Paid') {
-    await activateExtracurricularsForInvoice(invoiceId);
-  }
-};
-
-/**
  * Áp dụng kết quả giao dịch MoMo (Success/Failed) lên Transaction + Invoice liên quan.
  * Dùng chung cho cả IPN callback và đối soát chủ động (query API).
  * @param {object} tx - { TransactionID, InvoiceID }
@@ -1934,6 +1905,10 @@ export const cancelExtracurricular = async (enrollmentId, studentId) => {
       'UPDATE Invoices SET ExtracurricularFee = GREATEST(ExtracurricularFee - ?, 0) WHERE InvoiceID = ?',
       [activity.MonthlyFee, enrollment.InvoiceID]
     );
+    // ExtracurricularFee vừa giảm kéo TotalAmount (generated column) giảm theo — số tiền
+    // đã trả trước đó có thể giờ đã đủ/dư cho TotalAmount mới, phải tính lại PaymentStatus
+    // (vd: 2 hoạt động 900k đã Paid, hủy 1 hoạt động 400k -> còn 500k, đã trả 900k -> Paid).
+    await recalculateInvoicePaymentStatus(enrollment.InvoiceID);
   }
 
   return { enrollmentId, status: 'Cancelled', feeRefunded: shouldRefund };

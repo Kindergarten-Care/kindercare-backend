@@ -429,29 +429,23 @@ export const updateDueDate = async (invoiceId, dueDate) => {
 };
 
 /**
- * Ghi nhận thanh toán cho 1 hóa đơn — insert Transaction, cập nhật PaymentStatus
- * dựa trên SUM(AmountPaid) các transaction Success so với TotalAmount.
+ * Tính lại PaymentStatus của 1 hóa đơn dựa trên tổng các Transaction đã Success
+ * so với TotalAmount hiện tại (TotalAmount là generated column, tự đổi theo
+ * ExtracurricularFee/Surcharge/...). Kích hoạt ngoại khóa nếu chuyển thành Paid.
+ * Dùng chung cho mọi nơi có thể làm lệch PaymentStatus: ghi nhận thanh toán,
+ * IPN, và các thay đổi phí sau khi đã có transaction (hủy hoạt động, đăng ký thêm).
  * @param {number} invoiceId
- * @param {number} amountPaid
- * @param {string} method
- * @param {string} [code]
+ * @returns {Promise<{totalPaid: number, totalAmount: number, paymentStatus: string}>}
  */
-export const recordPayment = async (invoiceId, amountPaid, method, code) => {
-  const invoice = await getInvoiceById(invoiceId);
-
-  const [txResult] = await pool.query(
-    `INSERT INTO Transactions (InvoiceID, AmountPaid, PaymentMethod, TransactionCode, Status)
-     VALUES (?, ?, ?, ?, 'Success')`,
-    [invoiceId, amountPaid, method, code || null]
-  );
-
+export const recalculateInvoicePaymentStatus = async (invoiceId) => {
   const [[{ totalPaid }]] = await pool.query(
     `SELECT COALESCE(SUM(AmountPaid), 0) AS totalPaid
      FROM Transactions WHERE InvoiceID = ? AND Status = 'Success'`,
     [invoiceId]
   );
-
+  const invoice = await getInvoiceById(invoiceId);
   const totalAmount = Number(invoice.TotalAmount);
+
   let paymentStatus = 'Unpaid';
   if (Number(totalPaid) >= totalAmount && totalAmount > 0) {
     paymentStatus = 'Paid';
@@ -464,11 +458,33 @@ export const recordPayment = async (invoiceId, amountPaid, method, code) => {
     await activateExtracurricularsForInvoice(invoiceId);
   }
 
+  return { totalPaid: Number(totalPaid), totalAmount, paymentStatus };
+};
+
+/**
+ * Ghi nhận thanh toán cho 1 hóa đơn — insert Transaction, cập nhật PaymentStatus
+ * dựa trên SUM(AmountPaid) các transaction Success so với TotalAmount.
+ * @param {number} invoiceId
+ * @param {number} amountPaid
+ * @param {string} method
+ * @param {string} [code]
+ */
+export const recordPayment = async (invoiceId, amountPaid, method, code) => {
+  await getInvoiceById(invoiceId);
+
+  const [txResult] = await pool.query(
+    `INSERT INTO Transactions (InvoiceID, AmountPaid, PaymentMethod, TransactionCode, Status)
+     VALUES (?, ?, ?, ?, 'Success')`,
+    [invoiceId, amountPaid, method, code || null]
+  );
+
+  const { totalPaid, totalAmount, paymentStatus } = await recalculateInvoicePaymentStatus(invoiceId);
+
   return {
     transactionId: txResult.insertId,
     invoiceId,
     amountPaid,
-    totalPaid: Number(totalPaid),
+    totalPaid,
     totalAmount,
     paymentStatus,
   };
@@ -516,9 +532,10 @@ export const addToExtracurricularInvoice = async (studentId, billingMonth, activ
     );
 
     if (previousStatus === 'Paid') {
-      // Invoice này vừa được cộng thêm phí sau khi đã Paid từ trước — số đã trả (đủ cho
-      // TotalAmount cũ) giờ chắc chắn không đủ cho TotalAmount mới, luôn chuyển về Partial.
-      await pool.query("UPDATE Invoices SET PaymentStatus = 'Partial' WHERE InvoiceID = ?", [invoiceId]);
+      // Invoice này vừa được cộng thêm phí sau khi đã Paid từ trước — TotalAmount (generated
+      // column) vừa tăng theo ExtracurricularFee, cần tính lại PaymentStatus theo tổng mới
+      // (thường rơi về Partial, nhưng để recalculateInvoicePaymentStatus quyết định cho đúng).
+      await recalculateInvoicePaymentStatus(invoiceId);
     }
 
     return invoiceId;
@@ -649,6 +666,10 @@ export const expirePendingExtracurriculars = async (nowSec) => {
         'UPDATE Invoices SET ExtracurricularFee = GREATEST(ExtracurricularFee - ?, 0) WHERE InvoiceID = ?',
         [row.MonthlyFee, row.InvoiceID]
       );
+      // ExtracurricularFee vừa giảm kéo TotalAmount (generated column) giảm theo — nếu invoice
+      // còn hoạt động khác đã thanh toán trong đó, số đã trả có thể giờ đủ/dư cho TotalAmount
+      // mới và phải chuyển Paid, không được đứng yên ở PaymentStatus cũ.
+      await recalculateInvoicePaymentStatus(row.InvoiceID);
     }
   }
 
