@@ -618,14 +618,10 @@ const getChildDailyAlbums = async (req, res, next) => {
       localDateObj.getUTCDate()
     ) / 1000);
 
-    logger.info(`[DEBUG daily-albums] studentId=${studentId} rawDate=${date} targetTimestamp=${targetTimestamp} midnightSeconds=${midnightSeconds}`);
-
     const albums = await parentService.getStudentDailyAlbums(
       parseInt(studentId, 10),
       midnightSeconds
     );
-
-    logger.info(`[DEBUG daily-albums] result count=${albums.length}`);
 
     res.status(httpStatus.OK).json(
       new ApiResponse(
