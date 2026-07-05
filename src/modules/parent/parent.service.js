@@ -14,6 +14,10 @@ import { createVnpayPaymentUrl, verifyVnpaySignature, queryVnpayTransactionStatu
 import logger from '../../config/logger.js';
 import { getMonthKey } from '../../utils/dateHelpers.js';
 
+// Hủy đăng ký ngoại khóa trong vòng 48h kể từ lúc Active (thanh toán xong) vẫn được coi
+// như hoàn/trừ phí — quá thời hạn này thì giữ nguyên phí (không hoàn), xem cancelExtracurricular.
+const EXTRACURRICULAR_CANCEL_REFUND_WINDOW_HOURS = 48;
+
 /**
  * Get all children of a parent by ParentID
  * @param {number} parentId
@@ -1803,36 +1807,37 @@ export const registerExtracurricular = async (studentId, activityId) => {
   const currentMonth = getMonthKey(Math.floor(Date.now() / 1000));
 
   const [existingEnrollment] = await pool.query(
-    `SELECT EnrollmentID, Status, InvoiceID FROM StudentExtracurriculars
+    `SELECT EnrollmentID, Status, InvoiceID, FeeRefunded FROM StudentExtracurriculars
      WHERE StudentID = ? AND ActivityID = ? AND RegisteredMonth = ?`,
     [studentId, activityId, currentMonth]
   );
   if (existingEnrollment.length > 0) {
     const existing = existingEnrollment[0];
-    if (existing.Status !== 'Cancelled') {
+    if (existing.Status !== 'Cancelled' && existing.Status !== 'Expired') {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Học sinh đã đăng ký hoạt động này cho tháng đó rồi');
     }
 
-    // Đã hủy trước đó trong cùng tháng — khôi phục lại enrollment cũ thay vì tạo mới,
-    // vì hủy thủ công không hoàn tiền (phí đã cộng vào invoice từ trước, cộng lại sẽ bị trùng).
-    const [[invoice]] = await pool.query(
-      'SELECT PaymentStatus FROM Invoices WHERE InvoiceID = ?',
-      [existing.InvoiceID]
-    );
-    const revivedStatus = invoice?.PaymentStatus === 'Paid' ? 'Active' : 'Pending';
+    // FeeRefunded=1 (tự hết hạn, hoặc hủy tay còn trong grace period 48h) — phí đã bị
+    // trừ khỏi invoice cũ, chắc chắn phải cộng lại phí mới.
+    // FeeRefunded=0 (hủy tay ngoài grace period, không hoàn tiền) — phí vẫn còn nguyên
+    // trong invoice cũ, không cộng lại để tránh tính 2 lần.
+    const needsNewFee = existing.FeeRefunded === 1;
+
+    const invoiceId = needsNewFee
+      ? await addToExtracurricularInvoice(studentId, currentMonth, Number(activity.MonthlyFee))
+      : existing.InvoiceID;
 
     await pool.query(
-      'UPDATE StudentExtracurriculars SET Status = ? WHERE EnrollmentID = ?',
-      [revivedStatus, existing.EnrollmentID]
+      'UPDATE StudentExtracurriculars SET Status = ?, InvoiceID = ? WHERE EnrollmentID = ?',
+      ['Pending', invoiceId, existing.EnrollmentID]
     );
-
     return {
       enrollmentId: existing.EnrollmentID,
       studentId,
       activityId,
       registeredMonth: currentMonth,
-      status: revivedStatus,
-      invoiceId: existing.InvoiceID,
+      status: 'Pending',
+      invoiceId,
     };
   }
 
@@ -1855,15 +1860,19 @@ export const registerExtracurricular = async (studentId, activityId) => {
 };
 
 /**
- * Hủy đăng ký ngoại khóa. Không hoàn tiền dù đang Pending hay Active —
- * chỉ ngăn không gia hạn sang các tháng sau (renewExtracurricularEnrollments
- * chỉ gia hạn enrollment còn Status='Active' của tháng liền trước).
+ * Hủy đăng ký ngoại khóa — chỉ ngăn không gia hạn sang các tháng sau
+ * (renewExtracurricularEnrollments chỉ gia hạn enrollment còn Status='Active'
+ * của tháng liền trước). Có hoàn/trừ phí (FeeRefunded=1) khi:
+ * - Enrollment đang Pending (chưa thanh toán) — luôn trừ phí, giống hệt tự hết hạn 48h.
+ * - Enrollment đang Active (đã thanh toán) NHƯNG còn trong 48h kể từ lúc Active
+ *   (ActivatedAt) — coi như "grace period" sau khi thanh toán.
+ * Ngoài 2 trường hợp trên (Active đã quá 48h kể từ lúc thanh toán) thì KHÔNG hoàn tiền.
  * @param {number} enrollmentId
  * @param {number} studentId - để verify quyền sở hữu
  */
 export const cancelExtracurricular = async (enrollmentId, studentId) => {
   const [rows] = await pool.query(
-    'SELECT EnrollmentID, StudentID, Status FROM StudentExtracurriculars WHERE EnrollmentID = ?',
+    'SELECT EnrollmentID, StudentID, Status, InvoiceID, ActivatedAt FROM StudentExtracurriculars WHERE EnrollmentID = ?',
     [enrollmentId]
   );
   if (rows.length === 0) {
@@ -1874,13 +1883,34 @@ export const cancelExtracurricular = async (enrollmentId, studentId) => {
   if (enrollment.StudentID !== studentId) {
     throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền hủy đăng ký này');
   }
-  if (enrollment.Status === 'Cancelled') {
+  if (enrollment.Status === 'Cancelled' || enrollment.Status === 'Expired') {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Đăng ký này đã được hủy trước đó');
   }
 
-  await pool.query('UPDATE StudentExtracurriculars SET Status = ? WHERE EnrollmentID = ?', ['Cancelled', enrollmentId]);
+  const now = Math.floor(Date.now() / 1000);
+  const withinRefundWindow = enrollment.Status === 'Active'
+    && now - enrollment.ActivatedAt <= EXTRACURRICULAR_CANCEL_REFUND_WINDOW_HOURS * 3600;
+  const shouldRefund = enrollment.Status === 'Pending' || withinRefundWindow;
 
-  return { enrollmentId, status: 'Cancelled' };
+  await pool.query(
+    'UPDATE StudentExtracurriculars SET Status = ?, FeeRefunded = ? WHERE EnrollmentID = ?',
+    ['Cancelled', shouldRefund ? 1 : 0, enrollmentId]
+  );
+
+  if (shouldRefund && enrollment.InvoiceID) {
+    const [[activity]] = await pool.query(
+      `SELECT e.MonthlyFee FROM StudentExtracurriculars se
+       JOIN Extracurriculars e ON se.ActivityID = e.ActivityID
+       WHERE se.EnrollmentID = ?`,
+      [enrollmentId]
+    );
+    await pool.query(
+      'UPDATE Invoices SET ExtracurricularFee = GREATEST(ExtracurricularFee - ?, 0) WHERE InvoiceID = ?',
+      [activity.MonthlyFee, enrollment.InvoiceID]
+    );
+  }
+
+  return { enrollmentId, status: 'Cancelled', feeRefunded: shouldRefund };
 };
 
 

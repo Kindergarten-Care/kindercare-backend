@@ -482,7 +482,7 @@ export const recordPayment = async (invoiceId, amountPaid, method, code) => {
  */
 export const activateExtracurricularsForInvoice = async (invoiceId) => {
   await pool.query(
-    `UPDATE StudentExtracurriculars SET Status = 'Active'
+    `UPDATE StudentExtracurriculars SET Status = 'Active', ActivatedAt = UNIX_TIMESTAMP(NOW())
      WHERE InvoiceID = ? AND Status = 'Pending'`,
     [invoiceId]
   );
@@ -626,7 +626,13 @@ export const expirePendingExtracurriculars = async (nowSec) => {
   );
 
   for (const row of expiredRows) {
-    await pool.query('UPDATE StudentExtracurriculars SET Status = ? WHERE EnrollmentID = ?', ['Cancelled', row.EnrollmentID]);
+    // Status='Expired' (khác 'Cancelled' của hủy tay) và FeeRefunded=1 vì trường hợp này
+    // CÓ trừ tiền khỏi invoice — registerExtracurricular dựa vào FeeRefunded để biết có
+    // cần cộng phí mới khi đăng ký lại hay không (xem parent.service.js).
+    await pool.query(
+      "UPDATE StudentExtracurriculars SET Status = 'Expired', FeeRefunded = 1 WHERE EnrollmentID = ?",
+      [row.EnrollmentID]
+    );
     if (row.InvoiceID) {
       await pool.query(
         'UPDATE Invoices SET ExtracurricularFee = GREATEST(ExtracurricularFee - ?, 0) WHERE InvoiceID = ?',
