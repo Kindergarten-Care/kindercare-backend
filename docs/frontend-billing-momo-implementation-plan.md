@@ -397,9 +397,24 @@ BE có 1 cron chạy **hàng ngày lúc 08:00** quét toàn bộ hóa đơn chư
 
 Đây là nguồn phát sinh hóa đơn `InvoiceType='EXTRACURRICULAR'` — **tách riêng khỏi hóa đơn MONTHLY** (không còn nằm trong `ExtracurricularFee` của invoice MONTHLY như thiết kế cũ). Mỗi tháng có tối đa 1 invoice EXTRACURRICULAR/học sinh, gộp tất cả hoạt động đăng ký trong tháng đó.
 
-**Vòng đời 1 enrollment:** `Pending` (vừa đăng ký, chờ thanh toán) → `Active` (invoice tháng đó đã thanh toán đủ) → mỗi tháng tiếp theo, cron tự tạo enrollment mới `Pending` + invoice mới cho tháng kế (nếu tháng trước vẫn `Active`) → phụ huynh phải thanh toán lại để enrollment tháng mới thành `Active`. Gọi `PATCH .../cancel` để dừng chu trình này (không hoàn tiền tháng hiện tại, chỉ ngừng gia hạn từ tháng sau).
+**Vòng đời 1 enrollment:** `Pending` (vừa đăng ký, chờ thanh toán) → `Active` (invoice tháng đó đã thanh toán đủ) → mỗi tháng tiếp theo, cron tự tạo enrollment mới `Pending` + invoice mới cho tháng kế (nếu tháng trước vẫn `Active`) → phụ huynh phải thanh toán lại để enrollment tháng mới thành `Active`.
 
-⏱️ **Tự động hủy nếu không thanh toán**: nếu 1 enrollment vẫn ở `Pending` quá **48 giờ** kể từ lúc tạo (`createdAt`), 1 cron chạy mỗi giờ sẽ tự động chuyển nó sang `Cancelled` và trừ đúng số tiền hoạt động đó ra khỏi `ExtracurricularFee` của invoice liên quan (invoice không bị xóa — có thể còn hoạt động khác trong đó). UI nên hiển thị đếm ngược "Thanh toán trước [createdAt + 48h] để giữ đăng ký" trên mỗi enrollment `Pending`, và làm mới danh sách định kỳ hoặc khi quay lại màn hình để phản ánh đúng nếu đã bị tự hủy.
+⏱️ **Tự động hết hạn nếu không thanh toán**: nếu 1 enrollment vẫn ở `Pending` quá **48 giờ** kể từ lúc tạo (`createdAt`), 1 cron chạy mỗi giờ sẽ tự động chuyển nó sang `Expired` và trừ đúng số tiền hoạt động đó ra khỏi `ExtracurricularFee` của invoice liên quan (invoice không bị xóa — có thể còn hoạt động khác trong đó). UI nên hiển thị đếm ngược "Thanh toán trước [createdAt + 48h] để giữ đăng ký" trên mỗi enrollment `Pending`, và làm mới danh sách định kỳ hoặc khi quay lại màn hình để phản ánh đúng nếu đã bị tự hết hạn.
+
+💸 **Chính sách hoàn/trừ phí khi hủy tay** (`PATCH .../cancel`) — có 1 khoảng "grace period" 48 giờ:
+| Enrollment đang | Hủy khi nào | Kết quả |
+|---|---|---|
+| `Pending` (chưa thanh toán) | Bất kỳ lúc nào | **Trừ phí** khỏi invoice — giống hệt tự hết hạn |
+| `Active` (đã thanh toán) | Trong vòng **48h kể từ lúc Active** (lúc thanh toán xong) | **Trừ phí** khỏi invoice, coi như hoàn tiền |
+| `Active` (đã thanh toán) | Sau 48h kể từ lúc Active | **Không hoàn** — phí giữ nguyên trong invoice |
+
+Response của `PATCH .../cancel` có thêm field `feeRefunded: boolean` để FE biết ngay kết quả cụ thể (nên hiển thị toast khác nhau: "Đã hủy, được hoàn phí" vs "Đã hủy, không hoàn phí do đã quá 48h").
+
+🔁 **Đăng ký lại sau khi `Cancelled`/`Expired`**: gọi lại đúng API đăng ký (mục c) với cùng `activityId` trong cùng tháng — BE tự xử lý đúng phần phí dựa trên việc lần hủy trước đó có bị trừ phí hay không (`feeRefunded`), FE không cần tự tính toán gì thêm:
+- Nếu lần hủy/hết hạn trước đó **có** trừ phí → BE cộng phí mới vào invoice.
+- Nếu lần hủy trước đó **không** trừ phí (hủy ngoài grace period, tiền không hoàn) → BE chỉ khôi phục lại enrollment về `Pending`, không cộng phí lại (phí cũ vẫn còn nguyên trong invoice).
+
+Cả 2 trường hợp đều trả về response giống hệt đăng ký mới (`status: "Pending"` + `invoiceId` để thanh toán) — không có case nào trả 400 chỉ vì đã từng hủy/hết hạn trước đó.
 
 #### (a) Xem danh mục hoạt động
 
@@ -443,12 +458,13 @@ GET /parent/children/{studentId}/extracurriculars?month=07-2026
 }
 ```
 
-`status` có 3 giá trị:
+`status` có 4 giá trị:
 | Status | Ý nghĩa |
 |---|---|
 | `Pending` | Vừa đăng ký hoặc vừa được gia hạn tự động sang tháng mới — **chưa** thanh toán invoice EXTRACURRICULAR của tháng đó |
 | `Active` | Invoice EXTRACURRICULAR của `registeredMonth` đã thanh toán đủ (`PaymentStatus='Paid'`) |
-| `Cancelled` | Đã hủy — vẫn áp dụng phí cho `registeredMonth` hiện tại (nếu đã Pending/Active), chỉ dừng gia hạn từ tháng sau |
+| `Cancelled` | Phụ huynh **tự hủy tay** (`PATCH .../cancel`) — không hoàn tiền dù đang Pending hay Active, chỉ dừng gia hạn từ tháng sau |
+| `Expired` | Hệ thống **tự động hết hạn** vì Pending quá 48h không thanh toán — phí đã được **trừ khỏi invoice** (khác `Cancelled`, có hoàn/trừ tiền) |
 
 #### (c) Đăng ký hoạt động mới
 
@@ -480,7 +496,7 @@ POST /parent/children/{studentId}/extracurriculars
 
 ⚠️ **Quan trọng**: enrollment trả về ở trạng thái `Pending` — hoạt động **chưa** được coi là chính thức tham gia cho tới khi invoice `invoiceId` được thanh toán (`POST /parent/invoices/{invoiceId}/pay` hoặc `/pay-momo`). UI nên điều hướng thẳng phụ huynh sang bước thanh toán ngay sau khi đăng ký thành công, dùng `invoiceId` trả về.
 
-**Lỗi cần xử lý:** 400 nếu đã đăng ký hoạt động đó cho đúng tháng hiện tại rồi (unique constraint).
+**Lỗi cần xử lý:** 400 nếu enrollment hiện tại của `(activityId, tháng hiện tại)` đang ở `Pending` hoặc `Active` (tức đang đăng ký thật, chưa hủy/hết hạn) — không áp dụng cho `Cancelled`/`Expired`, 2 trạng thái đó luôn đăng ký lại được bình thường (xem mục "Đăng ký lại" ở trên).
 
 #### (d) Hủy đăng ký
 
@@ -492,13 +508,15 @@ PATCH /parent/children/{studentId}/extracurriculars/{enrollmentId}/cancel
 ```json
 {
   "success": true,
-  "data": { "enrollmentId": 3, "status": "Cancelled" }
+  "data": { "enrollmentId": 3, "status": "Cancelled", "feeRefunded": true }
 }
 ```
 
+`feeRefunded` cho biết phí có bị trừ khỏi invoice hay không — xem bảng chính sách grace-period 48h ở đầu mục 2.6.
+
 **UI gợi ý:**
-- Nút "Hủy đăng ký" trong danh sách hoạt động của con, kèm dialog xác nhận.
-- Không có hoàn tiền trong mọi trường hợp — chỉ thông báo "Đã hủy, hoạt động sẽ không được gia hạn tự động vào tháng sau. Phí tháng hiện tại (nếu đã đăng ký/thanh toán) vẫn được giữ nguyên."
+- Nút "Hủy đăng ký" trong danh sách hoạt động của con, kèm dialog xác nhận. Dialog nên nói rõ trước khi bấm: nếu enrollment đang `Active` và đã quá 48h kể từ lúc thanh toán, hủy sẽ **không hoàn phí** (không tự tính chính xác được ở FE, nhưng có thể ước lượng hiển thị dựa trên thời điểm invoice liên quan chuyển `Paid`, nếu FE có lưu).
+- Sau khi hủy, dùng `feeRefunded` trong response để hiện đúng toast: `true` → "Đã hủy, phí đã được hoàn"; `false` → "Đã hủy, không hoàn phí (đã quá 48h kể từ lúc thanh toán)". Hoạt động luôn ngừng gia hạn tự động sang tháng sau bất kể `feeRefunded`.
 - Vì mỗi tháng đều phát sinh 1 enrollment/invoice mới (gia hạn tự động), UI nên hiển thị rõ theo từng tháng trong lịch sử (`GET .../extracurriculars`) thay vì coi 1 hoạt động là "1 đăng ký duy nhất xuyên suốt".
 
 ---

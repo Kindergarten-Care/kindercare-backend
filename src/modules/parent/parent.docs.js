@@ -3167,7 +3167,7 @@
  *                         example: "08-2026"
  *                       status:
  *                         type: string
- *                         enum: [Pending, Active, Cancelled]
+ *                         enum: [Pending, Active, Cancelled, Expired]
  *                         example: Active
  *                       createdAt:
  *                         type: integer
@@ -3301,6 +3301,10 @@
  *                     status:
  *                       type: string
  *                       example: Cancelled
+ *                     feeRefunded:
+ *                       type: boolean
+ *                       description: true if the activity fee was removed from its invoice (cancelled while still Pending, or within the 48h grace period after payment); false if the fee was kept (no refund, cancelled more than 48h after payment)
+ *                       example: true
  *       400:
  *         description: Bad Request - enrollment already cancelled
  *       401:
