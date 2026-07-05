@@ -1003,7 +1003,8 @@ export const getClassDetailedStudents = async (classId) => {
             'phone', p.PhoneNumber,
             'email', p.Email,
             'relationship', sp.Relationship,
-            'isPrimary', sp.IsPrimary
+            'isPrimary', sp.IsPrimary,
+            'avatarUrl', p.AvatarURL
           )
         )
         FROM StudentParents sp
