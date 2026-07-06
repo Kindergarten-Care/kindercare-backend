@@ -180,4 +180,8 @@ router.patch(
   lessonPlanController.completeLessonPlanItem
 );
 
+// Weekly Schedule Templates
+import weeklyScheduleRouter from './sub/weeklySchedule.route.js';
+router.use('/', weeklyScheduleRouter);
+
 export default router;
