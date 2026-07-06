@@ -4,7 +4,7 @@ import { parseCSV } from '../../../utils/csvParser.js';
 import ApiResponse from '../../../utils/ApiResponse.js';
 import httpStatus from 'http-status';
 import ApiError from '../../../utils/ApiError.js';
-import { pool } from '../../../config/database.js';
+import pool from '../../../config/db.js';
 
 /**
  * Get weekly schedule templates for a class and month
