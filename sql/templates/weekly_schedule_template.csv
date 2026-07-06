@@ -1,0 +1,193 @@
+Week,Day,StartTime,EndTime,ActivityName,ActivityType,Details,Location
+1,Monday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ Cá Vàng Bơi,Sân trường
+1,Monday,08:30,09:00,Ăn sáng dinh dưỡng,meal,Suất ăn sáng theo thực đơn,Phòng ăn
+1,Monday,09:00,10:15,Học tạo hình,study,Bé vẽ tranh đại dương,Lớp học
+1,Monday,10:15,11:15,Vui chơi tự do,play,Xếp hình cá, chơi đồ chơi biển,Lớp học
+1,Monday,11:15,14:00,Ăn trưa & Ngủ trưa,nap,Cơm trưa + giấc ngủ trưa,Phòng ngủ
+1,Monday,14:00,14:30,Ăn xế chiều,meal,Trái cây + sữa,Phòng ăn
+1,Monday,14:30,16:00,Kể chuyện - Nàng tiên cá,study,Cô kể chuyện Nàng Tiên Cá,Lớp học
+1,Monday,16:00,17:00,Vệ sinh & Trả trẻ,dropoff,Chuẩn bị đồ dùng và đợi ba mẹ đón,Cổng A
+1,Tuesday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ,Sân trường
+1,Tuesday,08:30,09:00,Ăn sáng,meal,Bánh mì + sữa,Phòng ăn
+1,Tuesday,09:00,10:15,Âm nhạc - Hát về biển,study,Dạy bé hát bài "Cá Vàng Bơi",Lớp học
+1,Tuesday,10:15,11:15,Vận động ngoài trời,play,Trò chơi vận động - Cá mập bắt cá con,Sân vườn
+1,Tuesday,11:15,14:00,Ăn trưa & Ngủ trưa,nap,Cơm trưa + giấc ngủ,Phòng ngủ
+1,Tuesday,14:00,14:30,Ăn xế chiều,meal,Cháo + trái cây,Phòng ăn
+1,Tuesday,14:30,16:00,Góc khám phá,study,Quan sát vỏ sò, san hô,Lớp học
+1,Tuesday,16:00,17:00,Vệ sinh & Trả trẻ,dropoff,Chuẩn bị đồ,Cổng A
+1,Wednesday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ,Sân trường
+1,Wednesday,08:30,09:00,Ăn sáng,meal,Xôi + sữa,Phòng ăn
+1,Wednesday,09:00,10:15,Làm quen chữ,study,Nhận mặt chữ B - viết phấn,Lớp học
+1,Wednesday,10:15,11:15,Vui chơi tự do,play,Xếp hình cá bằng lego,Lớp học
+1,Wednesday,11:15,14:00,Ăn trưa & Ngủ trưa,nap,Cơm + canh,Phòng ngủ
+1,Wednesday,14:00,14:30,Ăn xế,meal,Bánh flan,Phòng ăn
+1,Wednesday,14:30,16:00,Kỹ năng sống,study,Dạy bé cất đồ chơi,Lớp học
+1,Wednesday,16:00,17:00,Vệ sinh & Trả trẻ,dropoff,Chuẩn bị đồ,Cổng A
+1,Thursday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ,Sân trường
+1,Thursday,08:30,09:00,Ăn sáng,meal,Mì + trứng,Phòng ăn
+1,Thursday,09:00,10:15,Toán - Đếm cá,study,Đếm trong phạm vi 5,Lớp học
+1,Thursday,10:15,11:15,Vui chơi tự do,play,Chơi đồ chơi biển,Lớp học
+1,Thursday,11:15,14:00,Ăn trưa & Ngủ trưa,nap,Cơm + thịt,Phòng ngủ
+1,Thursday,14:00,14:30,Ăn xế,meal,Trái cây,Phòng ăn
+1,Thursday,14:30,16:00,Thủ công,study,Xếp giấy thành cá,Lớp học
+1,Thursday,16:00,17:00,Vệ sinh & Trả trẻ,dropoff,Chuẩn bị đồ,Cổng A
+1,Friday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ,Sân trường
+1,Friday,08:30,09:00,Ăn sáng,meal,Bánh bao + sữa,Phòng ăn
+1,Friday,09:00,10:15,Tiếng Anh,study,Học từ vựng cá, tôm, cua,Lớp học
+1,Friday,10:15,11:15,Vận động,play,Nhảy lò cò,Sân vườn
+1,Friday,11:15,14:00,Ăn trưa & Ngủ trưa,nap,Cơm + rau,Phòng ngủ
+1,Friday,14:00,14:30,Ăn xế,meal,Sữa chua,Phòng ăn
+1,Friday,14:30,16:00,Mĩ thuật,study,Nặn cá bằng đất sét,Lớp học
+1,Friday,16:00,17:00,Trả trẻ & Dọn lớp,dropoff,Dọn dẹp và trả trẻ,Cổng A
+1,Saturday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ cuối tuần,Sân trường
+1,Saturday,08:30,09:00,Ăn sáng,meal,Bánh mì + sữa,Phòng ăn
+1,Saturday,09:00,10:00,Hoạt động nghệ thuật,study,Vẽ tranh tự do về biển,Lớp học
+1,Saturday,10:00,11:00,Kể chuyện & Hát múa,study,Thi kể chuyện về biển,Lớp học
+1,Saturday,11:00,12:00,Ăn trưa sớm,meal,Cơm + canh,Phòng ăn
+1,Saturday,12:00,13:30,Ngủ trưa,nap,Giấc ngủ ngắn,Phòng ngủ
+1,Saturday,13:30,14:30,Ăn xế,meal,Trái cây + trò chơi nhẹ,Phòng ăn
+1,Saturday,14:30,15:30,Trả trẻ cuối tuần,dropoff,Trả trẻ cho phụ huynh,Cổng A
+2,Monday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ,Sân trường
+2,Monday,08:30,09:00,Ăn sáng,meal,Suất ăn sáng,Phòng ăn
+2,Monday,09:00,10:15,Học tập,study,Hoạt động học tập,Lớp học
+2,Monday,10:15,11:15,Vui chơi tự do,play,Chơi tự do,Lớp học
+2,Monday,11:15,14:00,Ăn trưa & Ngủ trưa,nap,Cơm + giấc ngủ,Phòng ngủ
+2,Monday,14:00,14:30,Ăn xế,meal,Trái cây + sữa,Phòng ăn
+2,Monday,14:30,16:00,Hoạt động chiều,study,Kể chuyện hoặc thủ công,Lớp học
+2,Monday,16:00,17:00,Trả trẻ,dropoff,Chuẩn bị đồ dùng,Cổng A
+2,Tuesday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ,Sân trường
+2,Tuesday,08:30,09:00,Ăn sáng,meal,Bánh mì + sữa,Phòng ăn
+2,Tuesday,09:00,10:15,Học tập,study,Hoạt động học tập,Lớp học
+2,Tuesday,10:15,11:15,Vận động ngoài trời,play,Trò chơi vận động,Sân vườn
+2,Tuesday,11:15,14:00,Ăn trưa & Ngủ trưa,nap,Cơm + giấc ngủ,Phòng ngủ
+2,Tuesday,14:00,14:30,Ăn xế,meal,Cháo + trái cây,Phòng ăn
+2,Tuesday,14:30,16:00,Học tập,study,Hoạt động nhóm,Lớp học
+2,Tuesday,16:00,17:00,Trả trẻ,dropoff,Chuẩn bị đồ,Cổng A
+2,Wednesday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ,Sân trường
+2,Wednesday,08:30,09:00,Ăn sáng,meal,Xôi + sữa,Phòng ăn
+2,Wednesday,09:00,10:15,Học tập,study,Hoạt động học tập,Lớp học
+2,Wednesday,10:15,11:15,Vui chơi tự do,play,Chơi tự do,Lớp học
+2,Wednesday,11:15,14:00,Ăn trưa & Ngủ trưa,nap,Cơm + canh,Phòng ngủ
+2,Wednesday,14:00,14:30,Ăn xế,meal,Bánh flan,Phòng ăn
+2,Wednesday,14:30,16:00,Học tập,study,Kỹ năng sống,Lớp học
+2,Wednesday,16:00,17:00,Trả trẻ,dropoff,Chuẩn bị đồ,Cổng A
+2,Thursday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ,Sân trường
+2,Thursday,08:30,09:00,Ăn sáng,meal,Mì + trứng,Phòng ăn
+2,Thursday,09:00,10:15,Học tập,study,Hoạt động học tập,Lớp học
+2,Thursday,10:15,11:15,Vui chơi tự do,play,Chơi tự do,Lớp học
+2,Thursday,11:15,14:00,Ăn trưa & Ngủ trưa,nap,Cơm + thịt,Phòng ngủ
+2,Thursday,14:00,14:30,Ăn xế,meal,Trái cây,Phòng ăn
+2,Thursday,14:30,16:00,Học tập,study,Thủ công,Lớp học
+2,Thursday,16:00,17:00,Trả trẻ,dropoff,Chuẩn bị đồ,Cổng A
+2,Friday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ,Sân trường
+2,Friday,08:30,09:00,Ăn sáng,meal,Bánh bao + sữa,Phòng ăn
+2,Friday,09:00,10:15,Học tập,study,Tiếng Anh cơ bản,Lớp học
+2,Friday,10:15,11:15,Vận động,play,Nhảy lò cò,Sân vườn
+2,Friday,11:15,14:00,Ăn trưa & Ngủ trưa,nap,Cơm + rau,Phòng ngủ
+2,Friday,14:00,14:30,Ăn xế,meal,Sữa chua,Phòng ăn
+2,Friday,14:30,16:00,Học tập,study,Mĩ thuật,Lớp học
+2,Friday,16:00,17:00,Trả trẻ & Dọn lớp,dropoff,Dọn dẹp và trả trẻ,Cổng A
+2,Saturday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ cuối tuần,Sân trường
+2,Saturday,08:30,09:00,Ăn sáng,meal,Bánh mì + sữa,Phòng ăn
+2,Saturday,09:00,10:00,Hoạt động nghệ thuật,study,Vẽ tranh tự do,Lớp học
+2,Saturday,10:00,11:00,Kể chuyện & Hát múa,study,Thi kể chuyện,Lớp học
+2,Saturday,11:00,12:00,Ăn trưa sớm,meal,Cơm + canh,Phòng ăn
+2,Saturday,12:00,13:30,Ngủ trưa,nap,Giấc ngủ ngắn,Phòng ngủ
+2,Saturday,13:30,14:30,Ăn xế,meal,Trái cây,Phòng ăn
+2,Saturday,14:30,15:30,Trả trẻ cuối tuần,dropoff,Trả trẻ cho phụ huynh,Cổng A
+3,Monday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ,Sân trường
+3,Monday,08:30,09:00,Ăn sáng,meal,Suất ăn sáng,Phòng ăn
+3,Monday,09:00,10:15,Học tập,study,Hoạt động học tập,Lớp học
+3,Monday,10:15,11:15,Vui chơi tự do,play,Chơi tự do,Lớp học
+3,Monday,11:15,14:00,Ăn trưa & Ngủ trưa,nap,Cơm + giấc ngủ,Phòng ngủ
+3,Monday,14:00,14:30,Ăn xế,meal,Trái cây + sữa,Phòng ăn
+3,Monday,14:30,16:00,Hoạt động chiều,study,Kể chuyện hoặc thủ công,Lớp học
+3,Monday,16:00,17:00,Trả trẻ,dropoff,Chuẩn bị đồ dùng,Cổng A
+3,Tuesday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ,Sân trường
+3,Tuesday,08:30,09:00,Ăn sáng,meal,Bánh mì + sữa,Phòng ăn
+3,Tuesday,09:00,10:15,Học tập,study,Hoạt động học tập,Lớp học
+3,Tuesday,10:15,11:15,Vận động ngoài trời,play,Trò chơi vận động,Sân vườn
+3,Tuesday,11:15,14:00,Ăn trưa & Ngủ trưa,nap,Cơm + giấc ngủ,Phòng ngủ
+3,Tuesday,14:00,14:30,Ăn xế,meal,Cháo + trái cây,Phòng ăn
+3,Tuesday,14:30,16:00,Học tập,study,Hoạt động nhóm,Lớp học
+3,Tuesday,16:00,17:00,Trả trẻ,dropoff,Chuẩn bị đồ,Cổng A
+3,Wednesday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ,Sân trường
+3,Wednesday,08:30,09:00,Ăn sáng,meal,Xôi + sữa,Phòng ăn
+3,Wednesday,09:00,10:15,Học tập,study,Hoạt động học tập,Lớp học
+3,Wednesday,10:15,11:15,Vui chơi tự do,play,Chơi tự do,Lớp học
+3,Wednesday,11:15,14:00,Ăn trưa & Ngủ trưa,nap,Cơm + canh,Phòng ngủ
+3,Wednesday,14:00,14:30,Ăn xế,meal,Bánh flan,Phòng ăn
+3,Wednesday,14:30,16:00,Học tập,study,Kỹ năng sống,Lớp học
+3,Wednesday,16:00,17:00,Trả trẻ,dropoff,Chuẩn bị đồ,Cổng A
+3,Thursday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ,Sân trường
+3,Thursday,08:30,09:00,Ăn sáng,meal,Mì + trứng,Phòng ăn
+3,Thursday,09:00,10:15,Học tập,study,Hoạt động học tập,Lớp học
+3,Thursday,10:15,11:15,Vui chơi tự do,play,Chơi tự do,Lớp học
+3,Thursday,11:15,14:00,Ăn trưa & Ngủ trưa,nap,Cơm + thịt,Phòng ngủ
+3,Thursday,14:00,14:30,Ăn xế,meal,Trái cây,Phòng ăn
+3,Thursday,14:30,16:00,Học tập,study,Thủ công,Lớp học
+3,Thursday,16:00,17:00,Trả trẻ,dropoff,Chuẩn bị đồ,Cổng A
+3,Friday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ,Sân trường
+3,Friday,08:30,09:00,Ăn sáng,meal,Bánh bao + sữa,Phòng ăn
+3,Friday,09:00,10:15,Học tập,study,Tiếng Anh cơ bản,Lớp học
+3,Friday,10:15,11:15,Vận động,play,Nhảy lò cò,Sân vườn
+3,Friday,11:15,14:00,Ăn trưa & Ngủ trưa,nap,Cơm + rau,Phòng ngủ
+3,Friday,14:00,14:30,Ăn xế,meal,Sữa chua,Phòng ăn
+3,Friday,14:30,16:00,Học tập,study,Mĩ thuật,Lớp học
+3,Friday,16:00,17:00,Trả trẻ & Dọn lớp,dropoff,Dọn dẹp và trả trẻ,Cổng A
+3,Saturday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ cuối tuần,Sân trường
+3,Saturday,08:30,09:00,Ăn sáng,meal,Bánh mì + sữa,Phòng ăn
+3,Saturday,09:00,10:00,Hoạt động nghệ thuật,study,Vẽ tranh tự do,Lớp học
+3,Saturday,10:00,11:00,Kể chuyện & Hát múa,study,Thi kể chuyện,Lớp học
+3,Saturday,11:00,12:00,Ăn trưa sớm,meal,Cơm + canh,Phòng ăn
+3,Saturday,12:00,13:30,Ngủ trưa,nap,Giấc ngủ ngắn,Phòng ngủ
+3,Saturday,13:30,14:30,Ăn xế,meal,Trái cây,Phòng ăn
+3,Saturday,14:30,15:30,Trả trẻ cuối tuần,dropoff,Trả trẻ cho phụ huynh,Cổng A
+4,Monday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ,Sân trường
+4,Monday,08:30,09:00,Ăn sáng,meal,Suất ăn sáng,Phòng ăn
+4,Monday,09:00,10:15,Học tập,study,Hoạt động học tập,Lớp học
+4,Monday,10:15,11:15,Vui chơi tự do,play,Chơi tự do,Lớp học
+4,Monday,11:15,14:00,Ăn trưa & Ngủ trưa,nap,Cơm + giấc ngủ,Phòng ngủ
+4,Monday,14:00,14:30,Ăn xế,meal,Trái cây + sữa,Phòng ăn
+4,Monday,14:30,16:00,Hoạt động chiều,study,Kể chuyện hoặc thủ công,Lớp học
+4,Monday,16:00,17:00,Trả trẻ,dropoff,Chuẩn bị đồ dùng,Cổng A
+4,Tuesday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ,Sân trường
+4,Tuesday,08:30,09:00,Ăn sáng,meal,Bánh mì + sữa,Phòng ăn
+4,Tuesday,09:00,10:15,Học tập,study,Hoạt động học tập,Lớp học
+4,Tuesday,10:15,11:15,Vận động ngoài trời,play,Trò chơi vận động,Sân vườn
+4,Tuesday,11:15,14:00,Ăn trưa & Ngủ trưa,nap,Cơm + giấc ngủ,Phòng ngủ
+4,Tuesday,14:00,14:30,Ăn xế,meal,Cháo + trái cây,Phòng ăn
+4,Tuesday,14:30,16:00,Học tập,study,Hoạt động nhóm,Lớp học
+4,Tuesday,16:00,17:00,Trả trẻ,dropoff,Chuẩn bị đồ,Cổng A
+4,Wednesday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ,Sân trường
+4,Wednesday,08:30,09:00,Ăn sáng,meal,Xôi + sữa,Phòng ăn
+4,Wednesday,09:00,10:15,Học tập,study,Hoạt động học tập,Lớp học
+4,Wednesday,10:15,11:15,Vui chơi tự do,play,Chơi tự do,Lớp học
+4,Wednesday,11:15,14:00,Ăn trưa & Ngủ trưa,nap,Cơm + canh,Phòng ngủ
+4,Wednesday,14:00,14:30,Ăn xế,meal,Bánh flan,Phòng ăn
+4,Wednesday,14:30,16:00,Học tập,study,Kỹ năng sống,Lớp học
+4,Wednesday,16:00,17:00,Trả trẻ,dropoff,Chuẩn bị đồ,Cổng A
+4,Thursday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ,Sân trường
+4,Thursday,08:30,09:00,Ăn sáng,meal,Mì + trứng,Phòng ăn
+4,Thursday,09:00,10:15,Học tập,study,Hoạt động học tập,Lớp học
+4,Thursday,10:15,11:15,Vui chơi tự do,play,Chơi tự do,Lớp học
+4,Thursday,11:15,14:00,Ăn trưa & Ngủ trưa,nap,Cơm + thịt,Phòng ngủ
+4,Thursday,14:00,14:30,Ăn xế,meal,Trái cây,Phòng ăn
+4,Thursday,14:30,16:00,Học tập,study,Thủ công,Lớp học
+4,Thursday,16:00,17:00,Trả trẻ,dropoff,Chuẩn bị đồ,Cổng A
+4,Friday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ,Sân trường
+4,Friday,08:30,09:00,Ăn sáng,meal,Bánh bao + sữa,Phòng ăn
+4,Friday,09:00,10:15,Học tập,study,Tiếng Anh cơ bản,Lớp học
+4,Friday,10:15,11:15,Vận động,play,Nhảy lò cò,Sân vườn
+4,Friday,11:15,14:00,Ăn trưa & Ngủ trưa,nap,Cơm + rau,Phòng ngủ
+4,Friday,14:00,14:30,Ăn xế,meal,Sữa chua,Phòng ăn
+4,Friday,14:30,16:00,Học tập,study,Mĩ thuật,Lớp học
+4,Friday,16:00,17:00,Trả trẻ & Dọn lớp,dropoff,Dọn dẹp và trả trẻ,Cổng A
+4,Saturday,07:30,08:30,Đón bé & Thể dục sáng,pickup,Tập bài dân vũ cuối tuần,Sân trường
+4,Saturday,08:30,09:00,Ăn sáng,meal,Bánh mì + sữa,Phòng ăn
+4,Saturday,09:00,10:00,Hoạt động nghệ thuật,study,Vẽ tranh tự do,Lớp học
+4,Saturday,10:00,11:00,Kể chuyện & Hát múa,study,Thi kể chuyện,Lớp học
+4,Saturday,11:00,12:00,Ăn trưa sớm,meal,Cơm + canh,Phòng ăn
+4,Saturday,12:00,13:30,Ngủ trưa,nap,Giấc ngủ ngắn,Phòng ngủ
+4,Saturday,13:30,14:30,Ăn xế,meal,Trái cây,Phòng ăn
+4,Saturday,14:30,15:30,Trả trẻ cuối tuần,dropoff,Trả trẻ cho phụ huynh,Cổng A

@@ -155,4 +155,9 @@ router.post('/lesson-plans', validate(upsertLessonPlanValidation), lessonPlanCon
 router.post('/lesson-plans/:id/submit', lessonPlanController.submitLessonPlan);
 router.post('/lesson-plans/:id/withdraw', lessonPlanController.withdrawLessonPlan);
 router.patch('/lesson-plans/:planId/items/:itemId/complete', lessonPlanController.completeLessonPlanItem);
+
+// Weekly Schedule Templates
+import weeklyScheduleRouter from './sub/weeklySchedule.route.js';
+router.use('/', weeklyScheduleRouter);
+
 export default router;

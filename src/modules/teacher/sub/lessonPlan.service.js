@@ -114,6 +114,8 @@ export const upsertLessonPlan = async (data, teacherId) => {
       [teacherId, data.classId, data.weekNumber, data.year]
     );
 
+    console.log('[DEBUG upsertLessonPlan] existing:', existing.length, 'teacherId:', teacherId, 'classId:', data.classId, 'week:', data.weekNumber, 'year:', data.year);
+
     let lessonPlanId;
     if (existing.length > 0) {
       lessonPlanId = existing[0].LessonPlanID;
@@ -126,8 +128,8 @@ export const upsertLessonPlan = async (data, teacherId) => {
       await connection.query(
         `UPDATE LessonPlans SET 
           WeekStartDate = ?, WeekEndDate = ?, WeekTheme = ?, MonthTheme = ?, WeeklyGoal = ?, Note = ?, UpdatedAt = ?
-         WHERE LessonPlanID = ?`,
-        [weekStartDate, weekEndDate, data.weekTheme || null, data.monthTheme || null, data.weeklyGoal || null, data.note || null, unixNow(), lessonPlanId]
+         WHERE LessonPlanID = ? AND TeacherID = ?`,
+        [weekStartDate, weekEndDate, data.weekTheme || null, data.monthTheme || null, data.weeklyGoal || null, data.note || null, unixNow(), lessonPlanId, teacherId]
       );
 
       // delete existing items to recreate
@@ -137,16 +139,25 @@ export const upsertLessonPlan = async (data, teacherId) => {
       const [maxIdRow] = await connection.query('SELECT IFNULL(MAX(LessonPlanID), 0) + 1 AS nextId FROM LessonPlans');
       lessonPlanId = maxIdRow[0].nextId;
 
-      await connection.query(
-        `INSERT INTO LessonPlans (
-          LessonPlanID, TeacherID, ClassID, YearID, WeekNumber, Year, 
-          WeekStartDate, WeekEndDate, WeekTheme, MonthTheme, WeeklyGoal, Note, Status, CreatedAt, UpdatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Draft', ?, ?)`,
-        [
-          lessonPlanId, teacherId, data.classId, data.yearId, data.weekNumber, data.year,
-          weekStartDate, weekEndDate, data.weekTheme || null, data.monthTheme || null, data.weeklyGoal || null, data.note || null, unixNow(), unixNow()
-        ]
-      );
+      try {
+        await connection.query(
+          `INSERT INTO LessonPlans (
+            LessonPlanID, TeacherID, ClassID, YearID, WeekNumber, Year, 
+            WeekStartDate, WeekEndDate, WeekTheme, MonthTheme, WeeklyGoal, Note, Status, CreatedAt, UpdatedAt
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Draft', ?, ?)`,
+          [
+            lessonPlanId, teacherId, data.classId, data.yearId, data.weekNumber, data.year,
+            weekStartDate, weekEndDate, data.weekTheme || null, data.monthTheme || null, data.weeklyGoal || null, data.note || null, unixNow(), unixNow()
+          ]
+        );
+      } catch (insertErr) {
+        console.log('[DEBUG upsertLessonPlan] INSERT ERROR:', insertErr.code, insertErr.message, insertErr.sqlMessage);
+        // Check if it's a duplicate entry error (MySQL error 1062)
+        if (insertErr.code === 'ER_DUP_ENTRY') {
+          throw new ApiError(httpStatus.CONFLICT, 'Giáo án đã tồn tại trong database. Vui lòng thử lại.');
+        }
+        throw insertErr;
+      }
     }
 
     // Insert items

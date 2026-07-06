@@ -2,7 +2,7 @@ import Joi from 'joi';
 
 export const upsertLessonPlan = {
   body: Joi.object().keys({
-    teacherId: Joi.number().integer().required(),
+    // teacherId is intentionally excluded: BE derives it from the JWT token for security
     classId: Joi.number().integer().required(),
     yearId: Joi.number().integer().required(),
     weekNumber: Joi.number().integer().required(),
