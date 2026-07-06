@@ -443,3 +443,104 @@ export const getImportHistory = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Copy items from one week to another
+ * POST /teacher/classes/:classId/weekly-schedule/template/:templateId/copy-week
+ */
+export const copyWeekItems = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId, templateId } = req.params;
+    const { toWeekNumber } = req.body;
+
+    const numericClassId = parseInt(classId);
+    const numericTemplateId = parseInt(templateId);
+    const numericToWeek = parseInt(toWeekNumber);
+
+    if (isNaN(numericToWeek) || numericToWeek < 1 || numericToWeek > 5) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Số tuần không hợp lệ (1-5)');
+    }
+
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không được phân công dạy lớp này');
+    }
+
+    const yearId = await getActiveYearId();
+    if (!yearId) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy niên khóa đang hoạt động');
+    }
+
+    // Get month/year from source template
+    const [templates] = await pool.query(
+      'SELECT Month, Year FROM WeeklyScheduleTemplates WHERE TemplateID = ?',
+      [numericTemplateId]
+    );
+
+    if (templates.length === 0) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy thời khóa biểu nguồn');
+    }
+
+    const { Month, Year } = templates[0];
+
+    const result = await weeklyScheduleService.copyWeekItems(
+      numericTemplateId,
+      numericToWeek,
+      numericClassId,
+      yearId,
+      Month,
+      Year,
+      teacherId
+    );
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, result, result.message)
+    );
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Copy items from one day to another
+ * POST /teacher/classes/:classId/weekly-schedule/template/:templateId/copy-day
+ */
+export const copyDayItems = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId, templateId } = req.params;
+    const { fromDay, toDay } = req.body;
+
+    const numericClassId = parseInt(classId);
+    const numericTemplateId = parseInt(templateId);
+
+    if (!fromDay || !toDay) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng chọn ngày nguồn và ngày đích');
+    }
+
+    if (!VALID_WEEKDAYS.includes(fromDay) || !VALID_WEEKDAYS.includes(toDay)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Ngày không hợp lệ');
+    }
+
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không được phân công dạy lớp này');
+    }
+
+    const result = await weeklyScheduleService.copyDayItems(
+      numericTemplateId,
+      fromDay,
+      toDay,
+      teacherId
+    );
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, result, result.message)
+    );
+
+  } catch (error) {
+    next(error);
+  }
+};

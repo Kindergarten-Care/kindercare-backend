@@ -10,6 +10,7 @@ export const getTeacherClasses = async (teacherId) => {
     SELECT 
       ct.ClassID AS classId, 
       c.ClassName AS className,
+      c.YearID AS yearId,
       (SELECT COUNT(*) FROM Students s WHERE s.ClassID = c.ClassID AND s.EnrollmentStatus = 'Active') AS studentCount
     FROM ClassTeachers ct
     JOIN Classes c ON ct.ClassID = c.ClassID

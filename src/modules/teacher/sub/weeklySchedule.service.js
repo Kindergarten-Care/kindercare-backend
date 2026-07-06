@@ -366,6 +366,184 @@ export const deleteTemplate = async (templateId) => {
 };
 
 /**
+ * Copy all items from one template to another week
+ */
+export const copyWeekItems = async (fromTemplateId, toWeekNumber, classId, yearId, month, year, teacherId) => {
+  const connection = await pool.getConnection();
+  try {
+    // Get source template with items
+    const [sourceTemplates] = await connection.query(
+      `SELECT * FROM WeeklyScheduleTemplates WHERE TemplateID = ?`,
+      [fromTemplateId]
+    );
+
+    if (sourceTemplates.length === 0) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy thời khóa biểu nguồn');
+    }
+
+    const sourceTemplate = sourceTemplates[0];
+    const [sourceItems] = await connection.query(
+      `SELECT * FROM WeeklyScheduleItems WHERE TemplateID = ? ORDER BY DayOfWeek, OrderIndex`,
+      [fromTemplateId]
+    );
+
+    // Find or create target template
+    const [existing] = await connection.query(
+      `SELECT TemplateID FROM WeeklyScheduleTemplates
+       WHERE ClassID = ? AND YearID = ? AND Month = ? AND Year = ? AND WeekNumber = ?`,
+      [classId, yearId, month, year, toWeekNumber]
+    );
+
+    let targetTemplateId;
+
+    if (existing.length > 0) {
+      targetTemplateId = existing[0].TemplateID;
+      // Clear existing items
+      await connection.query(`DELETE FROM WeeklyScheduleItems WHERE TemplateID = ?`, [targetTemplateId]);
+    } else {
+      // Create new template
+      const [maxIdRow] = await connection.query(
+        'SELECT IFNULL(MAX(TemplateID), 0) + 1 AS nextId FROM WeeklyScheduleTemplates'
+      );
+      targetTemplateId = maxIdRow[0].nextId;
+
+      const weekDates = getWeekDates(year, month, toWeekNumber);
+
+      await connection.query(
+        `INSERT INTO WeeklyScheduleTemplates
+          (TemplateID, ClassID, TeacherID, YearID, Month, Year, WeekNumber, WeekTheme, WeekStartDate, WeekEndDate, Status, CreatedAt, UpdatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Draft', ?, ?)`,
+        [
+          targetTemplateId, classId, teacherId, yearId, month, year, toWeekNumber,
+          sourceTemplate.WeekTheme || `Tuần ${toWeekNumber}`,
+          weekDates.start, weekDates.end,
+          unixNow(), unixNow()
+        ]
+      );
+    }
+
+    // Copy items
+    if (sourceItems.length > 0) {
+      const itemValues = sourceItems.map(item => [
+        targetTemplateId,
+        item.DayOfWeek,
+        item.StartTime,
+        item.EndTime,
+        item.ActivityName,
+        item.ActivityType,
+        item.Details,
+        item.Location,
+        item.OrderIndex,
+        unixNow(),
+        unixNow()
+      ]);
+
+      await connection.query(
+        `INSERT INTO WeeklyScheduleItems
+          (TemplateID, DayOfWeek, StartTime, EndTime, ActivityName, ActivityType, Details, Location, OrderIndex, CreatedAt, UpdatedAt)
+         VALUES ?`,
+        [itemValues]
+      );
+    }
+
+    await logHistory(connection, targetTemplateId, 'CopiedFromWeek', null, 'Draft', teacherId, 'Teacher');
+
+    return {
+      success: true,
+      message: `Đã sao chép ${sourceItems.length} hoạt động sang Tuần ${toWeekNumber}`,
+      targetTemplateId
+    };
+
+  } finally {
+    connection.release();
+  }
+};
+
+/**
+ * Copy items from one day to another within the same template
+ */
+export const copyDayItems = async (templateId, fromDay, toDay, teacherId) => {
+  const connection = await pool.getConnection();
+  try {
+    // Get source items
+    const [sourceItems] = await connection.query(
+      `SELECT * FROM WeeklyScheduleItems
+       WHERE TemplateID = ? AND DayOfWeek = ?
+       ORDER BY OrderIndex`,
+      [templateId, fromDay]
+    );
+
+    if (sourceItems.length === 0) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không có hoạt động nào trong ngày nguồn');
+    }
+
+    // Delete existing target day items
+    await connection.query(
+      `DELETE FROM WeeklyScheduleItems WHERE TemplateID = ? AND DayOfWeek = ?`,
+      [templateId, toDay]
+    );
+
+    // Get max order index for target day
+    const [maxOrder] = await connection.query(
+      `SELECT IFNULL(MAX(OrderIndex), -1) + 1 AS nextOrder FROM WeeklyScheduleItems WHERE TemplateID = ? AND DayOfWeek = ?`,
+      [templateId, toDay]
+    );
+    let orderIndex = maxOrder[0].nextOrder;
+
+    // Copy items
+    for (const item of sourceItems) {
+      await connection.query(
+        `INSERT INTO WeeklyScheduleItems
+          (TemplateID, DayOfWeek, StartTime, EndTime, ActivityName, ActivityType, Details, Location, OrderIndex, CreatedAt, UpdatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          templateId, toDay,
+          item.StartTime, item.EndTime, item.ActivityName, item.ActivityType,
+          item.Details, item.Location, orderIndex++,
+          unixNow(), unixNow()
+        ]
+      );
+    }
+
+    return {
+      success: true,
+      message: `Đã sao chép ${sourceItems.length} hoạt động từ ${fromDay} sang ${toDay}`
+    };
+
+  } finally {
+    connection.release();
+  }
+};
+
+/**
+ * Helper: Get week dates
+ */
+const getWeekDates = (year, month, weekNumber) => {
+  const firstDayOfMonth = new Date(year, month - 1, 1);
+  const lastDayOfMonth = new Date(year, month, 0);
+
+  // Find first Monday of the month
+  let firstMonday = firstDayOfMonth.getDate();
+  const dayOfWeek = firstDayOfMonth.getDay();
+
+  if (dayOfWeek === 0) {
+    firstMonday = firstDayOfMonth.getDate() + 1;
+  } else if (dayOfWeek > 1) {
+    firstMonday = firstDayOfMonth.getDate() + (8 - dayOfWeek);
+  }
+
+  const weekStartDay = firstMonday + (weekNumber - 1) * 7;
+  const weekEndDay = weekStartDay + 4;
+
+  const pad = (n) => String(n).padStart(2, '0');
+
+  return {
+    start: `${year}-${pad(month)}-${pad(Math.min(weekStartDay, lastDayOfMonth.getDate()))}`,
+    end: `${year}-${pad(month)}-${pad(Math.min(weekEndDay, lastDayOfMonth.getDate()))}`
+  };
+};
+
+/**
  * Helper: Log history
  */
 const logHistory = async (connection, templateId, action, fromStatus, toStatus, actorId, actorRole) => {
