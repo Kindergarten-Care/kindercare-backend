@@ -92,4 +92,16 @@ router.get(
   weeklyScheduleController.getImportHistory
 );
 
+// Copy items from one week to another
+router.post(
+  '/classes/:classId/weekly-schedule/template/:templateId/copy-week',
+  weeklyScheduleController.copyWeekItems
+);
+
+// Copy items from one day to another
+router.post(
+  '/classes/:classId/weekly-schedule/template/:templateId/copy-day',
+  weeklyScheduleController.copyDayItems
+);
+
 export default router;
