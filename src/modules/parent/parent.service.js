@@ -1290,7 +1290,7 @@ export const getStudentDailyEvents = async (studentId, startDateStr, endDateStr 
 export const getInvoicesByStudentId = async (studentId, filters = {}) => {
   const { type, status, from, to } = filters;
 
-  const conditions = ['StudentID = ?', 'Approved = 1'];
+  const conditions = ['StudentID = ?'];
   const values = [studentId];
 
   if (type) { conditions.push('InvoiceType = ?'); values.push(type); }
@@ -1368,7 +1368,7 @@ export const getInvoiceDetail = async (invoiceId) => {
        DueDate             AS dueDate,
        CreatedAt           AS createdAt
      FROM Invoices
-     WHERE InvoiceID = ? AND Approved = 1`;
+     WHERE InvoiceID = ?`;
   const transactionsQuery = `
     SELECT
        TransactionID    AS transactionId,
@@ -1447,7 +1447,7 @@ export const isParentOfInvoice = async (invoiceId, parentId) => {
     `SELECT 1
      FROM Invoices i
      JOIN StudentParents sp ON i.StudentID = sp.StudentID
-     WHERE i.InvoiceID = ? AND sp.ParentID = ? AND i.Approved = 1`,
+     WHERE i.InvoiceID = ? AND sp.ParentID = ?`,
     [invoiceId, parentId]
   );
   return rows.length > 0;
