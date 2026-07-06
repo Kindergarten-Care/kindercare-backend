@@ -71,4 +71,25 @@ router.delete(
   weeklyScheduleController.deleteTemplate
 );
 
+// Get schedule reminder
+router.get(
+  '/classes/:classId/weekly-schedule/reminder/:year/:month',
+  weeklyScheduleValidation.validateGetTemplates,
+  weeklyScheduleController.getScheduleReminder
+);
+
+// Get import lock status
+router.get(
+  '/classes/:classId/weekly-schedule/import-status/:year/:month',
+  weeklyScheduleValidation.validateGetTemplates,
+  weeklyScheduleController.getImportStatus
+);
+
+// Get import history
+router.get(
+  '/classes/:classId/weekly-schedule/history/:year/:month',
+  weeklyScheduleValidation.validateGetTemplates,
+  weeklyScheduleController.getImportHistory
+);
+
 export default router;

@@ -380,3 +380,145 @@ const logHistory = async (connection, templateId, action, fromStatus, toStatus, 
     [historyId, templateId, action, fromStatus, toStatus, actorId, actorRole, unixNow()]
   );
 };
+
+/**
+ * Check month approval status - returns which weeks are approved, pending
+ */
+export const checkMonthApprovalStatus = async (classId, yearId, month, year) => {
+  const [templates] = await pool.query(
+    `SELECT WeekNumber, Status FROM WeeklyScheduleTemplates
+     WHERE ClassID = ? AND YearID = ? AND Month = ? AND Year = ?`,
+    [classId, yearId, month, year]
+  );
+
+  const approvedWeeks = templates
+    .filter(t => t.Status === 'Approved')
+    .map(t => t.WeekNumber);
+
+  const pendingWeeks = templates
+    .filter(t => ['Draft', 'Submitted', 'UnderReview'].includes(t.Status))
+    .map(t => t.WeekNumber);
+
+  const submittedWeeks = templates
+    .filter(t => t.Status === 'Submitted')
+    .map(t => t.WeekNumber);
+
+  return {
+    totalWeeks: templates.length,
+    approvedWeeks,
+    pendingWeeks,
+    submittedWeeks,
+    allWeeksApproved: pendingWeeks.length === 0 && templates.length > 0,
+    allWeeksSubmitted: submittedWeeks.length === templates.length && templates.length > 0,
+    hasAnyTemplate: templates.length > 0
+  };
+};
+
+/**
+ * Check if import is allowed for a month
+ * Import is allowed when: previous month has all weeks approved
+ */
+export const canImportForMonth = async (classId, yearId, targetMonth, targetYear) => {
+  let prevMonth = targetMonth - 1;
+  let prevYear = targetYear;
+
+  if (prevMonth < 1) {
+    prevMonth = 12;
+    prevYear = prevYear - 1;
+  }
+
+  const status = await checkMonthApprovalStatus(classId, yearId, prevMonth, prevYear);
+
+  if (!status.hasAnyTemplate) {
+    return { allowed: true, reason: 'Không có lịch tháng trước' };
+  }
+
+  if (status.allWeeksApproved) {
+    return { allowed: true, reason: 'Tháng trước đã được duyệt hết' };
+  }
+
+  return {
+    allowed: false,
+    reason: `Tháng trước (${prevMonth}/${prevYear}) có ${status.pendingWeeks.length} tuần chưa được duyệt. Vui lòng chờ duyệt hết trước khi import tháng mới.`,
+    pendingWeeks: status.pendingWeeks
+  };
+};
+
+/**
+ * Check if current week is the last week of month
+ */
+export const isLastWeekOfMonth = (month, year, weekNumber) => {
+  const lastDayOfMonth = new Date(year, month, 0).getDate();
+  const week4EndDay = Math.min(28 + 4, lastDayOfMonth);
+  const week5EndDay = Math.min(28 + 9, lastDayOfMonth);
+
+  if (weekNumber === 4 && week4EndDay >= lastDayOfMonth) {
+    return true;
+  }
+  if (weekNumber === 5) {
+    return true;
+  }
+  return false;
+};
+
+/**
+ * Get import history for a class and month
+ */
+export const getImportHistory = async (classId, yearId, month, year) => {
+  const [history] = await pool.query(
+    `SELECT h.*, t.WeekNumber, t.Month, t.Year,
+            u.FullName as ActorName
+     FROM WeeklyScheduleHistory h
+     LEFT JOIN WeeklyScheduleTemplates t ON h.TemplateID = t.TemplateID
+     LEFT JOIN Users u ON h.ActorID = u.UserID
+     WHERE t.ClassID = ? AND t.YearID = ? AND t.Month = ? AND t.Year = ?
+     ORDER BY h.CreatedAt DESC`,
+    [classId, yearId, month, year]
+  );
+
+  return history;
+};
+
+/**
+ * Get all import sessions (grouped by date)
+ */
+export const getImportSessions = async (classId, yearId, month, year) => {
+  const [sessions] = await pool.query(
+    `SELECT 
+        DATE(FROM_UNIXTIME(h.CreatedAt)) as importDate,
+        COUNT(*) as actionCount,
+        MIN(h.CreatedAt) as firstAction,
+        MAX(h.CreatedAt) as lastAction,
+        GROUP_CONCAT(DISTINCT h.Action) as actions
+     FROM WeeklyScheduleHistory h
+     LEFT JOIN WeeklyScheduleTemplates t ON h.TemplateID = t.TemplateID
+     WHERE t.ClassID = ? AND t.YearID = ? AND t.Month = ? AND t.Year = ?
+     GROUP BY DATE(FROM_UNIXTIME(h.CreatedAt))
+     ORDER BY firstAction DESC`,
+    [classId, yearId, month, year]
+  );
+
+  return sessions;
+};
+
+/**
+ * Get reminder info for teachers
+ */
+export const getScheduleReminder = async (classId, yearId, month, year) => {
+  const status = await checkMonthApprovalStatus(classId, yearId, month, year);
+
+  let shouldRemind = false;
+  let message = '';
+
+  if (status.hasAnyTemplate && !status.allWeeksApproved) {
+    shouldRemind = true;
+    const pending = status.pendingWeeks.join(', ');
+    message = `Còn ${status.pendingWeeks.length} tuần chưa được duyệt: Tuần ${pending}`;
+  }
+
+  return {
+    shouldRemind,
+    message,
+    ...status
+  };
+};
