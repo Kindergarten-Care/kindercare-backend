@@ -283,6 +283,105 @@ export const withdrawTemplate = async (req, res, next) => {
 };
 
 /**
+ * Create / refresh an item snapshot for a template.
+ * POST /teacher/classes/:classId/weekly-schedule/template/:templateId/snapshot
+ * Body: { reason: string }
+ */
+export const snapshotItems = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId, templateId } = req.params;
+    const { reason } = req.body;
+
+    const numericClassId = parseInt(classId);
+    const numericTemplateId = parseInt(templateId);
+
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không được phân công dạy lớp này');
+    }
+
+    const result = await weeklyScheduleService.createItemSnapshot(
+      numericTemplateId,
+      teacherId,
+      reason
+    );
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, result, 'Đã lưu snapshot thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Submit a change request against a template that was already approved.
+ * POST /teacher/classes/:classId/weekly-schedule/template/:templateId/submit-change
+ * Body: { reason: string }
+ */
+export const submitChangeRequest = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId, templateId } = req.params;
+    const { reason } = req.body;
+
+    const numericClassId = parseInt(classId);
+    const numericTemplateId = parseInt(templateId);
+
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không được phân công dạy lớp này');
+    }
+
+    const result = await weeklyScheduleService.submitChangeRequest(
+      numericTemplateId,
+      teacherId,
+      reason
+    );
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, result, result.message)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Withdraw a pending change request, optionally restoring the original items.
+ * POST /teacher/classes/:classId/weekly-schedule/template/:templateId/withdraw-change
+ * Body: { restoreOriginal?: boolean }
+ */
+export const withdrawChangeRequest = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId, templateId } = req.params;
+    const { restoreOriginal } = req.body;
+
+    const numericClassId = parseInt(classId);
+    const numericTemplateId = parseInt(templateId);
+
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không được phân công dạy lớp này');
+    }
+
+    const result = await weeklyScheduleService.withdrawChangeRequest(
+      numericTemplateId,
+      teacherId,
+      restoreOriginal
+    );
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, result, result.message)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Delete template
  * DELETE /teacher/classes/:classId/weekly-schedule/template/:templateId
  */

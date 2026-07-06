@@ -126,3 +126,54 @@ export const validateTemplateId = (req, res, next) => {
 
   next();
 };
+
+// Reason validation shared by snapshot + submit-change endpoints.
+const reasonSchema = Joi.string().trim().min(5).max(500).required();
+
+export const validateSnapshotItems = (req, res, next) => {
+  const schema = Joi.object({
+    reason: reasonSchema,
+  });
+
+  const { error, value } = schema.validate(req.body, { abortEarly: false });
+
+  if (error) {
+    const errors = error.details.map(d => d.message);
+    return next(new ApiError(httpStatus.BAD_REQUEST, errors.join('; ')));
+  }
+
+  req.body = value;
+  next();
+};
+
+export const validateSubmitChangeRequest = (req, res, next) => {
+  const schema = Joi.object({
+    reason: reasonSchema,
+  });
+
+  const { error, value } = schema.validate(req.body, { abortEarly: false });
+
+  if (error) {
+    const errors = error.details.map(d => d.message);
+    return next(new ApiError(httpStatus.BAD_REQUEST, errors.join('; ')));
+  }
+
+  req.body = value;
+  next();
+};
+
+export const validateWithdrawChangeRequest = (req, res, next) => {
+  const schema = Joi.object({
+    restoreOriginal: Joi.boolean().default(true),
+  });
+
+  const { error, value } = schema.validate(req.body, { abortEarly: false });
+
+  if (error) {
+    const errors = error.details.map(d => d.message);
+    return next(new ApiError(httpStatus.BAD_REQUEST, errors.join('; ')));
+  }
+
+  req.body = value;
+  next();
+};

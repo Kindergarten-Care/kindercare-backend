@@ -64,6 +64,31 @@ router.post(
   weeklyScheduleController.withdrawTemplate
 );
 
+// Capture an item snapshot of the live template (used when opening the edit
+// modal so we can later restore the original schedule).
+router.post(
+  '/classes/:classId/weekly-schedule/template/:templateId/snapshot',
+  weeklyScheduleValidation.validateTemplateId,
+  weeklyScheduleValidation.validateSnapshotItems,
+  weeklyScheduleController.snapshotItems
+);
+
+// Submit a change request against an already approved template.
+router.post(
+  '/classes/:classId/weekly-schedule/template/:templateId/submit-change',
+  weeklyScheduleValidation.validateTemplateId,
+  weeklyScheduleValidation.validateSubmitChangeRequest,
+  weeklyScheduleController.submitChangeRequest
+);
+
+// Withdraw a pending change request (optionally restore original items).
+router.post(
+  '/classes/:classId/weekly-schedule/template/:templateId/withdraw-change',
+  weeklyScheduleValidation.validateTemplateId,
+  weeklyScheduleValidation.validateWithdrawChangeRequest,
+  weeklyScheduleController.withdrawChangeRequest
+);
+
 // Delete template
 router.delete(
   '/classes/:classId/weekly-schedule/template/:templateId',
