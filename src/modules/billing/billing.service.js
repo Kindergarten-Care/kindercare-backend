@@ -467,7 +467,9 @@ export const recalculateInvoicePaymentStatus = async (invoiceId) => {
   const totalAmount = Number(invoice.TotalAmount);
 
   let paymentStatus = 'Unpaid';
-  if (Number(totalPaid) >= totalAmount && totalAmount > 0) {
+  if (totalAmount === 0) {
+    paymentStatus = Number(totalPaid) > 0 ? 'Paid' : 'Unpaid';
+  } else if (Number(totalPaid) >= totalAmount) {
     paymentStatus = 'Paid';
   } else if (Number(totalPaid) > 0) {
     paymentStatus = 'Partial';
