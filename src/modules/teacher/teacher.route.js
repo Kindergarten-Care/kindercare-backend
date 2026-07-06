@@ -144,4 +144,15 @@ router.put('/classes/:classId/schedule/:scheduleId/status', teacherValidation.va
 
 router.post('/attendance/scan', teacherValidation.validateScanQR, teacherController.scanQRAttendance);
 
+// Lesson Plans
+import * as lessonPlanController from './sub/lessonPlan.controller.js';
+import { upsertLessonPlan as upsertLessonPlanValidation } from './sub/lessonPlan.validation.js';
+import validate from '../../middlewares/validate.middleware.js';
+
+router.get('/lesson-plans', lessonPlanController.getLessonPlans);
+router.get('/lesson-plans/:id', lessonPlanController.getLessonPlanById);
+router.post('/lesson-plans', validate(upsertLessonPlanValidation), lessonPlanController.upsertLessonPlan);
+router.post('/lesson-plans/:id/submit', lessonPlanController.submitLessonPlan);
+router.post('/lesson-plans/:id/withdraw', lessonPlanController.withdrawLessonPlan);
+router.patch('/lesson-plans/:planId/items/:itemId/complete', lessonPlanController.completeLessonPlanItem);
 export default router;
