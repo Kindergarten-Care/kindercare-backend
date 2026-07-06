@@ -4,6 +4,7 @@ import ApiError from '../../../utils/ApiError.js';
 import pool from '../../../config/db.js';
 
 const VALID_WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+export { VALID_WEEKDAYS };
 
 const weeklyScheduleItemSchema = Joi.object({
   dayOfWeek: Joi.string().valid(...VALID_WEEKDAYS).required(),
