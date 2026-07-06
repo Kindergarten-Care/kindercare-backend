@@ -1,9 +1,12 @@
 import Joi from 'joi';
 import httpStatus from 'http-status';
 import ApiError from '../../../utils/ApiError.js';
+import pool from '../../../config/db.js';
+
+const VALID_WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
 const weeklyScheduleItemSchema = Joi.object({
-  dayOfWeek: Joi.string().valid('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday').required(),
+  dayOfWeek: Joi.string().valid(...VALID_WEEKDAYS).required(),
   startTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/).required(),
   endTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/).required(),
   activityName: Joi.string().max(150).required(),
@@ -47,6 +50,24 @@ export const validatePreviewCSV = (req, res, next) => {
   }
 
   next();
+};
+
+/**
+ * Validate CSV rows for valid weekdays (Mon-Fri only)
+ */
+export const validateCSVWeekdays = (csvData) => {
+  const invalidRows = [];
+  for (let i = 0; i < csvData.length; i++) {
+    const day = csvData[i].Day || csvData[i].dayOfWeek;
+    if (!VALID_WEEKDAYS.includes(day)) {
+      invalidRows.push({
+        row: i + 2,
+        day: day,
+        week: csvData[i].Week
+      });
+    }
+  }
+  return invalidRows;
 };
 
 export const validateImportCSV = (req, res, next) => {
