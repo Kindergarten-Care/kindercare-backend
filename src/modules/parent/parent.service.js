@@ -1771,7 +1771,7 @@ export const getStudentExtracurriculars = async (studentId, month) => {
             e.ActivityName AS activityName, e.MonthlyFee AS monthlyFee,
             se.RegisteredMonth AS registeredMonth, se.Status AS status,
             se.FeeRefunded AS feeRefunded, se.ActivatedAt AS activatedAt,
-            se.CreatedAt AS createdAt
+            se.CreatedAt AS createdAt, se.InvoiceID AS invoiceId
      FROM StudentExtracurriculars se
      JOIN Extracurriculars e ON se.ActivityID = e.ActivityID
      WHERE ${conditions.join(' AND ')}
