@@ -333,6 +333,317 @@ export const withdrawTemplate = async (templateId, teacherId) => {
 };
 
 /**
+ * Read current items of a template as plain JSON-serializable objects.
+ * Used by snapshot creation.
+ */
+const readTemplateItems = async (connection, templateId) => {
+  const [items] = await connection.query(
+    `SELECT DayOfWeek, StartTime, EndTime, ActivityName, ActivityType, Details, Location, OrderIndex
+     FROM WeeklyScheduleItems
+     WHERE TemplateID = ?
+     ORDER BY DayOfWeek, OrderIndex, ItemID`,
+    [templateId]
+  );
+  return items;
+};
+
+/**
+ * Capture the current state of a template's items as a snapshot so the
+ * original schedule can be restored later if the teacher withdraws the
+ * change request. Idempotent: if a snapshot already exists for this
+ * template that has not been restored, update its reason and re-capture
+ * items from the live table (which holds the approved originals until the
+ * teacher edits them).
+ */
+export const createItemSnapshot = async (templateId, teacherId, reason) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [templates] = await connection.query(
+      `SELECT TemplateID, Status, HasPendingChangeRequest FROM WeeklyScheduleTemplates WHERE TemplateID = ?`,
+      [templateId]
+    );
+
+    if (templates.length === 0) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy thời khóa biểu');
+    }
+
+    const items = await readTemplateItems(connection, templateId);
+    const itemsJson = JSON.stringify(items);
+
+    const [existing] = await connection.query(
+      `SELECT SnapshotID FROM WeeklyScheduleItemSnapshots
+       WHERE TemplateID = ? AND RestoredAt IS NULL
+       ORDER BY SnapshotID DESC LIMIT 1`,
+      [templateId]
+    );
+
+    let snapshotId;
+
+    if (existing.length > 0) {
+      snapshotId = existing[0].SnapshotID;
+      await connection.query(
+        `UPDATE WeeklyScheduleItemSnapshots
+         SET Reason = ?, ItemsJSON = ?, CreatedBy = ?, CreatedAt = ?
+         WHERE SnapshotID = ?`,
+        [reason, itemsJson, teacherId, unixNow(), snapshotId]
+      );
+    } else {
+      const [maxId] = await connection.query(
+        'SELECT IFNULL(MAX(SnapshotID), 0) + 1 AS nextId FROM WeeklyScheduleItemSnapshots'
+      );
+      snapshotId = maxId[0].nextId;
+
+      await connection.query(
+        `INSERT INTO WeeklyScheduleItemSnapshots
+          (SnapshotID, TemplateID, Reason, ItemsJSON, CreatedBy, CreatedAt)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [snapshotId, templateId, reason, itemsJson, teacherId, unixNow()]
+      );
+    }
+
+    await connection.commit();
+
+    return { snapshotId, itemCount: items.length };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+/**
+ * Submit a change request against a template that has already been
+ * approved (or needs revision). Captures the current items as the
+ * "original" snapshot if no snapshot exists yet, then transitions the
+ * template to Submitted so the principal can review the changes plus
+ * the reason supplied by the teacher.
+ */
+export const submitChangeRequest = async (templateId, teacherId, reason) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [templates] = await connection.query(
+      `SELECT * FROM WeeklyScheduleTemplates WHERE TemplateID = ? FOR UPDATE`,
+      [templateId]
+    );
+
+    if (templates.length === 0) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy thời khóa biểu');
+    }
+
+    const template = templates[0];
+
+    if (template.HasPendingChangeRequest && template.Status === 'Submitted') {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Đã có yêu cầu thay đổi đang chờ duyệt');
+    }
+
+    const allowed = ['Approved', 'RevisionRequested', 'Draft'];
+    if (!allowed.includes(template.Status)) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        `Không thể gửi yêu cầu thay đổi khi trạng thái là "${template.Status}"`
+      );
+    }
+
+    // Ensure there is an active snapshot capturing the items that were live
+    // BEFORE the teacher opened the edit modal. If one already exists, keep it.
+    const [existingSnapshots] = await connection.query(
+      `SELECT SnapshotID FROM WeeklyScheduleItemSnapshots
+       WHERE TemplateID = ? AND RestoredAt IS NULL
+       ORDER BY SnapshotID DESC LIMIT 1`,
+      [templateId]
+    );
+
+    if (existingSnapshots.length === 0) {
+      const items = await readTemplateItems(connection, templateId);
+      const [maxId] = await connection.query(
+        'SELECT IFNULL(MAX(SnapshotID), 0) + 1 AS nextId FROM WeeklyScheduleItemSnapshots'
+      );
+      const snapshotId = maxId[0].nextId;
+
+      await connection.query(
+        `INSERT INTO WeeklyScheduleItemSnapshots
+          (SnapshotID, TemplateID, Reason, ItemsJSON, CreatedBy, CreatedAt)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [snapshotId, templateId, reason, JSON.stringify(items), teacherId, unixNow()]
+      );
+    }
+
+    await connection.query(
+      `UPDATE WeeklyScheduleTemplates
+       SET Status = 'Submitted',
+           HasPendingChangeRequest = 1,
+           PendingChangeReason = ?,
+           SubmittedAt = ?,
+           UpdatedAt = ?
+       WHERE TemplateID = ?`,
+      [reason, unixNow(), unixNow(), templateId]
+    );
+
+    await logHistory(
+      connection,
+      templateId,
+      'ChangeRequestSubmitted',
+      template.Status,
+      'Submitted',
+      teacherId,
+      'Teacher'
+    );
+
+    await connection.commit();
+
+    return {
+      success: true,
+      message: 'Đã gửi yêu cầu thay đổi thành công',
+      templateId,
+      reason,
+    };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+/**
+ * Withdraw a pending change request. If restoreOriginal=true, the live
+ * items are replaced with the snapshot's items and the template returns
+ * to its previous status (Approved). If false, the edits are kept and
+ * the template falls back to Draft so the teacher can keep iterating.
+ */
+export const withdrawChangeRequest = async (templateId, teacherId, restoreOriginal = true) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [templates] = await connection.query(
+      `SELECT * FROM WeeklyScheduleTemplates WHERE TemplateID = ? FOR UPDATE`,
+      [templateId]
+    );
+
+    if (templates.length === 0) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy thời khóa biểu');
+    }
+
+    const template = templates[0];
+
+    if (!template.HasPendingChangeRequest || template.Status !== 'Submitted') {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        'Không có yêu cầu thay đổi nào đang chờ xử lý cho thời khóa biểu này'
+      );
+    }
+
+    const [snapshots] = await connection.query(
+      `SELECT * FROM WeeklyScheduleItemSnapshots
+       WHERE TemplateID = ? AND RestoredAt IS NULL
+       ORDER BY SnapshotID DESC LIMIT 1`,
+      [templateId]
+    );
+
+    if (snapshots.length === 0) {
+      throw new ApiError(
+        httpStatus.NOT_FOUND,
+        'Không tìm thấy snapshot để khôi phục'
+      );
+    }
+
+    const snapshot = snapshots[0];
+    let snapshotItems;
+    try {
+      snapshotItems = typeof snapshot.ItemsJSON === 'string'
+        ? JSON.parse(snapshot.ItemsJSON)
+        : snapshot.ItemsJSON;
+    } catch (err) {
+      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Snapshot bị lỗi, không thể khôi phục');
+    }
+
+    if (restoreOriginal) {
+      // Wipe current items and re-insert from snapshot
+      await connection.query(
+        `DELETE FROM WeeklyScheduleItems WHERE TemplateID = ?`,
+        [templateId]
+      );
+
+      if (Array.isArray(snapshotItems) && snapshotItems.length > 0) {
+        const values = snapshotItems.map((it, idx) => [
+          templateId,
+          it.DayOfWeek,
+          it.StartTime,
+          it.EndTime,
+          it.ActivityName,
+          it.ActivityType || 'other',
+          it.Details || null,
+          it.Location || null,
+          it.OrderIndex ?? idx,
+          unixNow(),
+          unixNow(),
+        ]);
+
+        await connection.query(
+          `INSERT INTO WeeklyScheduleItems
+            (TemplateID, DayOfWeek, StartTime, EndTime, ActivityName, ActivityType, Details, Location, OrderIndex, CreatedAt, UpdatedAt)
+           VALUES ?`,
+          [values]
+        );
+      }
+    }
+
+    const nextStatus = restoreOriginal ? 'Approved' : 'Draft';
+
+    await connection.query(
+      `UPDATE WeeklyScheduleTemplates
+       SET Status = ?,
+           HasPendingChangeRequest = 0,
+           PendingChangeReason = NULL,
+           SubmittedAt = NULL,
+           UpdatedAt = ?
+       WHERE TemplateID = ?`,
+      [nextStatus, unixNow(), templateId]
+    );
+
+    await connection.query(
+      `UPDATE WeeklyScheduleItemSnapshots
+       SET RestoredAt = ?, RestoredBy = ?
+       WHERE SnapshotID = ?`,
+      [unixNow(), teacherId, snapshot.SnapshotID]
+    );
+
+    await logHistory(
+      connection,
+      templateId,
+      restoreOriginal ? 'ChangeRequestWithdrawnAndRestored' : 'ChangeRequestWithdrawnKeepChanges',
+      'Submitted',
+      nextStatus,
+      teacherId,
+      'Teacher'
+    );
+
+    await connection.commit();
+
+    return {
+      success: true,
+      message: restoreOriginal
+        ? 'Đã rút yêu cầu và khôi phục lịch ban đầu'
+        : 'Đã rút yêu cầu thay đổi, giữ nguyên các chỉnh sửa',
+      templateId,
+      restored: restoreOriginal,
+      itemCount: Array.isArray(snapshotItems) ? snapshotItems.length : 0,
+    };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+/**
  * Delete a template
  */
 export const deleteTemplate = async (templateId) => {
