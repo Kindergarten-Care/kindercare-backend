@@ -171,6 +171,11 @@ export const importFromCSV = async (req, res, next) => {
 /**
  * Preview CSV file (parse but don't save)
  * POST /teacher/classes/:classId/weekly-schedule/preview-csv
+ * Body (optional, via req.body when multipart): { yearId, month, year }
+ *   - If present, response includes `existingWeeks` so the FE can warn about
+ *     weeks that already exist with non-Draft status, and `importAllowed` so
+ *     the import button can be disabled when the previous month isn't fully
+ *     approved yet.
  */
 export const previewCSV = async (req, res, next) => {
   try {
@@ -211,14 +216,56 @@ export const previewCSV = async (req, res, next) => {
       }
     }
 
+    const result = {
+      totalRows: csvData.length,
+      weeks: Object.values(preview),
+      sampleRows: csvData.slice(0, 5),
+      invalidDays: invalidDays.length > 0 ? invalidDays : null,
+      validDaysOnly: invalidDays.length === 0
+    };
+
+    // Optional enrichment: existing weeks + importAllowed flag
+    const { yearId, month, year } = req.body || {};
+    const numericClassId = parseInt(req.params.classId);
+
+    if (yearId && month && year) {
+      const numericYearId = parseInt(yearId);
+      const numericMonth = parseInt(month);
+      const numericYear = parseInt(year);
+
+      if (
+        !isNaN(numericClassId) &&
+        !isNaN(numericYearId) &&
+        !isNaN(numericMonth) && numericMonth >= 1 && numericMonth <= 12 &&
+        !isNaN(numericYear) && numericYear >= 2020 && numericYear <= 2100
+      ) {
+        const [existingRows] = await pool.query(
+          `SELECT TemplateID, WeekNumber, Status, HasPendingChangeRequest
+             FROM WeeklyScheduleTemplates
+            WHERE ClassID = ? AND YearID = ? AND Month = ? AND Year = ?`,
+          [numericClassId, numericYearId, numericMonth, numericYear]
+        );
+
+        result.existingWeeks = existingRows.map((row) => ({
+          templateId: row.TemplateID,
+          weekNumber: row.WeekNumber,
+          status: row.Status,
+          hasPendingChangeRequest: row.HasPendingChangeRequest === 1
+        }));
+
+        const importCheck = await weeklyScheduleService.canImportForMonth(
+          numericClassId,
+          numericYearId,
+          numericMonth,
+          numericYear
+        );
+        result.importAllowed = !!importCheck.allowed;
+        result.blockedReason = importCheck.allowed ? null : importCheck.reason;
+      }
+    }
+
     res.status(httpStatus.OK).json(
-      new ApiResponse(httpStatus.OK, {
-        totalRows: csvData.length,
-        weeks: Object.values(preview),
-        sampleRows: csvData.slice(0, 5),
-        invalidDays: invalidDays.length > 0 ? invalidDays : null,
-        validDaysOnly: invalidDays.length === 0
-      }, 'Preview CSV thành công')
+      new ApiResponse(httpStatus.OK, result, 'Preview CSV thành công')
     );
 
   } catch (error) {
