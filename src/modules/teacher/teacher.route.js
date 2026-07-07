@@ -184,4 +184,8 @@ router.patch(
 import weeklyScheduleRouter from './sub/weeklySchedule.route.js';
 router.use('/', weeklyScheduleRouter);
 
+// Student Health (Dị ứng / Thuốc / Nhật ký sức khỏe)
+import healthRouter from './sub/health.route.js';
+router.use('/', healthRouter);
+
 export default router;
