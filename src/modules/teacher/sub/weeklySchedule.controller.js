@@ -78,14 +78,14 @@ export const getTemplateById = async (req, res, next) => {
 };
 
 /**
- * Create or update weekly schedule template
- * POST /teacher/classes/:classId/weekly-schedule/template
+ * Create or update monthly schedule metadata
+ * POST /teacher/classes/:classId/monthly-schedule
  */
-export const upsertTemplate = async (req, res, next) => {
+export const upsertMonthlySchedule = async (req, res, next) => {
   try {
     const teacherId = req.user.userId;
     const { classId } = req.params;
-    const { yearId, month, year, weekNumber, weekTheme, weekStartDate, weekEndDate, items } = req.body;
+    const { month, year, monthTheme } = req.body;
 
     const numericClassId = parseInt(classId);
 
@@ -94,20 +94,15 @@ export const upsertTemplate = async (req, res, next) => {
       throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không được phân công dạy lớp này');
     }
 
-    const result = await weeklyScheduleService.upsertWeeklyTemplate({
-      classId: numericClassId,
-      yearId,
+    const result = await weeklyScheduleService.upsertMonthlySchedule(
+      numericClassId,
       month,
       year,
-      weekNumber,
-      weekTheme,
-      weekStartDate,
-      weekEndDate,
-      items
-    }, teacherId);
+      monthTheme
+    );
 
     res.status(httpStatus.OK).json(
-      new ApiResponse(httpStatus.OK, result, 'Lưu thời khóa biểu thành công')
+      new ApiResponse(httpStatus.OK, result, 'Lưu chủ đề tháng thành công')
     );
 
   } catch (error) {
@@ -116,16 +111,20 @@ export const upsertTemplate = async (req, res, next) => {
 };
 
 /**
- * Upload CSV and import weekly schedules
+ * Upload CSV and import single weekly schedule
  * POST /teacher/classes/:classId/weekly-schedule/import
  */
 export const importFromCSV = async (req, res, next) => {
   try {
     const teacherId = req.user.userId;
     const { classId } = req.params;
-    const { yearId, month, year } = req.body;
+    const { yearId, month, year, weekOrder, weekTheme } = req.body;
 
     const numericClassId = parseInt(classId);
+    const numericYearId = parseInt(yearId);
+    const numericMonth = parseInt(month);
+    const numericYear = parseInt(year);
+    const numericWeekOrder = parseInt(weekOrder);
 
     if (!req.file) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng upload file CSV');
@@ -152,15 +151,24 @@ export const importFromCSV = async (req, res, next) => {
     }
 
     // Check if import is allowed (previous month must be fully approved)
-    const importCheck = await weeklyScheduleService.canImportForMonth(numericClassId, yearId, month, year);
+    const importCheck = await weeklyScheduleService.canImportForMonth(numericClassId, numericYearId, numericMonth, numericYear);
     if (!importCheck.allowed) {
       throw new ApiError(httpStatus.FORBIDDEN, importCheck.reason);
     }
 
-    const results = await weeklyScheduleService.importFromCSV(csvData, numericClassId, yearId, month, year, teacherId);
+    const results = await weeklyScheduleService.importFromCSV(
+      csvData,
+      numericClassId,
+      numericYearId,
+      numericMonth,
+      numericYear,
+      numericWeekOrder,
+      weekTheme,
+      teacherId
+    );
 
     res.status(httpStatus.OK).json(
-      new ApiResponse(httpStatus.OK, results, `Đã import thành công ${results.success} tuần`)
+      new ApiResponse(httpStatus.OK, results, `Import thời khóa biểu tuần ${numericWeekOrder} thành công`)
     );
 
   } catch (error) {
@@ -171,11 +179,6 @@ export const importFromCSV = async (req, res, next) => {
 /**
  * Preview CSV file (parse but don't save)
  * POST /teacher/classes/:classId/weekly-schedule/preview-csv
- * Body (optional, via req.body when multipart): { yearId, month, year }
- *   - If present, response includes `existingWeeks` so the FE can warn about
- *     weeks that already exist with non-Draft status, and `importAllowed` so
- *     the import button can be disabled when the previous month isn't fully
- *     approved yet.
  */
 export const previewCSV = async (req, res, next) => {
   try {
@@ -189,80 +192,26 @@ export const previewCSV = async (req, res, next) => {
       throw new ApiError(httpStatus.BAD_REQUEST, 'File CSV trống hoặc không đúng định dạng');
     }
 
-    const preview = {};
     const invalidDays = [];
 
     for (let i = 0; i < csvData.length; i++) {
       const row = csvData[i];
-      const weekNum = row.Week;
-
-      if (!preview[weekNum]) {
-        preview[weekNum] = {
-          weekNumber: parseInt(weekNum),
-          itemCount: 0,
-          items: []
-        };
-      }
-      preview[weekNum].itemCount++;
-      preview[weekNum].items.push(row);
-
-      const day = row.Day || row.dayOfWeek;
+      const day = row.DayOfWeek || row.dayOfWeek || row.Day || row.day;
       if (!VALID_WEEKDAYS.includes(day)) {
         invalidDays.push({
           row: i + 2,
-          day: day,
-          week: weekNum
+          day: day || 'unknown'
         });
       }
     }
 
     const result = {
       totalRows: csvData.length,
-      weeks: Object.values(preview),
+      items: csvData,
       sampleRows: csvData.slice(0, 5),
       invalidDays: invalidDays.length > 0 ? invalidDays : null,
       validDaysOnly: invalidDays.length === 0
     };
-
-    // Optional enrichment: existing weeks + importAllowed flag
-    const { yearId, month, year } = req.body || {};
-    const numericClassId = parseInt(req.params.classId);
-
-    if (yearId && month && year) {
-      const numericYearId = parseInt(yearId);
-      const numericMonth = parseInt(month);
-      const numericYear = parseInt(year);
-
-      if (
-        !isNaN(numericClassId) &&
-        !isNaN(numericYearId) &&
-        !isNaN(numericMonth) && numericMonth >= 1 && numericMonth <= 12 &&
-        !isNaN(numericYear) && numericYear >= 2020 && numericYear <= 2100
-      ) {
-        const [existingRows] = await pool.query(
-          `SELECT TemplateID, WeekNumber, Status, HasPendingChangeRequest
-             FROM WeeklyScheduleTemplates
-            WHERE ClassID = ? AND YearID = ? AND Month = ? AND Year = ?`,
-          [numericClassId, numericYearId, numericMonth, numericYear]
-        );
-
-        result.existingWeeks = existingRows.map((row) => ({
-          templateId: row.TemplateID,
-          weekNumber: row.WeekNumber,
-          status: row.Status,
-          hasPendingChangeRequest: row.HasPendingChangeRequest === 1
-        }));
-
-        const importCheck = await weeklyScheduleService.canImportForMonth(
-          numericClassId,
-          numericYearId,
-          numericMonth,
-          numericYear
-        );
-        result.importAllowed = !!importCheck.allowed;
-        result.blockedReason = importCheck.allowed ? null : importCheck.reason;
-      }
-    }
 
     res.status(httpStatus.OK).json(
       new ApiResponse(httpStatus.OK, result, 'Preview CSV thành công')
