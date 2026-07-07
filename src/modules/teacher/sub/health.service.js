@@ -4,188 +4,6 @@ import httpStatus from 'http-status';
 
 const unixNow = () => Math.floor(Date.now() / 1000);
 
-// -----------------------------------------------------------------------------
-// Allergies
-// -----------------------------------------------------------------------------
-
-export const getAllergiesByStudent = async (studentId) => {
-  const [rows] = await pool.query(
-    `SELECT AllergyID, StudentID, Allergen, Severity, Reaction, Notes, CreatedAt, UpdatedAt
-       FROM StudentAllergies
-      WHERE StudentID = ?
-      ORDER BY Severity = 'Severe' DESC, Severity = 'Moderate' DESC, CreatedAt DESC`,
-    [studentId]
-  );
-  return rows;
-};
-
-export const createAllergy = async (studentId, payload) => {
-  const now = unixNow();
-  const [result] = await pool.query(
-    `INSERT INTO StudentAllergies
-       (StudentID, Allergen, Severity, Reaction, Notes, CreatedAt, UpdatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [
-      studentId,
-      payload.allergen,
-      payload.severity || 'Mild',
-      payload.reaction ?? null,
-      payload.notes ?? null,
-      now,
-      now
-    ]
-  );
-
-  return getAllergyById(result.insertId);
-};
-
-export const getAllergyById = async (allergyId) => {
-  const [rows] = await pool.query(
-    `SELECT AllergyID, StudentID, Allergen, Severity, Reaction, Notes, CreatedAt, UpdatedAt
-       FROM StudentAllergies
-      WHERE AllergyID = ?`,
-    [allergyId]
-  );
-  return rows[0] || null;
-};
-
-export const updateAllergy = async (allergyId, payload) => {
-  const existing = await getAllergyById(allergyId);
-  if (!existing) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy dị ứng');
-  }
-
-  const fields = [];
-  const values = [];
-  if (payload.allergen !== undefined) { fields.push('Allergen = ?'); values.push(payload.allergen); }
-  if (payload.severity !== undefined) { fields.push('Severity = ?'); values.push(payload.severity); }
-  if (payload.reaction !== undefined) { fields.push('Reaction = ?'); values.push(payload.reaction ?? null); }
-  if (payload.notes !== undefined) { fields.push('Notes = ?'); values.push(payload.notes ?? null); }
-
-  fields.push('UpdatedAt = ?');
-  values.push(unixNow());
-  values.push(allergyId);
-
-  await pool.query(
-    `UPDATE StudentAllergies SET ${fields.join(', ')} WHERE AllergyID = ?`,
-    values
-  );
-
-  return getAllergyById(allergyId);
-};
-
-export const deleteAllergy = async (allergyId) => {
-  const [result] = await pool.query(
-    `DELETE FROM StudentAllergies WHERE AllergyID = ?`,
-    [allergyId]
-  );
-  if (result.affectedRows === 0) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy dị ứng');
-  }
-  return { allergyId };
-};
-
-// -----------------------------------------------------------------------------
-// Medications
-// -----------------------------------------------------------------------------
-
-export const getMedicationsByStudent = async (studentId, status) => {
-  const params = [studentId];
-  let where = 'WHERE StudentID = ?';
-  if (status) {
-    where += ' AND Status = ?';
-    params.push(status);
-  }
-
-  const [rows] = await pool.query(
-    `SELECT MedicationID, StudentID, MedRequestID, MedicineName, Dosage, ScheduledTime,
-            Frequency, Status, AdministeredAt, AdministeredBy, Notes, CreatedAt, UpdatedAt
-       FROM StudentMedications
-       ${where}
-       ORDER BY Status = 'Pending' DESC,
-                Field(ScheduledTime, 'Sáng', 'Trưa', 'Chiều'),
-                CreatedAt DESC`,
-    params
-  );
-  return rows;
-};
-
-export const createMedication = async (studentId, payload, teacherId) => {
-  const now = unixNow();
-  const [result] = await pool.query(
-    `INSERT INTO StudentMedications
-       (StudentID, MedRequestID, MedicineName, Dosage, ScheduledTime, Frequency,
-        Status, AdministeredAt, AdministeredBy, Notes, CreatedAt, UpdatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      studentId,
-      payload.medRequestId ?? null,
-      payload.medicineName,
-      payload.dosage,
-      payload.scheduledTime ?? null,
-      payload.frequency ?? null,
-      payload.status || 'Pending',
-      null,
-      null,
-      payload.notes ?? null,
-      now,
-      now
-    ]
-  );
-
-  return getMedicationById(result.insertId);
-};
-
-export const getMedicationById = async (medicationId) => {
-  const [rows] = await pool.query(
-    `SELECT MedicationID, StudentID, MedRequestID, MedicineName, Dosage, ScheduledTime,
-            Frequency, Status, AdministeredAt, AdministeredBy, Notes, CreatedAt, UpdatedAt
-       FROM StudentMedications
-      WHERE MedicationID = ?`,
-    [medicationId]
-  );
-  return rows[0] || null;
-};
-
-export const updateMedicationStatus = async (medicationId, status, teacherId, notes) => {
-  const existing = await getMedicationById(medicationId);
-  if (!existing) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy thuốc');
-  }
-
-  const now = unixNow();
-  const administeredAt = status === 'Done' ? now : null;
-  const administeredBy = status === 'Done' ? teacherId : null;
-
-  await pool.query(
-    `UPDATE StudentMedications
-        SET Status = ?,
-            AdministeredAt = ?,
-            AdministeredBy = ?,
-            Notes = COALESCE(?, Notes),
-            UpdatedAt = ?
-      WHERE MedicationID = ?`,
-    [status, administeredAt, administeredBy, notes ?? null, now, medicationId]
-  );
-
-  return getMedicationById(medicationId);
-};
-
-export const deleteMedication = async (medicationId) => {
-  const [result] = await pool.query(
-    `DELETE FROM StudentMedications WHERE MedicationID = ?`,
-    [medicationId]
-  );
-  if (result.affectedRows === 0) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy thuốc');
-  }
-  return { medicationId };
-};
-
-// -----------------------------------------------------------------------------
-// Health Logs
-// -----------------------------------------------------------------------------
-
 const startOfDayTs = (dateString) => {
   const d = dateString ? new Date(`${dateString}T00:00:00Z`) : new Date();
   d.setUTCHours(0, 0, 0, 0);
@@ -198,103 +16,144 @@ const endOfDayTs = (dateString) => {
   return Math.floor(d.getTime() / 1000);
 };
 
-export const getHealthLogsByStudent = async (studentId, dateString) => {
-  const start = startOfDayTs(dateString);
-  const end = endOfDayTs(dateString);
+// -----------------------------------------------------------------------------
+// Allergies (Stored in students.Allergies column)
+// -----------------------------------------------------------------------------
 
+export const getAllAllergiesInClass = async (classId) => {
   const [rows] = await pool.query(
-    `SELECT l.LogID, l.StudentID, l.LogType, l.Value, l.Description, l.Severity,
-            l.ActionTaken, l.LoggedBy, l.LoggedAt, l.CreatedAt,
-            u.FullName AS LoggedByName
-       FROM StudentHealthLogs l
-       LEFT JOIN Users u ON l.LoggedBy = u.UserID
-      WHERE l.StudentID = ?
-        AND l.LoggedAt BETWEEN ? AND ?
-      ORDER BY l.LoggedAt DESC, l.LogID DESC`,
-    [studentId, start, end]
+    `SELECT StudentID as studentId, FullName as fullName, AvatarURL as avatarUrl, Allergies as allergies
+       FROM students
+      WHERE ClassID = ? 
+        AND EnrollmentStatus = 'Active' 
+        AND Allergies IS NOT NULL 
+        AND Allergies != 'Không' 
+        AND Allergies != ''
+      ORDER BY FullName ASC`,
+    [classId]
   );
   return rows;
 };
 
-export const createHealthLog = async (studentId, payload, teacherId) => {
-  const loggedAt = payload.loggedAt ?? unixNow();
-  const [result] = await pool.query(
-    `INSERT INTO StudentHealthLogs
-       (StudentID, LogType, Value, Description, Severity, ActionTaken, LoggedBy, LoggedAt, CreatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      studentId,
-      payload.logType,
-      payload.value ?? null,
-      payload.description ?? null,
-      payload.severity || 'Normal',
-      payload.actionTaken ?? null,
-      teacherId,
-      loggedAt,
-      unixNow()
-    ]
+// -----------------------------------------------------------------------------
+// Medications (Stored in medicationrequests table)
+// -----------------------------------------------------------------------------
+
+export const getMedicationsInClass = async (classId, dateString) => {
+  const start = startOfDayTs(dateString);
+  const end = endOfDayTs(dateString);
+  const [rows] = await pool.query(
+    `SELECT mr.MedRequestID AS medicationId, mr.StudentID AS studentId, s.FullName AS fullName, s.AvatarURL AS avatarUrl,
+            mr.MedicineDetails AS medicineName, mr.Dosage AS dosage, mr.TimeToTake AS scheduledTime,
+            mr.Frequency AS frequency, mr.Status AS status, mr.TeacherNote AS notes, mr.RequestDate as requestDate,
+            mr.MedicineImageURL AS medicineImageUrl, mr.ParentNote AS parentNote
+       FROM medicationrequests mr
+       JOIN students s ON mr.StudentID = s.StudentID
+      WHERE s.ClassID = ? 
+        AND mr.RequestDate BETWEEN ? AND ?
+      ORDER BY mr.Status = 'Pending' DESC, mr.MedRequestID DESC`,
+    [classId, start, end]
   );
-  return getHealthLogById(result.insertId);
+  return rows;
 };
 
-export const getHealthLogById = async (logId) => {
+export const updateMedicationStatus = async (medicationId, status, teacherId, notes) => {
+  const now = unixNow();
+  const [result] = await pool.query(
+    `UPDATE medicationrequests
+        SET Status = ?,
+            TeacherNote = COALESCE(?, TeacherNote),
+            UpdatedTime = ?
+      WHERE MedRequestID = ?`,
+    [status, notes ?? null, now, medicationId]
+  );
+  
+  if (result.affectedRows === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy dặn thuốc');
+  }
+  
   const [rows] = await pool.query(
-    `SELECT l.LogID, l.StudentID, l.LogType, l.Value, l.Description, l.Severity,
-            l.ActionTaken, l.LoggedBy, l.LoggedAt, l.CreatedAt,
-            u.FullName AS LoggedByName
-       FROM StudentHealthLogs l
-       LEFT JOIN Users u ON l.LoggedBy = u.UserID
-      WHERE l.LogID = ?`,
-    [logId]
+    `SELECT MedRequestID AS medicationId, StudentID AS studentId, Status AS status, TeacherNote AS notes
+       FROM medicationrequests
+      WHERE MedRequestID = ?`,
+    [medicationId]
   );
   return rows[0] || null;
 };
 
-export const updateHealthLog = async (logId, payload) => {
-  const existing = await getHealthLogById(logId);
-  if (!existing) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy nhật ký sức khỏe');
-  }
+// -----------------------------------------------------------------------------
+// Health Records (Stored in healthrecords table)
+// -----------------------------------------------------------------------------
 
-  const fields = [];
-  const values = [];
-  if (payload.logType !== undefined) { fields.push('LogType = ?'); values.push(payload.logType); }
-  if (payload.value !== undefined) { fields.push('Value = ?'); values.push(payload.value ?? null); }
-  if (payload.description !== undefined) { fields.push('Description = ?'); values.push(payload.description ?? null); }
-  if (payload.severity !== undefined) { fields.push('Severity = ?'); values.push(payload.severity); }
-  if (payload.actionTaken !== undefined) { fields.push('ActionTaken = ?'); values.push(payload.actionTaken ?? null); }
-  if (payload.loggedAt !== undefined) { fields.push('LoggedAt = ?'); values.push(payload.loggedAt); }
-
-  if (fields.length === 0) {
-    return existing;
-  }
-
-  values.push(logId);
-  await pool.query(
-    `UPDATE StudentHealthLogs SET ${fields.join(', ')} WHERE LogID = ?`,
-    values
+export const getClassHealthRecords = async (classId, termPeriod) => {
+  const [rows] = await pool.query(
+    `SELECT s.StudentID AS studentId, s.FullName AS name, s.AvatarURL AS avatarUrl,
+            hr.RecordID AS recordId, hr.TermPeriod AS termPeriod,
+            hr.Height AS height, hr.Weight AS weight, hr.BMI AS bmi, hr.Notes AS note
+       FROM students s
+       LEFT JOIN healthrecords hr ON s.StudentID = hr.StudentID AND hr.TermPeriod = ?
+      WHERE s.ClassID = ? 
+        AND s.EnrollmentStatus = 'Active'
+      ORDER BY s.FullName ASC`,
+    [termPeriod, classId]
   );
-  return getHealthLogById(logId);
+  return rows;
 };
 
-export const deleteHealthLog = async (logId) => {
-  const [result] = await pool.query(
-    `DELETE FROM StudentHealthLogs WHERE LogID = ?`,
-    [logId]
-  );
-  if (result.affectedRows === 0) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy nhật ký sức khỏe');
+export const batchUpdateHealthRecords = async (classId, termPeriod, records) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    for (const r of records) {
+      const studentId = parseInt(r.studentId, 10);
+      const height = r.height ? parseFloat(r.height) : null;
+      const weight = r.weight ? parseFloat(r.weight) : null;
+      const note = r.note ?? null;
+      
+      let bmi = null;
+      if (height && weight && height > 0) {
+        const heightInMeters = height / 100;
+        bmi = parseFloat((weight / (heightInMeters * heightInMeters)).toFixed(2));
+      }
+
+      // Check if record exists for student and term period
+      const [existing] = await connection.query(
+        'SELECT RecordID FROM healthrecords WHERE StudentID = ? AND TermPeriod = ?',
+        [studentId, termPeriod]
+      );
+
+      if (existing.length > 0) {
+        await connection.query(
+          `UPDATE healthrecords 
+              SET Height = ?, Weight = ?, BMI = ?, Notes = ?
+            WHERE RecordID = ?`,
+          [height, weight, bmi, note, existing[0].RecordID]
+        );
+      } else {
+        await connection.query(
+          `INSERT INTO healthrecords (StudentID, TermPeriod, Height, Weight, BMI, Notes)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [studentId, termPeriod, height, weight, bmi, note]
+        );
+      }
+    }
+    await connection.commit();
+    return true;
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
   }
-  return { logId };
 };
 
 // -----------------------------------------------------------------------------
-// Cross-cutting: verify the student belongs to the class
+// Cross-cutting helpers
 // -----------------------------------------------------------------------------
 
 export const assertStudentBelongsToClass = async (studentId, classId) => {
   const [rows] = await pool.query(
-    `SELECT StudentID FROM Students WHERE StudentID = ? AND ClassID = ?`,
+    `SELECT StudentID FROM students WHERE StudentID = ? AND ClassID = ?`,
     [studentId, classId]
   );
   if (rows.length === 0) {
