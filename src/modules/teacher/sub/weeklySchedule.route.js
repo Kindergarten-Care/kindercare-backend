@@ -1,132 +1,72 @@
 import express from 'express';
 import multer from 'multer';
 import * as weeklyScheduleController from './weeklySchedule.controller.js';
-import * as weeklyScheduleValidation from './weeklySchedule.validation.js';
 
 const router = express.Router();
 
-// Configure multer for file uploads (memory storage for CSV processing)
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
-  }
+  limits: { fileSize: 5 * 1024 * 1024 }
 });
 
-// Get weekly schedule templates for a class and month
+// ── Monthly Schedule ──────────────────────────────────────────────────────────
+
+// GET full monthly schedule with all weeks + details
 router.get(
-  '/classes/:classId/weekly-schedule/:year/:month',
-  weeklyScheduleValidation.validateGetTemplates,
-  weeklyScheduleController.getWeeklyScheduleTemplates
+  '/classes/:classId/monthly-schedule/:year/:month',
+  weeklyScheduleController.getMonthlySchedule
 );
 
-// Get single template by ID
-router.get(
-  '/classes/:classId/weekly-schedule/template/:templateId',
-  weeklyScheduleValidation.validateTemplateId,
-  weeklyScheduleController.getTemplateById
-);
-
-// Create or update monthly schedule metadata
+// POST upsert monthly schedule
 router.post(
   '/classes/:classId/monthly-schedule',
-  weeklyScheduleValidation.validateUpsertMonthlySchedule,
   weeklyScheduleController.upsertMonthlySchedule
 );
 
-// Preview CSV file (parse without saving)
-router.post(
-  '/classes/:classId/weekly-schedule/preview-csv',
-  upload.single('file'),
-  weeklyScheduleValidation.validatePreviewCSV,
-  weeklyScheduleController.previewCSV
+// ── Weekly Schedule ──────────────────────────────────────────────────────────
+
+// GET single weekly schedule by ID
+router.get(
+  '/classes/:classId/weekly-schedule/:wsId',
+  weeklyScheduleController.getWeeklyScheduleById
 );
 
-// Import from CSV
+// POST upsert weekly schedule + details
 router.post(
-  '/classes/:classId/weekly-schedule/import',
-  upload.single('file'),
-  weeklyScheduleValidation.validateImportCSV,
-  weeklyScheduleController.importFromCSV
+  '/classes/:classId/weekly-schedule',
+  weeklyScheduleController.saveWeeklySchedule
 );
 
-// Submit template for approval
+// DELETE weekly schedule (cascade)
+router.delete(
+  '/classes/:classId/weekly-schedule/:wsId',
+  weeklyScheduleController.deleteWeeklySchedule
+);
+
+// POST submit weekly schedule for approval
 router.post(
-  '/classes/:classId/weekly-schedule/template/:templateId/submit',
-  weeklyScheduleValidation.validateTemplateId,
+  '/classes/:classId/weekly-schedule/:wsId/submit',
   weeklyScheduleController.submitForApproval
 );
 
-// Withdraw submitted template
+// POST withdraw submitted weekly schedule
 router.post(
-  '/classes/:classId/weekly-schedule/template/:templateId/withdraw',
-  weeklyScheduleValidation.validateTemplateId,
+  '/classes/:classId/weekly-schedule/:wsId/withdraw',
   weeklyScheduleController.withdrawTemplate
 );
 
-// Capture an item snapshot of the live template (used when opening the edit
-// modal so we can later restore the original schedule).
+// POST preview CSV (parse without saving)
 router.post(
-  '/classes/:classId/weekly-schedule/template/:templateId/snapshot',
-  weeklyScheduleValidation.validateTemplateId,
-  weeklyScheduleValidation.validateSnapshotItems,
-  weeklyScheduleController.snapshotItems
+  '/classes/:classId/weekly-schedule/:wsId/preview-csv',
+  upload.single('file'),
+  weeklyScheduleController.previewCSV
 );
 
-// Submit a change request against an already approved template.
+// POST import CSV
 router.post(
-  '/classes/:classId/weekly-schedule/template/:templateId/submit-change',
-  weeklyScheduleValidation.validateTemplateId,
-  weeklyScheduleValidation.validateSubmitChangeRequest,
-  weeklyScheduleController.submitChangeRequest
-);
-
-// Withdraw a pending change request (optionally restore original items).
-router.post(
-  '/classes/:classId/weekly-schedule/template/:templateId/withdraw-change',
-  weeklyScheduleValidation.validateTemplateId,
-  weeklyScheduleValidation.validateWithdrawChangeRequest,
-  weeklyScheduleController.withdrawChangeRequest
-);
-
-// Delete template
-router.delete(
-  '/classes/:classId/weekly-schedule/template/:templateId',
-  weeklyScheduleValidation.validateTemplateId,
-  weeklyScheduleController.deleteTemplate
-);
-
-// Get schedule reminder
-router.get(
-  '/classes/:classId/weekly-schedule/reminder/:year/:month',
-  weeklyScheduleValidation.validateGetTemplates,
-  weeklyScheduleController.getScheduleReminder
-);
-
-// Get import lock status
-router.get(
-  '/classes/:classId/weekly-schedule/import-status/:year/:month',
-  weeklyScheduleValidation.validateGetTemplates,
-  weeklyScheduleController.getImportStatus
-);
-
-// Get import history
-router.get(
-  '/classes/:classId/weekly-schedule/history/:year/:month',
-  weeklyScheduleValidation.validateGetTemplates,
-  weeklyScheduleController.getImportHistory
-);
-
-// Copy items from one week to another
-router.post(
-  '/classes/:classId/weekly-schedule/template/:templateId/copy-week',
-  weeklyScheduleController.copyWeekItems
-);
-
-// Copy items from one day to another
-router.post(
-  '/classes/:classId/weekly-schedule/template/:templateId/copy-day',
-  weeklyScheduleController.copyDayItems
+  '/classes/:classId/weekly-schedule/:wsId/import-csv',
+  upload.single('file'),
+  weeklyScheduleController.importCSV
 );
 
 export default router;
