@@ -6,6 +6,7 @@ import morgan from 'morgan';
 import http from 'http';
 import routes from './routes/index.js';
 import { errorConverter, errorHandler } from './middlewares/error.middleware.js';
+import { serverTimeout } from './middlewares/timeout.middleware.js';
 import ApiError from './utils/ApiError.js';
 import httpStatus from 'http-status';
 import logger from './config/logger.js';
@@ -31,6 +32,7 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(serverTimeout());
 
 if (process.env.NODE_ENV !== 'production') {
     app.use(morgan('dev'));
