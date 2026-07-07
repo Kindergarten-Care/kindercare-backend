@@ -1,510 +1,342 @@
 import pool from '../../../config/db.js';
-import ApiError from '../../../utils/ApiError.js';
 import httpStatus from 'http-status';
 
 const unixNow = () => Math.floor(Date.now() / 1000);
 
 /**
- * Get monthly schedule with weeks and details
- * @param {number} classId
- * @param {number} yearId
- * @param {number} month
- * @param {number} year
- * @returns {Promise<Object>}
+ * Get MonthlySchedule by class/month/year
+ * @returns {Promise<Object|null>}
  */
-export const getWeeklyScheduleTemplates = async (classId, yearId, month, year) => {
-  const [schedules] = await pool.query(
-    `SELECT * FROM MonthlySchedules
-     WHERE ClassID = ? AND Month = ? AND Year = ?`,
+export const getMonthlySchedule = async (classId, month, year) => {
+  const [rows] = await pool.query(
+    `SELECT * FROM MonthlySchedules WHERE ClassID = ? AND Month = ? AND Year = ?`,
     [classId, month, year]
   );
-
-  if (schedules.length === 0) {
-    return null;
-  }
-
-  const schedule = schedules[0];
-
-  const [weeks] = await pool.query(
-    `SELECT * FROM WeeklySchedules
-     WHERE MonthlyScheduleID = ?
-     ORDER BY WeekOrder ASC`,
-    [schedule.MonthlyScheduleID]
-  );
-
-  for (const week of weeks) {
-    const [items] = await pool.query(
-      `SELECT * FROM WeeklyScheduleDetails
-       WHERE WeeklyScheduleID = ?
-       ORDER BY FIELD(DayOfWeek, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'), StartTime ASC`,
-      [week.WeeklyScheduleID]
-    );
-    week.items = items;
-  }
-
-  schedule.weeks = weeks;
-  return schedule;
+  if (rows.length === 0) return null;
+  const r = rows[0];
+  return {
+    monthlyScheduleId: r.MonthlyScheduleID,
+    classId: r.ClassID,
+    month: r.Month,
+    year: r.Year,
+    monthTheme: r.MonthTheme,
+    approvedStatus: r.ApprovedStatus,
+    isActive: Boolean(r.IsActive),
+    createdAt: r.CreatedAt,
+    updatedAt: r.UpdatedAt,
+  };
 };
 
 /**
- * Get single weekly schedule by ID with items
- */
-export const getTemplateById = async (weeklyScheduleId) => {
-  const [weeks] = await pool.query(
-    `SELECT * FROM WeeklySchedules WHERE WeeklyScheduleID = ?`,
-    [weeklyScheduleId]
-  );
-
-  if (weeks.length === 0) {
-    return null;
-  }
-
-  const week = weeks[0];
-  const [items] = await pool.query(
-    `SELECT * FROM WeeklyScheduleDetails
-     WHERE WeeklyScheduleID = ?
-     ORDER BY FIELD(DayOfWeek, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'), StartTime ASC`,
-    [weeklyScheduleId]
-  );
-
-  week.items = items;
-  return week;
-};
-
-/**
- * Create or update monthly schedule metadata
+ * Upsert MonthlySchedule (creates with ApprovedStatus=0, IsActive=0)
+ * @returns {Promise<{ monthlyScheduleId: number, action: string }>}
  */
 export const upsertMonthlySchedule = async (classId, month, year, monthTheme) => {
   const [existing] = await pool.query(
-    `SELECT MonthlyScheduleID FROM MonthlySchedules
-     WHERE ClassID = ? AND Month = ? AND Year = ?`,
+    `SELECT MonthlyScheduleID FROM MonthlySchedules WHERE ClassID = ? AND Month = ? AND Year = ?`,
     [classId, month, year]
   );
 
   if (existing.length > 0) {
-    const monthlyScheduleId = existing[0].MonthlyScheduleID;
+    const id = existing[0].MonthlyScheduleID;
     await pool.query(
-      `UPDATE MonthlySchedules SET MonthTheme = ?, UpdatedAt = ?
-       WHERE MonthlyScheduleID = ?`,
-      [monthTheme, unixNow(), monthlyScheduleId]
+      `UPDATE MonthlySchedules SET MonthTheme = ?, UpdatedAt = ? WHERE MonthlyScheduleID = ?`,
+      [monthTheme, unixNow(), id]
     );
-    return { monthlyScheduleId, action: 'Updated' };
-  } else {
-    const [maxIdRow] = await pool.query(
-      'SELECT IFNULL(MAX(MonthlyScheduleID), 0) + 1 AS nextId FROM MonthlySchedules'
-    );
-    const monthlyScheduleId = maxIdRow[0].nextId;
-
-    await pool.query(
-      `INSERT INTO MonthlySchedules
-        (MonthlyScheduleID, ClassID, Month, Year, MonthTheme, ApprovedStatus, IsActive, CreatedAt, UpdatedAt)
-       VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?)`,
-      [monthlyScheduleId, classId, month, year, monthTheme, unixNow(), unixNow()]
-    );
-    return { monthlyScheduleId, action: 'Created' };
+    return { monthlyScheduleId: id, action: 'Updated' };
   }
+
+  const [[{ nextId }]] = await pool.query(
+    'SELECT IFNULL(MAX(MonthlyScheduleID), 0) + 1 AS nextId FROM MonthlySchedules'
+  );
+  await pool.query(
+    `INSERT INTO MonthlySchedules
+       (MonthlyScheduleID, ClassID, Month, Year, MonthTheme, ApprovedStatus, IsActive, CreatedAt, UpdatedAt)
+     VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?)`,
+    [nextId, classId, month, year, monthTheme, unixNow(), unixNow()]
+  );
+  return { monthlyScheduleId: nextId, action: 'Created' };
 };
 
 /**
- * Import weekly schedule from parsed CSV data.
+ * Get full monthly schedule with all weekly schedules and their details.
+ * JOIN MS -> WS -> WSD.
+ * Returns { monthlySchedule, weeks: [{ weeklyScheduleId, weekOrder, weekTheme, status, createdAt, updatedAt, items: [...] }] }
+ * @returns {Promise<Object|null>}
  */
-export const importFromCSV = async (csvData, classId, yearId, month, year, weekOrder, weekTheme, teacherId) => {
+export const getMonthlyScheduleWithWeeks = async (classId, month, year) => {
+  const ms = await getMonthlySchedule(classId, month, year);
+  if (!ms) return null;
+
+  const [weeks] = await pool.query(
+    `SELECT * FROM WeeklySchedules WHERE MonthlyScheduleID = ? ORDER BY WeekOrder ASC`,
+    [ms.monthlyScheduleId]
+  );
+
+  const weekList = [];
+  for (const w of weeks) {
+    const [items] = await pool.query(
+      `SELECT * FROM WeeklyScheduleDetails
+       WHERE WeeklyScheduleID = ?
+       ORDER BY FIELD(DayOfWeek,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'), StartTime ASC`,
+      [w.WeeklyScheduleID]
+    );
+
+    weekList.push({
+      weeklyScheduleId: w.WeeklyScheduleID,
+      monthlyScheduleId: w.MonthlyScheduleID,
+      weekOrder: w.WeekOrder,
+      weekTheme: w.WeekTheme,
+      status: w.ApprovedStatus ?? 0,
+      createdAt: w.CreatedAt,
+      updatedAt: w.UpdatedAt,
+      items: items.map(item => ({
+        scheduleDetailId: item.ScheduleDetailID,
+        dayOfWeek: item.DayOfWeek,
+        startTime: item.StartTime,
+        endTime: item.EndTime,
+        activityName: item.ActivityName,
+        activityType: item.ActivityType,
+        details: item.Details,
+        location: item.Location,
+        orderIndex: item.OrderIndex ?? 0,
+      })),
+    });
+  }
+
+  return { ...ms, weeks: weekList };
+};
+
+/**
+ * Get single WeeklySchedule by ID with its details.
+ * @returns {Promise<Object|null>}
+ */
+export const getWeeklyScheduleById = async (weeklyScheduleId) => {
+  const [weeks] = await pool.query(
+    `SELECT * FROM WeeklySchedules WHERE WeeklyScheduleID = ?`,
+    [weeklyScheduleId]
+  );
+  if (weeks.length === 0) return null;
+  const w = weeks[0];
+
+  const [items] = await pool.query(
+    `SELECT * FROM WeeklyScheduleDetails
+     WHERE WeeklyScheduleID = ?
+     ORDER BY FIELD(DayOfWeek,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'), StartTime ASC`,
+    [weeklyScheduleId]
+  );
+
+  return {
+    weeklyScheduleId: w.WeeklyScheduleID,
+    monthlyScheduleId: w.MonthlyScheduleID,
+    weekOrder: w.WeekOrder,
+    weekTheme: w.WeekTheme,
+    status: w.ApprovedStatus ?? 0,
+    createdAt: w.CreatedAt,
+    updatedAt: w.UpdatedAt,
+    items: items.map(item => ({
+      scheduleDetailId: item.ScheduleDetailID,
+      dayOfWeek: item.DayOfWeek,
+      startTime: item.StartTime,
+      endTime: item.EndTime,
+      activityName: item.ActivityName,
+      activityType: item.ActivityType,
+      details: item.Details,
+      location: item.Location,
+      orderIndex: item.OrderIndex ?? 0,
+    })),
+  };
+};
+
+/**
+ * Upsert WeeklySchedule and replace its details.
+ * Creates WS row if not exists, clears and re-inserts WSD rows.
+ * @returns {Promise<{ weeklyScheduleId: number, action: string }>}
+ */
+export const saveWeeklySchedule = async (monthlyScheduleId, weekOrder, weekTheme, items) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
-    // 1. Get or create MonthlySchedule
-    let [monthlyRows] = await connection.query(
-      `SELECT MonthlyScheduleID FROM MonthlySchedules
-       WHERE ClassID = ? AND Month = ? AND Year = ?`,
-      [classId, month, year]
-    );
-
-    let monthlyScheduleId;
-    if (monthlyRows.length > 0) {
-      monthlyScheduleId = monthlyRows[0].MonthlyScheduleID;
-    } else {
-      const [maxMonthlyIdRow] = await connection.query(
-        'SELECT IFNULL(MAX(MonthlyScheduleID), 0) + 1 AS nextId FROM MonthlySchedules'
-      );
-      monthlyScheduleId = maxMonthlyIdRow[0].nextId;
-      await connection.query(
-        `INSERT INTO MonthlySchedules
-          (MonthlyScheduleID, ClassID, Month, Year, MonthTheme, ApprovedStatus, IsActive, CreatedAt, UpdatedAt)
-         VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?)`,
-        [monthlyScheduleId, classId, month, year, `Chủ đề tháng ${month}/${year}`, unixNow(), unixNow()]
-      );
-    }
-
-    // 2. Get or create WeeklySchedule for this weekOrder
-    let [weeklyRows] = await connection.query(
-      `SELECT WeeklyScheduleID FROM WeeklySchedules
-       WHERE MonthlyScheduleID = ? AND WeekOrder = ?`,
+    // Upsert WS
+    const [[existing]] = await connection.query(
+      `SELECT WeeklyScheduleID FROM WeeklySchedules WHERE MonthlyScheduleID = ? AND WeekOrder = ?`,
       [monthlyScheduleId, weekOrder]
     );
 
-    let weeklyScheduleId;
-    if (weeklyRows.length > 0) {
-      weeklyScheduleId = weeklyRows[0].WeeklyScheduleID;
+    let wsId;
+    let action = 'Created';
+    if (existing) {
+      wsId = existing.WeeklyScheduleID;
+      action = 'Updated';
       await connection.query(
-        `UPDATE WeeklySchedules SET WeekTheme = ?, UpdatedAt = ?
-         WHERE WeeklyScheduleID = ?`,
-        [weekTheme, unixNow(), weeklyScheduleId]
+        `UPDATE WeeklySchedules SET WeekTheme = ?, UpdatedAt = ? WHERE WeeklyScheduleID = ?`,
+        [weekTheme, unixNow(), wsId]
       );
     } else {
-      const [maxWeeklyIdRow] = await connection.query(
+      const [[{ nextId }]] = await connection.query(
         'SELECT IFNULL(MAX(WeeklyScheduleID), 0) + 1 AS nextId FROM WeeklySchedules'
       );
-      weeklyScheduleId = maxWeeklyIdRow[0].nextId;
+      wsId = nextId;
       await connection.query(
-        `INSERT INTO WeeklySchedules
-          (WeeklyScheduleID, MonthlyScheduleID, WeekOrder, WeekTheme, CreatedAt, UpdatedAt)
+        `INSERT INTO WeeklySchedules (WeeklyScheduleID, MonthlyScheduleID, WeekOrder, WeekTheme, CreatedAt, UpdatedAt)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [weeklyScheduleId, monthlyScheduleId, weekOrder, weekTheme, unixNow(), unixNow()]
+        [wsId, monthlyScheduleId, weekOrder, weekTheme, unixNow(), unixNow()]
       );
     }
 
-    // 3. Clear existing details for this week
-    await connection.query(
-      `DELETE FROM WeeklyScheduleDetails WHERE WeeklyScheduleID = ?`,
-      [weeklyScheduleId]
-    );
+    // Clear existing details
+    await connection.query(`DELETE FROM WeeklyScheduleDetails WHERE WeeklyScheduleID = ?`, [wsId]);
 
-    // 4. Insert new details
-    if (csvData && csvData.length > 0) {
-      const detailValues = [];
-      
-      // Get next ScheduleDetailID baseline
-      const [maxDetailIdRow] = await connection.query(
+    // Insert new details
+    if (items && items.length > 0) {
+      const [[idRow]] = await connection.query(
         'SELECT IFNULL(MAX(ScheduleDetailID), 0) + 1 AS nextId FROM WeeklyScheduleDetails'
       );
-      let nextDetailId = maxDetailIdRow[0].nextId;
+      let nextId = idRow.nextId;
 
-      for (const row of csvData) {
-        const day = row.DayOfWeek || row.dayOfWeek || row.Day || row.day;
-        const type = row.ActivityType || row.activityType || 'study';
-        
-        detailValues.push([
-          nextDetailId++,
-          weeklyScheduleId,
-          day,
-          row.StartTime || row.startTime,
-          row.EndTime || row.endTime,
-          row.ActivityName || row.activityName,
-          row.Details || row.details || null,
-          row.Location || row.location || null,
-          type
-        ]);
-      }
+      const values = items.map(item => [
+        nextId++,
+        wsId,
+        item.dayOfWeek,
+        item.startTime,
+        item.endTime,
+        item.activityName,
+        item.details || null,
+        item.location || null,
+        item.activityType || 'other',
+        item.orderIndex ?? 0,
+      ]);
 
       await connection.query(
         `INSERT INTO WeeklyScheduleDetails
-          (ScheduleDetailID, WeeklyScheduleID, DayOfWeek, StartTime, EndTime, ActivityName, Details, Location, ActivityType)
+           (ScheduleDetailID, WeeklyScheduleID, DayOfWeek, StartTime, EndTime, ActivityName, Details, Location, ActivityType, OrderIndex)
          VALUES ?`,
-        [detailValues]
+        [values]
       );
     }
 
     await connection.commit();
-    return { success: true, monthlyScheduleId, weeklyScheduleId, importedCount: csvData.length };
-
-  } catch (error) {
+    return { weeklyScheduleId: wsId, action };
+  } catch (err) {
     await connection.rollback();
-    throw error;
+    throw err;
   } finally {
     connection.release();
   }
 };
 
 /**
- * Submit monthly schedule for approval (sets ApprovedStatus = 0, IsActive = 0)
+ * Delete WeeklySchedule (cascade delete details via FK, then delete WS)
  */
-export const submitForApproval = async (monthlyScheduleId, teacherId) => {
-  const [schedules] = await pool.query(
-    `SELECT * FROM MonthlySchedules WHERE MonthlyScheduleID = ?`,
-    [monthlyScheduleId]
-  );
+export const deleteWeeklySchedule = async (weeklyScheduleId) => {
+  await pool.query(`DELETE FROM WeeklyScheduleDetails WHERE WeeklyScheduleID = ?`, [weeklyScheduleId]);
+  await pool.query(`DELETE FROM WeeklySchedules WHERE WeeklyScheduleID = ?`, [weeklyScheduleId]);
+  return { success: true };
+};
 
-  if (schedules.length === 0) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy thời khóa biểu tháng');
-  }
-
+/**
+ * Submit weekly schedule for approval (set ApprovedStatus=1)
+ */
+export const submitForApproval = async (weeklyScheduleId) => {
   await pool.query(
-    `UPDATE MonthlySchedules SET ApprovedStatus = 0, IsActive = 0, UpdatedAt = ?
-     WHERE MonthlyScheduleID = ?`,
-    [unixNow(), monthlyScheduleId]
+    `UPDATE WeeklySchedules SET ApprovedStatus = 1, UpdatedAt = ? WHERE WeeklyScheduleID = ?`,
+    [unixNow(), weeklyScheduleId]
   );
-
-  return { success: true, message: 'Gửi duyệt thành công. Trạng thái ApprovedStatus = 0, IsActive = 0' };
+  return { success: true };
 };
 
 /**
- * Withdraw submitted monthly schedule
+ * Withdraw weekly schedule (set ApprovedStatus=0)
  */
-export const withdrawTemplate = async (monthlyScheduleId, teacherId) => {
-  const [schedules] = await pool.query(
-    `SELECT * FROM MonthlySchedules WHERE MonthlyScheduleID = ?`,
-    [monthlyScheduleId]
-  );
-
-  if (schedules.length === 0) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy thời khóa biểu tháng');
-  }
-
-  // Set ApprovedStatus = 0 (keep as Draft/Pending, since default submit is 0, withdraw keeps it draft/0)
-  return { success: true, message: 'Đã rút lại thành công' };
-};
-
-/**
- * Delete monthly schedule (Cascade deletes WS and WSD rows)
- */
-export const deleteTemplate = async (monthlyScheduleId) => {
-  const [schedules] = await pool.query(
-    `SELECT * FROM MonthlySchedules WHERE MonthlyScheduleID = ?`,
-    [monthlyScheduleId]
-  );
-
-  if (schedules.length === 0) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy thời khóa biểu tháng');
-  }
-
+export const withdrawTemplate = async (weeklyScheduleId) => {
   await pool.query(
-    `DELETE FROM MonthlySchedules WHERE MonthlyScheduleID = ?`,
-    [monthlyScheduleId]
+    `UPDATE WeeklySchedules SET ApprovedStatus = 0, UpdatedAt = ? WHERE WeeklyScheduleID = ?`,
+    [unixNow(), weeklyScheduleId]
   );
-
-  return { success: true, message: 'Đã xóa thời khóa biểu tháng thành công' };
+  return { success: true };
 };
 
 /**
- * Copy all items from one week to another
+ * Parse and validate CSV rows into WSD format.
+ * @param {string} csvText - raw CSV content
+ * @returns {{ items: Array, errors: string[] }}
  */
-export const copyWeekItems = async (fromWeeklyScheduleId, toWeekOrder, classId, yearId, month, year, teacherId) => {
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
-
-    // Get source items
-    const [sourceItems] = await connection.query(
-      `SELECT * FROM WeeklyScheduleDetails WHERE WeeklyScheduleID = ? ORDER BY DayOfWeek, StartTime ASC`,
-      [fromWeeklyScheduleId]
-    );
-
-    if (sourceItems.length === 0) {
-      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy chi tiết thời khóa biểu nguồn');
-    }
-
-    // Get or create MonthlySchedule
-    let [monthlyRows] = await connection.query(
-      `SELECT MonthlyScheduleID FROM MonthlySchedules
-       WHERE ClassID = ? AND Month = ? AND Year = ?`,
-      [classId, month, year]
-    );
-
-    let monthlyScheduleId;
-    if (monthlyRows.length > 0) {
-      monthlyScheduleId = monthlyRows[0].MonthlyScheduleID;
-    } else {
-      const [maxMonthlyIdRow] = await connection.query(
-        'SELECT IFNULL(MAX(MonthlyScheduleID), 0) + 1 AS nextId FROM MonthlySchedules'
-      );
-      monthlyScheduleId = maxMonthlyIdRow[0].nextId;
-      await connection.query(
-        `INSERT INTO MonthlySchedules
-          (MonthlyScheduleID, ClassID, Month, Year, MonthTheme, ApprovedStatus, IsActive, CreatedAt, UpdatedAt)
-         VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?)`,
-        [monthlyScheduleId, classId, month, year, `Chủ đề tháng ${month}/${year}`, unixNow(), unixNow()]
-      );
-    }
-
-    // Get or create WeeklySchedule for target week
-    let [weeklyRows] = await connection.query(
-      `SELECT WeeklyScheduleID FROM WeeklySchedules
-       WHERE MonthlyScheduleID = ? AND WeekOrder = ?`,
-      [monthlyScheduleId, toWeekOrder]
-    );
-
-    let targetWeeklyScheduleId;
-    if (weeklyRows.length > 0) {
-      targetWeeklyScheduleId = weeklyRows[0].WeeklyScheduleID;
-    } else {
-      const [maxWeeklyIdRow] = await connection.query(
-        'SELECT IFNULL(MAX(WeeklyScheduleID), 0) + 1 AS nextId FROM WeeklySchedules'
-      );
-      targetWeeklyScheduleId = maxWeeklyIdRow[0].nextId;
-      await connection.query(
-        `INSERT INTO WeeklySchedules
-          (WeeklyScheduleID, MonthlyScheduleID, WeekOrder, WeekTheme, CreatedAt, UpdatedAt)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [targetWeeklyScheduleId, monthlyScheduleId, toWeekOrder, `Tuần ${toWeekOrder}`, unixNow(), unixNow()]
-      );
-    }
-
-    // Clear target items
-    await connection.query(
-      `DELETE FROM WeeklyScheduleDetails WHERE WeeklyScheduleID = ?`,
-      [targetWeeklyScheduleId]
-    );
-
-    // Copy items
-    const [maxDetailIdRow] = await connection.query(
-      'SELECT IFNULL(MAX(ScheduleDetailID), 0) + 1 AS nextId FROM WeeklyScheduleDetails'
-    );
-    let nextDetailId = maxDetailIdRow[0].nextId;
-
-    const newItems = sourceItems.map(item => [
-      nextDetailId++,
-      targetWeeklyScheduleId,
-      item.DayOfWeek,
-      item.StartTime,
-      item.EndTime,
-      item.ActivityName,
-      item.Details,
-      item.Location,
-      item.ActivityType
-    ]);
-
-    await connection.query(
-      `INSERT INTO WeeklyScheduleDetails
-        (ScheduleDetailID, WeeklyScheduleID, DayOfWeek, StartTime, EndTime, ActivityName, Details, Location, ActivityType)
-       VALUES ?`,
-      [newItems]
-    );
-
-    await connection.commit();
-    return { success: true, message: `Đã sao chép ${sourceItems.length} hoạt động sang Tuần ${toWeekOrder}` };
-
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
+export const parseCSVPreview = (csvText) => {
+  const lines = csvText.trim().split('\n');
+  if (lines.length < 2) {
+    return { items: [], errors: ['File CSV trống hoặc không có dữ liệu'] };
   }
+
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const dayIdx = headers.indexOf('dayofweek');
+  const startIdx = headers.indexOf('starttime');
+  const endIdx = headers.indexOf('endtime');
+  const nameIdx = headers.indexOf('activityname');
+  const typeIdx = headers.indexOf('activitytype');
+  const detailsIdx = headers.indexOf('details');
+  const locIdx = headers.indexOf('location');
+
+  const errors = [];
+  const items = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(',');
+    const day = cols[dayIdx]?.trim();
+    const start = cols[startIdx]?.trim();
+    const end = cols[endIdx]?.trim();
+    const name = cols[nameIdx]?.trim().replace(/^"|"$/g, '');
+    const type = (cols[typeIdx]?.trim() || 'other').toLowerCase();
+    const details = cols[detailsIdx]?.trim().replace(/^"|"$/g, '') || null;
+    const location = cols[locIdx]?.trim().replace(/^"|"$/g, '') || null;
+
+    if (!day || !start || !end || !name) {
+      errors.push(`Dòng ${i + 1}: thiếu thông tin bắt buộc (DayOfWeek, StartTime, EndTime, ActivityName)`);
+      continue;
+    }
+    if (!['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].includes(day)) {
+      errors.push(`Dòng ${i + 1}: DayOfWeek "${day}" không hợp lệ`);
+      continue;
+    }
+    if (!/^\d{2}:\d{2}(:\d{2})?$/.test(start)) {
+      errors.push(`Dòng ${i + 1}: StartTime "${start}" không đúng định dạng HH:MM`);
+      continue;
+    }
+    if (!/^\d{2}:\d{2}(:\d{2})?$/.test(end)) {
+      errors.push(`Dòng ${i + 1}: EndTime "${end}" không đúng định dạng HH:MM`);
+      continue;
+    }
+
+    items.push({
+      dayOfWeek: day,
+      startTime: start.length === 5 ? start + ':00' : start,
+      endTime: end.length === 5 ? end + ':00' : end,
+      activityName: name,
+      activityType: ['pickup','meal','study','nap','play','dropoff','other'].includes(type) ? type : 'other',
+      details,
+      location,
+      orderIndex: i - 1,
+    });
+  }
+
+  return { items, errors };
 };
 
 /**
- * Copy items from one day to another within the same week
+ * Import CSV into a WeeklySchedule (clears existing, inserts new).
+ * @returns {Promise<{ success: number, failed: number, errors: string[] }>}
  */
-export const copyDayItems = async (weeklyScheduleId, fromDay, toDay, teacherId) => {
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
-
-    const [sourceItems] = await connection.query(
-      `SELECT * FROM WeeklyScheduleDetails
-       WHERE WeeklyScheduleID = ? AND DayOfWeek = ?
-       ORDER BY StartTime ASC`,
-      [weeklyScheduleId, fromDay]
-    );
-
-    if (sourceItems.length === 0) {
-      throw new ApiError(httpStatus.NOT_FOUND, 'Không có hoạt động nào trong ngày nguồn');
-    }
-
-    // Clear target day items
-    await connection.query(
-      `DELETE FROM WeeklyScheduleDetails WHERE WeeklyScheduleID = ? AND DayOfWeek = ?`,
-      [weeklyScheduleId, toDay]
-    );
-
-    const [maxDetailIdRow] = await connection.query(
-      'SELECT IFNULL(MAX(ScheduleDetailID), 0) + 1 AS nextId FROM WeeklyScheduleDetails'
-    );
-    let nextDetailId = maxDetailIdRow[0].nextId;
-
-    const newItems = sourceItems.map(item => [
-      nextDetailId++,
-      weeklyScheduleId,
-      toDay,
-      item.StartTime,
-      item.EndTime,
-      item.ActivityName,
-      item.Details,
-      item.Location,
-      item.ActivityType
-    ]);
-
-    await connection.query(
-      `INSERT INTO WeeklyScheduleDetails
-        (ScheduleDetailID, WeeklyScheduleID, DayOfWeek, StartTime, EndTime, ActivityName, Details, Location, ActivityType)
-       VALUES ?`,
-      [newItems]
-    );
-
-    await connection.commit();
-    return { success: true, message: `Đã sao chép ${sourceItems.length} hoạt động từ ${fromDay} sang ${toDay}` };
-
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
+export const importFromCSV = async (weeklyScheduleId, csvText) => {
+  const { items, errors } = parseCSVPreview(csvText);
+  if (errors.length > 0 && items.length === 0) {
+    return { success: 0, failed: 1, errors };
   }
+
+  const ws = await getWeeklyScheduleById(weeklyScheduleId);
+  if (!ws) {
+    return { success: 0, failed: 1, errors: ['Không tìm thấy thời khóa biểu'] };
+  }
+
+  await saveWeeklySchedule(ws.monthlyScheduleId, ws.weekOrder, ws.weekTheme, items);
+  return { success: 1, failed: 0, errors };
 };
-
-/**
- * Check if import is allowed for a month (checks if previous month is approved / active)
- */
-export const canImportForMonth = async (classId, yearId, targetMonth, targetYear) => {
-  let prevMonth = targetMonth - 1;
-  let prevYear = targetYear;
-
-  if (prevMonth < 1) {
-    prevMonth = 12;
-    prevYear = prevYear - 1;
-  }
-
-  const [schedules] = await pool.query(
-    `SELECT ApprovedStatus, IsActive FROM MonthlySchedules
-     WHERE ClassID = ? AND Month = ? AND Year = ?`,
-    [classId, prevMonth, prevYear]
-  );
-
-  if (schedules.length === 0) {
-    return { allowed: true, reason: 'Không có lịch tháng trước' };
-  }
-
-  const prev = schedules[0];
-  if (prev.ApprovedStatus === 1) {
-    return { allowed: true, reason: 'Tháng trước đã được duyệt' };
-  }
-
-  return {
-    allowed: false,
-    reason: `Tháng trước (${prevMonth}/${prevYear}) chưa được duyệt. Vui lòng chờ duyệt trước khi soạn lịch tháng mới.`
-  };
-};
-
-/**
- * Check month approval status
- */
-export const checkMonthApprovalStatus = async (classId, yearId, month, year) => {
-  const [schedules] = await pool.query(
-    `SELECT ApprovedStatus, IsActive FROM MonthlySchedules
-     WHERE ClassID = ? AND Month = ? AND Year = ?`,
-    [classId, month, year]
-  );
-
-  if (schedules.length === 0) {
-    return {
-      hasAnyTemplate: false,
-      approved: false,
-      isActive: false
-    };
-  }
-
-  const s = schedules[0];
-  return {
-    hasAnyTemplate: true,
-    approved: s.ApprovedStatus === 1,
-    isActive: s.IsActive === 1,
-    approvedStatus: s.ApprovedStatus
-  };
-};
-
-export const createItemSnapshot = async () => ({ success: true });
-export const submitChangeRequest = async () => ({ success: true });
-export const withdrawChangeRequest = async () => ({ success: true });
-export const getScheduleReminder = async () => ({ shouldRemind: false, message: '' });
-export const getImportHistory = async () => [];
-export const getImportSessions = async () => [];
