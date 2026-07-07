@@ -2,6 +2,7 @@ import express from 'express';
 import authRoute from '../modules/auth/auth.route.js';
 import userRoute from '../modules/user/user.route.js';
 import parentRoute from '../modules/parent/parent.route.js';
+import principalRoute from '../modules/principal/principal.route.js';
 import notificationRoute from '../modules/notification/notification.route.js';
 
 const router = express.Router();
@@ -10,6 +11,7 @@ const defaultRoutes = [
     { path: '/auth', route: authRoute },
     { path: '/users', route: userRoute },
     { path: '/parent', route: parentRoute },
+    { path: '/principal', route: principalRoute },
     { path: '/notifications', route: notificationRoute },
 ];
 
