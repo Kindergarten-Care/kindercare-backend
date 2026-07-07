@@ -27,11 +27,11 @@ router.get(
   weeklyScheduleController.getTemplateById
 );
 
-// Create or update weekly schedule template
+// Create or update monthly schedule metadata
 router.post(
-  '/classes/:classId/weekly-schedule/template',
-  weeklyScheduleValidation.validateUpsertTemplate,
-  weeklyScheduleController.upsertTemplate
+  '/classes/:classId/monthly-schedule',
+  weeklyScheduleValidation.validateUpsertMonthlySchedule,
+  weeklyScheduleController.upsertMonthlySchedule
 );
 
 // Preview CSV file (parse without saving)

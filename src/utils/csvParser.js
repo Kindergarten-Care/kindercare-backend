@@ -82,7 +82,7 @@ export const validateCSVData = (data) => {
     return { valid: false, errors: ['Dữ liệu CSV trống'] };
   }
 
-  const requiredColumns = ['Week', 'Day', 'StartTime', 'EndTime', 'ActivityName'];
+  const requiredColumns = ['DayOfWeek', 'StartTime', 'EndTime', 'ActivityName'];
   const firstRow = data[0];
 
   const missingColumns = requiredColumns.filter(col => !(col in firstRow));
@@ -92,21 +92,13 @@ export const validateCSVData = (data) => {
 
   const validDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const validActivityTypes = ['pickup', 'meal', 'study', 'nap', 'play', 'dropoff', 'other'];
-  const weekNumbers = new Set();
 
   for (let i = 0; i < data.length; i++) {
     const row = data[i];
     const rowNum = i + 2;
 
-    const week = parseInt(row.Week);
-    if (isNaN(week) || week < 1 || week > 5) {
-      errors.push(`Dòng ${rowNum}: Week phải là số từ 1-5`);
-    } else {
-      weekNumbers.add(week);
-    }
-
-    if (!validDays.includes(row.Day)) {
-      errors.push(`Dòng ${rowNum}: Day không hợp lệ (${row.Day}). Chấp nhận: ${validDays.join(', ')}`);
+    if (!validDays.includes(row.DayOfWeek)) {
+      errors.push(`Dòng ${rowNum}: DayOfWeek không hợp lệ (${row.DayOfWeek}). Chấp nhận: ${validDays.join(', ')}`);
     }
 
     const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/;
@@ -129,9 +121,9 @@ export const validateCSVData = (data) => {
   const seen = new Set();
   for (let i = 0; i < data.length; i++) {
     const row = data[i];
-    const key = `${row.Week}-${row.Day}-${row.StartTime}`;
+    const key = `${row.DayOfWeek}-${row.StartTime}`;
     if (seen.has(key)) {
-      errors.push(`Dòng ${i + 2}: Trùng lặp (Week, Day, StartTime)`);
+      errors.push(`Dòng ${i + 2}: Trùng lặp (DayOfWeek, StartTime)`);
     }
     seen.add(key);
   }
@@ -139,13 +131,12 @@ export const validateCSVData = (data) => {
   return {
     valid: errors.length === 0,
     errors,
-    weekCount: weekNumbers.size,
     rowCount: data.length
   };
 };
 
-export const generateCSVTemplate = (weeks = 4) => {
-  const headers = ['Week', 'Day', 'StartTime', 'EndTime', 'ActivityName', 'ActivityType', 'Details', 'Location'];
+export const generateCSVTemplate = () => {
+  const headers = ['DayOfWeek', 'StartTime', 'EndTime', 'ActivityName', 'ActivityType', 'Details', 'Location'];
   const rows = [headers.join(',')];
 
   const defaultActivities = [
@@ -159,24 +150,21 @@ export const generateCSVTemplate = (weeks = 4) => {
     { day: 'Monday', time: '16:00', end: '17:00', name: 'Trả trẻ', type: 'dropoff', details: 'Chuẩn bị đồ dùng và đợi ba mẹ đón', location: 'Cổng A' },
   ];
 
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
-  for (let w = 1; w <= weeks; w++) {
-    for (const day of days) {
-      const activities = defaultActivities.filter(a => a.day === day);
-      for (const act of activities) {
-        const row = [
-          w,
-          day,
-          act.time,
-          act.end,
-          `"${act.name}"`,
-          act.type,
-          `"${act.details}"`,
-          `"${act.location}"`
-        ];
-        rows.push(row.join(','));
-      }
+  for (const day of days) {
+    const activities = defaultActivities.filter(a => a.day === 'Monday'); // Use Monday structure as baseline for default rows of each day
+    for (const act of activities) {
+      const row = [
+        day,
+        act.time,
+        act.end,
+        `"${act.name}"`,
+        act.type,
+        `"${act.details}"`,
+        `"${act.location}"`
+      ];
+      rows.push(row.join(','));
     }
   }
 

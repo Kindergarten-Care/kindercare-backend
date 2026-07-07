@@ -17,16 +17,11 @@ const weeklyScheduleItemSchema = Joi.object({
   orderIndex: Joi.number().integer().min(0).optional()
 });
 
-export const validateUpsertTemplate = (req, res, next) => {
+export const validateUpsertMonthlySchedule = (req, res, next) => {
   const schema = Joi.object({
-    yearId: Joi.number().integer().positive().required(),
     month: Joi.number().integer().min(1).max(12).required(),
     year: Joi.number().integer().min(2020).max(2100).required(),
-    weekNumber: Joi.number().integer().min(1).max(5).required(),
-    weekTheme: Joi.string().max(200).allow('', null).optional(),
-    weekStartDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null).optional(),
-    weekEndDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null).optional(),
-    items: Joi.array().items(weeklyScheduleItemSchema).optional()
+    monthTheme: Joi.string().max(200).required()
   });
 
   const { error, value } = schema.validate(req.body, { abortEarly: false });
@@ -59,12 +54,12 @@ export const validatePreviewCSV = (req, res, next) => {
 export const validateCSVWeekdays = (csvData) => {
   const invalidRows = [];
   for (let i = 0; i < csvData.length; i++) {
-    const day = csvData[i].Day || csvData[i].dayOfWeek;
+    const day = csvData[i].DayOfWeek || csvData[i].dayOfWeek || csvData[i].Day || csvData[i].day;
     if (!VALID_WEEKDAYS.includes(day)) {
       invalidRows.push({
         row: i + 2,
-        day: day,
-        week: csvData[i].Week
+        day: day || 'unknown',
+        week: csvData[i].Week || csvData[i].weekOrder || 1
       });
     }
   }
@@ -84,7 +79,9 @@ export const validateImportCSV = (req, res, next) => {
   const schema = Joi.object({
     yearId: Joi.number().integer().positive().required(),
     month: Joi.number().integer().min(1).max(12).required(),
-    year: Joi.number().integer().min(2020).max(2100).required()
+    year: Joi.number().integer().min(2020).max(2100).required(),
+    weekOrder: Joi.number().integer().min(1).max(5).required(),
+    weekTheme: Joi.string().max(200).required()
   });
 
   const { error, value } = schema.validate(req.body, { abortEarly: false });

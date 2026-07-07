@@ -5,54 +5,21 @@ import * as healthValidation from './health.validation.js';
 const router = express.Router();
 
 // -----------------------------------------------------------------------------
-// Allergies — /classes/:classId/student-health/allergies/...
+// Allergies
 // -----------------------------------------------------------------------------
 router.get(
-  '/classes/:classId/student-health/allergies/:studentId',
+  '/classes/:classId/student-health/allergies',
   healthValidation.validateClassIdParam,
-  healthValidation.validateStudentIdParam,
-  healthController.listAllergies
-);
-
-router.post(
-  '/classes/:classId/student-health/allergies/:studentId',
-  healthValidation.validateClassIdParam,
-  healthValidation.validateStudentIdParam,
-  healthValidation.validateCreateAllergy,
-  healthController.createAllergy
-);
-
-router.put(
-  '/classes/:classId/student-health/allergies/item/:allergyId',
-  healthValidation.validateClassIdParam,
-  healthValidation.validateAllergyIdParam,
-  healthValidation.validateUpdateAllergy,
-  healthController.updateAllergy
-);
-
-router.delete(
-  '/classes/:classId/student-health/allergies/item/:allergyId',
-  healthValidation.validateClassIdParam,
-  healthValidation.validateAllergyIdParam,
-  healthController.deleteAllergy
+  healthController.listClassAllergies
 );
 
 // -----------------------------------------------------------------------------
-// Medications — /classes/:classId/student-health/medications/...
+// Medications
 // -----------------------------------------------------------------------------
 router.get(
-  '/classes/:classId/student-health/medications/:studentId',
+  '/classes/:classId/student-health/medications',
   healthValidation.validateClassIdParam,
-  healthValidation.validateStudentIdParam,
-  healthController.listMedications
-);
-
-router.post(
-  '/classes/:classId/student-health/medications/:studentId',
-  healthValidation.validateClassIdParam,
-  healthValidation.validateStudentIdParam,
-  healthValidation.validateCreateMedication,
-  healthController.createMedication
+  healthController.listClassMedications
 );
 
 router.patch(
@@ -63,44 +30,19 @@ router.patch(
   healthController.updateMedicationStatus
 );
 
-router.delete(
-  '/classes/:classId/student-health/medications/item/:medicationId',
-  healthValidation.validateClassIdParam,
-  healthValidation.validateMedicationIdParam,
-  healthController.deleteMedication
-);
-
 // -----------------------------------------------------------------------------
-// Health Logs — /classes/:classId/student-health/logs/...
+// Health Records (Mapped to /logs endpoint for easy integration with frontend)
 // -----------------------------------------------------------------------------
 router.get(
-  '/classes/:classId/student-health/logs/:studentId',
+  '/classes/:classId/student-health/logs',
   healthValidation.validateClassIdParam,
-  healthValidation.validateStudentIdParam,
-  healthController.listHealthLogs
+  healthController.listClassHealthRecords
 );
 
-router.post(
-  '/classes/:classId/student-health/logs/:studentId',
+router.put(
+  '/classes/:classId/student-health/logs',
   healthValidation.validateClassIdParam,
-  healthValidation.validateStudentIdParam,
-  healthValidation.validateCreateHealthLog,
-  healthController.createHealthLog
-);
-
-router.patch(
-  '/classes/:classId/student-health/logs/item/:logId',
-  healthValidation.validateClassIdParam,
-  healthValidation.validateLogIdParam,
-  healthValidation.validateUpdateHealthLog,
-  healthController.updateHealthLog
-);
-
-router.delete(
-  '/classes/:classId/student-health/logs/item/:logId',
-  healthValidation.validateClassIdParam,
-  healthValidation.validateLogIdParam,
-  healthController.deleteHealthLog
+  healthController.batchUpdateClassHealthRecords
 );
 
 export default router;

@@ -16,90 +16,19 @@ const ensureClassAccess = async (teacherId, classId) => {
   return numericClassId;
 };
 
-const ensurePositiveInt = (value, name) => {
-  const parsed = parseInt(value, 10);
-  if (isNaN(parsed) || parsed <= 0) {
-    throw new ApiError(httpStatus.BAD_REQUEST, `${name} không hợp lệ`);
-  }
-  return parsed;
-};
-
 // -----------------------------------------------------------------------------
 // Allergies
 // -----------------------------------------------------------------------------
 
-export const listAllergies = async (req, res, next) => {
+export const listClassAllergies = async (req, res, next) => {
   try {
     const teacherId = req.user.userId;
     const classId = await ensureClassAccess(teacherId, req.params.classId);
-    const studentId = ensurePositiveInt(req.params.studentId, 'studentId');
 
-    await healthService.assertStudentBelongsToClass(studentId, classId);
-    const rows = await healthService.getAllergiesByStudent(studentId);
+    const rows = await healthService.getAllAllergiesInClass(classId);
 
     res.status(httpStatus.OK).json(
-      new ApiResponse(httpStatus.OK, { allergies: rows }, 'Lấy danh sách dị ứng thành công')
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const createAllergy = async (req, res, next) => {
-  try {
-    const teacherId = req.user.userId;
-    const classId = await ensureClassAccess(teacherId, req.params.classId);
-    const studentId = ensurePositiveInt(req.params.studentId, 'studentId');
-
-    await healthService.assertStudentBelongsToClass(studentId, classId);
-    const created = await healthService.createAllergy(studentId, req.body);
-
-    res.status(httpStatus.CREATED).json(
-      new ApiResponse(httpStatus.CREATED, { allergy: created }, 'Thêm dị ứng thành công')
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const updateAllergy = async (req, res, next) => {
-  try {
-    const teacherId = req.user.userId;
-    const classId = await ensureClassAccess(teacherId, req.params.classId);
-    const allergyId = ensurePositiveInt(req.params.allergyId, 'allergyId');
-
-    const existing = await healthService.getAllergyById(allergyId);
-    if (!existing) {
-      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy dị ứng');
-    }
-    await healthService.assertStudentBelongsToClass(existing.StudentID, classId);
-
-    const updated = await healthService.updateAllergy(allergyId, req.body);
-
-    res.status(httpStatus.OK).json(
-      new ApiResponse(httpStatus.OK, { allergy: updated }, 'Cập nhật dị ứng thành công')
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const deleteAllergy = async (req, res, next) => {
-  try {
-    const teacherId = req.user.userId;
-    const classId = await ensureClassAccess(teacherId, req.params.classId);
-    const allergyId = ensurePositiveInt(req.params.allergyId, 'allergyId');
-
-    const existing = await healthService.getAllergyById(allergyId);
-    if (!existing) {
-      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy dị ứng');
-    }
-    await healthService.assertStudentBelongsToClass(existing.StudentID, classId);
-
-    await healthService.deleteAllergy(allergyId);
-
-    res.status(httpStatus.OK).json(
-      new ApiResponse(httpStatus.OK, { allergyId }, 'Xóa dị ứng thành công')
+      new ApiResponse(httpStatus.OK, { allergies: rows }, 'Lấy danh sách dị ứng cả lớp thành công')
     );
   } catch (error) {
     next(error);
@@ -110,36 +39,16 @@ export const deleteAllergy = async (req, res, next) => {
 // Medications
 // -----------------------------------------------------------------------------
 
-export const listMedications = async (req, res, next) => {
+export const listClassMedications = async (req, res, next) => {
   try {
     const teacherId = req.user.userId;
     const classId = await ensureClassAccess(teacherId, req.params.classId);
-    const studentId = ensurePositiveInt(req.params.studentId, 'studentId');
-
-    await healthService.assertStudentBelongsToClass(studentId, classId);
-
-    const status = req.query.status ? String(req.query.status) : null;
-    const rows = await healthService.getMedicationsByStudent(studentId, status);
+    
+    const dateStr = req.query.date ? String(req.query.date) : null;
+    const rows = await healthService.getMedicationsInClass(classId, dateStr);
 
     res.status(httpStatus.OK).json(
-      new ApiResponse(httpStatus.OK, { medications: rows }, 'Lấy danh sách thuốc thành công')
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const createMedication = async (req, res, next) => {
-  try {
-    const teacherId = req.user.userId;
-    const classId = await ensureClassAccess(teacherId, req.params.classId);
-    const studentId = ensurePositiveInt(req.params.studentId, 'studentId');
-
-    await healthService.assertStudentBelongsToClass(studentId, classId);
-    const created = await healthService.createMedication(studentId, req.body, teacherId);
-
-    res.status(httpStatus.CREATED).json(
-      new ApiResponse(httpStatus.CREATED, { medication: created }, 'Thêm thuốc thành công')
+      new ApiResponse(httpStatus.OK, { medications: rows }, 'Lấy danh sách dặn thuốc cả lớp thành công')
     );
   } catch (error) {
     next(error);
@@ -150,13 +59,10 @@ export const updateMedicationStatus = async (req, res, next) => {
   try {
     const teacherId = req.user.userId;
     const classId = await ensureClassAccess(teacherId, req.params.classId);
-    const medicationId = ensurePositiveInt(req.params.medicationId, 'medicationId');
-
-    const existing = await healthService.getMedicationById(medicationId);
-    if (!existing) {
-      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy thuốc');
+    const medicationId = parseInt(req.params.medicationId, 10);
+    if (isNaN(medicationId)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'medicationId không hợp lệ');
     }
-    await healthService.assertStudentBelongsToClass(existing.StudentID, classId);
 
     const updated = await healthService.updateMedicationStatus(
       medicationId,
@@ -173,106 +79,40 @@ export const updateMedicationStatus = async (req, res, next) => {
   }
 };
 
-export const deleteMedication = async (req, res, next) => {
-  try {
-    const teacherId = req.user.userId;
-    const classId = await ensureClassAccess(teacherId, req.params.classId);
-    const medicationId = ensurePositiveInt(req.params.medicationId, 'medicationId');
-
-    const existing = await healthService.getMedicationById(medicationId);
-    if (!existing) {
-      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy thuốc');
-    }
-    await healthService.assertStudentBelongsToClass(existing.StudentID, classId);
-
-    await healthService.deleteMedication(medicationId);
-
-    res.status(httpStatus.OK).json(
-      new ApiResponse(httpStatus.OK, { medicationId }, 'Xóa thuốc thành công')
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
 // -----------------------------------------------------------------------------
-// Health Logs
+// Health Records
 // -----------------------------------------------------------------------------
 
-export const listHealthLogs = async (req, res, next) => {
+export const listClassHealthRecords = async (req, res, next) => {
   try {
     const teacherId = req.user.userId;
     const classId = await ensureClassAccess(teacherId, req.params.classId);
-    const studentId = ensurePositiveInt(req.params.studentId, 'studentId');
+    const termPeriod = req.query.termPeriod ? String(req.query.termPeriod) : new Date().toISOString().slice(0, 7);
 
-    await healthService.assertStudentBelongsToClass(studentId, classId);
-
-    const date = req.query.date ? String(req.query.date) : null;
-    const rows = await healthService.getHealthLogsByStudent(studentId, date);
+    const rows = await healthService.getClassHealthRecords(classId, termPeriod);
 
     res.status(httpStatus.OK).json(
-      new ApiResponse(httpStatus.OK, { logs: rows }, 'Lấy nhật ký sức khỏe thành công')
+      new ApiResponse(httpStatus.OK, { logs: rows }, 'Lấy danh sách hồ sơ sức khỏe cả lớp thành công')
     );
   } catch (error) {
     next(error);
   }
 };
 
-export const createHealthLog = async (req, res, next) => {
+export const batchUpdateClassHealthRecords = async (req, res, next) => {
   try {
     const teacherId = req.user.userId;
     const classId = await ensureClassAccess(teacherId, req.params.classId);
-    const studentId = ensurePositiveInt(req.params.studentId, 'studentId');
-
-    await healthService.assertStudentBelongsToClass(studentId, classId);
-    const created = await healthService.createHealthLog(studentId, req.body, teacherId);
-
-    res.status(httpStatus.CREATED).json(
-      new ApiResponse(httpStatus.CREATED, { log: created }, 'Ghi nhật ký thành công')
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const updateHealthLog = async (req, res, next) => {
-  try {
-    const teacherId = req.user.userId;
-    const classId = await ensureClassAccess(teacherId, req.params.classId);
-    const logId = ensurePositiveInt(req.params.logId, 'logId');
-
-    const existing = await healthService.getHealthLogById(logId);
-    if (!existing) {
-      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy nhật ký sức khỏe');
+    const termPeriod = req.body.termPeriod ? String(req.body.termPeriod) : new Date().toISOString().slice(0, 7);
+    
+    if (!req.body.records || !Array.isArray(req.body.records)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Danh sách records không hợp lệ');
     }
-    await healthService.assertStudentBelongsToClass(existing.StudentID, classId);
 
-    const updated = await healthService.updateHealthLog(logId, req.body);
-
-    res.status(httpStatus.OK).json(
-      new ApiResponse(httpStatus.OK, { log: updated }, 'Cập nhật nhật ký thành công')
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const deleteHealthLog = async (req, res, next) => {
-  try {
-    const teacherId = req.user.userId;
-    const classId = await ensureClassAccess(teacherId, req.params.classId);
-    const logId = ensurePositiveInt(req.params.logId, 'logId');
-
-    const existing = await healthService.getHealthLogById(logId);
-    if (!existing) {
-      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy nhật ký sức khỏe');
-    }
-    await healthService.assertStudentBelongsToClass(existing.StudentID, classId);
-
-    await healthService.deleteHealthLog(logId);
+    await healthService.batchUpdateHealthRecords(classId, termPeriod, req.body.records);
 
     res.status(httpStatus.OK).json(
-      new ApiResponse(httpStatus.OK, { logId }, 'Xóa nhật ký thành công')
+      new ApiResponse(httpStatus.OK, null, 'Cập nhật hồ sơ sức khỏe hàng loạt thành công')
     );
   } catch (error) {
     next(error);
