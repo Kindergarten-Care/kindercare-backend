@@ -156,15 +156,21 @@ export const upsertWeeklyTemplate = async (data, teacherId) => {
 };
 
 /**
- * Import weekly schedules from parsed CSV data
+ * Import weekly schedules from parsed CSV data.
+ * Each week in the CSV is upserted as a Draft template. Weeks that already
+ * exist with a non-Draft status (Submitted / Approved / pending change
+ * request) are SKIPPED — their items are preserved untouched. Skipped weeks
+ * are recorded in `results.skippedWeeks` and logged as ImportCSVSkipped.
  */
 export const importFromCSV = async (csvData, classId, yearId, month, year, teacherId) => {
   const connection = await pool.getConnection();
   const results = {
     success: 0,
     failed: 0,
+    skipped: 0,
     errors: [],
-    templateIds: []
+    templateIds: [],
+    skippedWeeks: []
   };
 
   try {
@@ -173,6 +179,7 @@ export const importFromCSV = async (csvData, classId, yearId, month, year, teach
     const weekGroups = {};
     for (const row of csvData) {
       const weekNum = parseInt(row.Week);
+      if (Number.isNaN(weekNum)) continue;
       if (!weekGroups[weekNum]) {
         weekGroups[weekNum] = [];
       }
@@ -181,29 +188,82 @@ export const importFromCSV = async (csvData, classId, yearId, month, year, teach
 
     for (const [weekNum, items] of Object.entries(weekGroups)) {
       try {
+        const parsedWeekNum = parseInt(weekNum);
         const weekStartDate = items[0]?.WeekStartDate || null;
         const weekEndDate = items[0]?.WeekEndDate || null;
         const weekTheme = items[0]?.WeekTheme || `Tuần ${weekNum}`;
 
-        const [existing] = await connection.query(
-          `SELECT TemplateID FROM WeeklyScheduleTemplates
-           WHERE ClassID = ? AND YearID = ? AND Month = ? AND Year = ? AND WeekNumber = ?`,
-          [classId, yearId, month, year, parseInt(weekNum)]
+        const [existingRows] = await connection.query(
+          `SELECT TemplateID, Status, HasPendingChangeRequest
+             FROM WeeklyScheduleTemplates
+            WHERE ClassID = ? AND YearID = ? AND Month = ? AND Year = ? AND WeekNumber = ?`,
+          [classId, yearId, month, year, parsedWeekNum]
         );
 
         let templateId;
 
-        if (existing.length > 0) {
-          templateId = existing[0].TemplateID;
+        if (existingRows.length > 0) {
+          const existing = existingRows[0];
+          const isDraft = existing.Status === 'Draft' && existing.HasPendingChangeRequest !== 1;
+
+          if (!isDraft) {
+            const reason =
+              existing.HasPendingChangeRequest === 1
+                ? 'Có change request pending'
+                : existing.Status === 'Approved'
+                ? 'Đã duyệt'
+                : existing.Status === 'Submitted'
+                ? 'Đang chờ duyệt'
+                : existing.Status === 'Rejected'
+                ? 'Đã bị từ chối'
+                : `Không thể ghi đè (status=${existing.Status})`;
+
+            results.skipped += 1;
+            results.skippedWeeks.push({
+              weekNumber: parsedWeekNum,
+              templateId: existing.TemplateID,
+              status: existing.Status,
+              hasPendingChangeRequest: existing.HasPendingChangeRequest === 1,
+              reason
+            });
+
+            await logHistoryWithComment(
+              connection,
+              existing.TemplateID,
+              'ImportCSVSkipped',
+              existing.Status,
+              existing.Status,
+              teacherId,
+              'Teacher',
+              `Bỏ qua import CSV tuần ${parsedWeekNum}: ${reason}`
+            );
+            continue;
+          }
+
+          templateId = existing.TemplateID;
           await connection.query(
             `UPDATE WeeklyScheduleTemplates SET
-              WeekTheme = ?, WeekStartDate = ?, WeekEndDate = ?, Status = 'Draft', UpdatedAt = ?
+              WeekTheme = ?, WeekStartDate = ?, WeekEndDate = ?, UpdatedAt = ?
              WHERE TemplateID = ?`,
             [weekTheme, weekStartDate, weekEndDate, unixNow(), templateId]
           );
           await connection.query(
             `DELETE FROM WeeklyScheduleItems WHERE TemplateID = ?`,
             [templateId]
+          );
+          const [fromStatus] = await connection.query(
+            `SELECT Status FROM WeeklyScheduleTemplates WHERE TemplateID = ?`,
+            [templateId]
+          );
+          await logHistoryWithComment(
+            connection,
+            templateId,
+            'ImportCSV',
+            fromStatus[0]?.Status || 'Draft',
+            'Draft',
+            teacherId,
+            'Teacher',
+            `Import CSV tuần ${parsedWeekNum} — ${items.length} hoạt động (ghi đè bản Draft cũ)`
           );
         } else {
           const [maxIdRow] = await connection.query(
@@ -214,7 +274,17 @@ export const importFromCSV = async (csvData, classId, yearId, month, year, teach
             `INSERT INTO WeeklyScheduleTemplates
               (TemplateID, ClassID, TeacherID, YearID, Month, Year, WeekNumber, WeekTheme, WeekStartDate, WeekEndDate, Status, CreatedAt, UpdatedAt)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Draft', ?, ?)`,
-            [templateId, classId, teacherId, yearId, month, year, parseInt(weekNum), weekTheme, weekStartDate, weekEndDate, unixNow(), unixNow()]
+            [templateId, classId, teacherId, yearId, month, year, parsedWeekNum, weekTheme, weekStartDate, weekEndDate, unixNow(), unixNow()]
+          );
+          await logHistoryWithComment(
+            connection,
+            templateId,
+            'ImportCSV',
+            null,
+            'Draft',
+            teacherId,
+            'Teacher',
+            `Import CSV tuần ${parsedWeekNum} — ${items.length} hoạt động (tạo mới)`
           );
         }
 
@@ -241,11 +311,11 @@ export const importFromCSV = async (csvData, classId, yearId, month, year, teach
           );
         }
 
-        results.success++;
+        results.success += 1;
         results.templateIds.push(templateId);
 
       } catch (err) {
-        results.failed++;
+        results.failed += 1;
         results.errors.push(`Week ${weekNum}: ${err.message}`);
       }
     }
@@ -858,15 +928,19 @@ const getWeekDates = (year, month, weekNumber) => {
  * Helper: Log history
  */
 const logHistory = async (connection, templateId, action, fromStatus, toStatus, actorId, actorRole) => {
+  await logHistoryWithComment(connection, templateId, action, fromStatus, toStatus, actorId, actorRole, null);
+};
+
+const logHistoryWithComment = async (connection, templateId, action, fromStatus, toStatus, actorId, actorRole, comment) => {
   const [maxId] = await connection.query(
     'SELECT IFNULL(MAX(HistoryID), 0) + 1 AS nextId FROM WeeklyScheduleHistory'
   );
   const historyId = maxId[0].nextId;
 
   await connection.query(
-    `INSERT INTO WeeklyScheduleHistory (HistoryID, TemplateID, Action, FromStatus, ToStatus, ActorID, ActorRole, CreatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [historyId, templateId, action, fromStatus, toStatus, actorId, actorRole, unixNow()]
+    `INSERT INTO WeeklyScheduleHistory (HistoryID, TemplateID, Action, FromStatus, ToStatus, ActorID, ActorRole, Comment, CreatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [historyId, templateId, action, fromStatus, toStatus, actorId, actorRole, comment || null, unixNow()]
   );
 };
 
