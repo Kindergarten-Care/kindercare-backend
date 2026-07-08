@@ -97,20 +97,28 @@ export const ROLE_NAME_TO_ID = {
  * @returns {Promise<Array<{id:number, fullName:string, username:string, email:string|null}>>}
  */
 export const getAccountsByRole = async (roleId) => {
+  const fullNameSelect = roleId === 4
+    ? 'p.FullName AS fullName'
+    : 't.FullName AS fullName';
+
+  const emailSelect = roleId === 4
+    ? 'p.Email AS email'
+    : 't.Email AS email';
+
   const avatarSelect = roleId === 4
     ? 'p.AvatarURL AS avatarUrl'
     : 'u.AvatarURL AS avatarUrl';
 
   const joinClause = roleId === 4
-    ? 'LEFT JOIN Parents p ON u.UserID = p.ParentID'
-    : 'LEFT JOIN Teachers t ON u.UserID = t.TeacherID';
+    ? 'INNER JOIN Parents p ON u.UserID = p.ParentID'
+    : 'INNER JOIN Teachers t ON u.UserID = t.TeacherID';
 
   const query = `
     SELECT
       u.UserID                                    AS id,
-      COALESCE(t.FullName, p.FullName)             AS fullName,
+      ${fullNameSelect},
       u.Username                                  AS username,
-      COALESCE(t.Email, p.Email)                   AS email,
+      ${emailSelect},
       ${avatarSelect}
     FROM Users u
     INNER JOIN Roles r ON r.RoleID = u.RoleID
