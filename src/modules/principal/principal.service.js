@@ -62,11 +62,11 @@ export const getTeachersList = async () => {
 export const getParentsList = async () => {
   const query = `
     SELECT
-      p.ParentID AS id,
-      p.FullName AS fullName,
-      u.Username AS username,
-      p.Email    AS email,
-      u.AvatarURL AS avatarUrl
+      p.ParentID   AS id,
+      p.FullName   AS fullName,
+      u.Username   AS username,
+      p.Email      AS email,
+      p.AvatarURL  AS avatarUrl
     FROM Users u
     INNER JOIN Parents p ON u.UserID = p.ParentID
     WHERE u.RoleID = 4
@@ -97,17 +97,24 @@ export const ROLE_NAME_TO_ID = {
  * @returns {Promise<Array<{id:number, fullName:string, username:string, email:string|null}>>}
  */
 export const getAccountsByRole = async (roleId) => {
+  const avatarSelect = roleId === 4
+    ? 'p.AvatarURL AS avatarUrl'
+    : 'u.AvatarURL AS avatarUrl';
+
+  const joinClause = roleId === 4
+    ? 'LEFT JOIN Parents p ON u.UserID = p.ParentID'
+    : 'LEFT JOIN Teachers t ON u.UserID = t.TeacherID';
+
   const query = `
     SELECT
       u.UserID                                    AS id,
       COALESCE(t.FullName, p.FullName)             AS fullName,
       u.Username                                  AS username,
-      COALESCE(t.Email, p.Email)                  AS email,
-      u.AvatarURL                                AS avatarUrl
+      COALESCE(t.Email, p.Email)                   AS email,
+      ${avatarSelect}
     FROM Users u
     INNER JOIN Roles r ON r.RoleID = u.RoleID
-    LEFT  JOIN Teachers t ON u.RoleID = 3 AND u.UserID = t.TeacherID
-    LEFT  JOIN Parents  p ON u.RoleID = 4 AND u.UserID = p.ParentID
+    ${joinClause}
     WHERE u.RoleID = ?
     ORDER BY fullName ASC
   `;
