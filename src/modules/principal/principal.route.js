@@ -12,6 +12,16 @@ router.get('/profile', authenticate, authorize(2), principalController.getMyProf
 //   GET /principal/accounts?role=parent
 router.get('/accounts', authenticate, authorize(2), principalController.getAccountsByRole);
 
+// Tạo tài khoản (giáo viên, phụ huynh)
+//   POST /principal/accounts?role=teacher
+router.post('/accounts', authenticate, authorize(2), principalController.createAccount);
+
+// Lấy danh sách khối và lớp
+router.get('/grades-classes', authenticate, authorize(2), principalController.getGradesAndClasses);
+
+// Tạo khối và lớp
+router.post('/grades-classes', authenticate, authorize(2), principalController.createGradeAndClasses);
+
 // Lấy thông tin chi tiết giáo viên theo id
 router.get('/teacher/:id/detail', authenticate, authorize(2), principalController.getTeacherDetail);
 

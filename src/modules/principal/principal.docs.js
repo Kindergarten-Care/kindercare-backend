@@ -60,7 +60,203 @@
 
 /**
  * @swagger
+ * /principal/grades-classes:
+ *   get:
+ *     summary: Lấy toàn bộ danh sách khối và lớp
+ *     description: |
+ *       Trả về danh sách tất cả các khối học, mỗi khối học chứa danh sách các lớp học thuộc khối đó.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền truy cập.
+ *     tags: ["Principal - Grades"]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lấy danh sách khối và lớp thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách khối và lớp thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       gradeId:
+ *                         type: integer
+ *                         example: 1
+ *                       gradeName:
+ *                         type: string
+ *                         example: Mầm
+ *                       classes:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             classId:
+ *                               type: integer
+ *                               example: 1
+ *                             className:
+ *                               type: string
+ *                               example: Mầm 1
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ */
+
+/**
+ * @swagger
+ * /principal/grades-classes:
+ *   post:
+ *     summary: Tạo khối học và lớp học tương ứng
+ *     description: |
+ *       API này cho phép tạo khối học mới hoặc dùng khối học đã có. 
+ *       Có thể truyền mảng `classes` để tạo các lớp học tương ứng vào khối đó.
+ *       Nếu lớp học đã tồn tại trong khối, hệ thống sẽ bỏ qua để tránh trùng lặp.
+ *       
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Grades"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - gradeName
+ *             properties:
+ *               gradeName:
+ *                 type: string
+ *                 example: "Chồi"
+ *               classes:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["Chồi 1", "Chồi 2"]
+ *                 description: Danh sách tên các lớp học (không bắt buộc)
+ *     responses:
+ *       201:
+ *         description: Tạo khối và lớp thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 201
+ *                 message:
+ *                   type: string
+ *                   example: Tạo khối/lớp thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     gradeId:
+ *                       type: integer
+ *                       example: 2
+ *       400:
+ *         description: Thiếu thông tin bắt buộc (vd thiếu gradeName)
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ */
+
+/**
+ * @swagger
  * /principal/accounts:
+ *   post:
+ *     summary: Tạo tài khoản giáo viên hoặc phụ huynh
+ *     description: |
+ *       Tạo tài khoản mới và cấp quyền tương ứng dựa vào `role`.
+ *       Mật khẩu mặc định sẽ được đặt là `123456`.
+ *       
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Accounts"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: role
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [teacher, parent]
+ *         description: Loại tài khoản cần tạo (`teacher` hoặc `parent`)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - fullName
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 example: "nguyenvan_a"
+ *                 description: Tên đăng nhập (phải duy nhất)
+ *               fullName:
+ *                 type: string
+ *                 example: "Nguyễn Văn A"
+ *                 description: Họ và tên
+ *               phoneNumber:
+ *                 type: string
+ *                 example: "0987654321"
+ *                 description: Số điện thoại (Bắt buộc với phụ huynh)
+ *               email:
+ *                 type: string
+ *                 example: "nguyenvana@gmail.com"
+ *                 description: Địa chỉ email (Tùy chọn)
+ *     responses:
+ *       201:
+ *         description: Tạo tài khoản thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 201
+ *                 message:
+ *                   type: string
+ *                   example: Tạo tài khoản thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     userId:
+ *                       type: integer
+ *                       example: 10
+ *                     role:
+ *                       type: string
+ *                       example: teacher
+ *       400:
+ *         description: Thiếu thông tin bắt buộc hoặc trùng tên đăng nhập
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
  *   get:
  *     summary: Lấy danh sách tài khoản theo role (gộp teacher + parent)
  *     description: |

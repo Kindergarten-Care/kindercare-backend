@@ -249,6 +249,61 @@ const unlockAccount = async (req, res, next) => {
   }
 };
 
+const getGradesAndClasses = async (req, res, next) => {
+  try {
+    const grades = await principalService.getGradesAndClasses();
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, grades, 'Lấy danh sách khối và lớp thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createGradeAndClasses = async (req, res, next) => {
+  try {
+    const { gradeName, classes } = req.body;
+    
+    if (!gradeName) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Tên khối (gradeName) là bắt buộc');
+    }
+
+    const gradeId = await principalService.createGradeAndClasses(gradeName, classes);
+    
+    res.status(httpStatus.CREATED).json(
+      new ApiResponse(httpStatus.CREATED, { gradeId }, 'Tạo khối/lớp thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createAccount = async (req, res, next) => {
+  try {
+    const { role } = req.query;
+    if (!role || (role !== 'teacher' && role !== 'parent')) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Tham số ?role= phải là teacher hoặc parent');
+    }
+
+    const { username, fullName, phoneNumber, email } = req.body;
+    if (!username || !fullName) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'username và fullName là bắt buộc');
+    }
+
+    if (role === 'parent' && !phoneNumber) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'phoneNumber là bắt buộc đối với phụ huynh');
+    }
+
+    const userId = await principalService.createAccount(role, { username, fullName, phoneNumber, email });
+
+    res.status(httpStatus.CREATED).json(
+      new ApiResponse(httpStatus.CREATED, { userId, role }, 'Tạo tài khoản thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyProfile,
   getTeachersList,
@@ -259,4 +314,7 @@ export default {
   resetAccountPassword,
   lockAccount,
   unlockAccount,
+  getGradesAndClasses,
+  createGradeAndClasses,
+  createAccount,
 };

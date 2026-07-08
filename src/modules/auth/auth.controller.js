@@ -90,13 +90,13 @@ const createLoginHandler = (allowedRoleIds = null, allowedIdentifiers = ['Userna
                 throw new ApiError(httpStatus.FORBIDDEN, 'Tài khoản không có quyền truy cập vào hệ thống này');
             }
 
-            if (user.Status !== 'Active') {
-                throw new ApiError(httpStatus.FORBIDDEN, 'Tài khoản đã bị vô hiệu hóa');
-            }
-
             const isPasswordValid = await bcrypt.compare(password, user.PasswordHash);
             if (!isPasswordValid) {
                 throw new ApiError(httpStatus.UNAUTHORIZED, 'Thông tin đăng nhập không đúng');
+            }
+
+            if (user.Status?.toLowerCase() !== 'active') {
+                throw new ApiError(httpStatus.FORBIDDEN, 'Tài khoản đã bị khóa, liên hệ nhà trường để biết thêm thông tin');
             }
 
             let children = [];

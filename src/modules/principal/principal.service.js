@@ -1,5 +1,7 @@
 import pool from '../../config/db.js';
 import bcrypt from 'bcryptjs';
+import ApiError from '../../utils/ApiError.js';
+import httpStatus from 'http-status';
 
 /**
  * Lấy thông tin profile của hiệu trưởng theo PrincipalID.
@@ -283,4 +285,146 @@ export const unlockAccount = async (userId) => {
   const query = 'UPDATE Users SET Status = "Active" WHERE UserID = ?';
   const [result] = await pool.query(query, [userId]);
   return result.affectedRows > 0;
+};
+
+export const getGradesAndClasses = async () => {
+  const query = `
+    SELECT
+      g.GradeID AS gradeId,
+      g.GradeName AS gradeName,
+      c.ClassID AS classId,
+      c.ClassName AS className
+    FROM Grades g
+    LEFT JOIN Classes c ON g.GradeID = c.GradeID
+    ORDER BY g.GradeID, c.ClassName
+  `;
+  const [rows] = await pool.query(query);
+
+  const result = [];
+  const map = new Map();
+
+  for (const row of rows) {
+    if (!map.has(row.gradeId)) {
+      const grade = {
+        gradeId: row.gradeId,
+        gradeName: row.gradeName,
+        classes: []
+      };
+      map.set(row.gradeId, grade);
+      result.push(grade);
+    }
+    if (row.classId) {
+      map.get(row.gradeId).classes.push({
+        classId: row.classId,
+        className: row.className
+      });
+    }
+  }
+
+  return result;
+};
+
+export const createGradeAndClasses = async (gradeName, classes) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // 1. Check if grade exists
+    const [existingGrades] = await connection.query(
+      'SELECT GradeID FROM Grades WHERE GradeName = ?',
+      [gradeName]
+    );
+
+    let gradeId;
+    if (existingGrades.length > 0) {
+      gradeId = existingGrades[0].GradeID;
+    } else {
+      // Create new grade
+      const [insertGradeResult] = await connection.query(
+        'INSERT INTO Grades (GradeName) VALUES (?)',
+        [gradeName]
+      );
+      gradeId = insertGradeResult.insertId;
+    }
+
+    // 2. Create classes if provided
+    if (Array.isArray(classes) && classes.length > 0) {
+      for (const className of classes) {
+        // Check if class exists in this grade
+        const [existingClasses] = await connection.query(
+          'SELECT ClassID FROM Classes WHERE ClassName = ? AND GradeID = ?',
+          [className, gradeId]
+        );
+
+        if (existingClasses.length === 0) {
+          await connection.query(
+            'INSERT INTO Classes (ClassName, GradeID) VALUES (?, ?)',
+            [className, gradeId]
+          );
+        }
+      }
+    }
+
+    await connection.commit();
+    return gradeId;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+export const createAccount = async (role, payload) => {
+  const { username, fullName, phoneNumber, email } = payload;
+  
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // 1. Kiểm tra username
+    const [existingUsers] = await connection.query(
+      'SELECT UserID FROM Users WHERE Username = ?',
+      [username]
+    );
+    if (existingUsers.length > 0) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Tên đăng nhập đã tồn tại');
+    }
+
+    // 2. Hash mật khẩu mặc định '123456'
+    const saltRounds = 10;
+    const defaultPassword = '123456';
+    const hashedPassword = await bcrypt.hash(defaultPassword, saltRounds);
+
+    // 3. Xác định RoleID
+    const roleId = role === 'teacher' ? 3 : 4;
+
+    // 4. Tạo User
+    const [userResult] = await connection.query(
+      'INSERT INTO Users (Username, PasswordHash, RoleID, Status) VALUES (?, ?, ?, ?)',
+      [username, hashedPassword, roleId, 'Active']
+    );
+    const userId = userResult.insertId;
+
+    // 5. Tạo Teacher hoặc Parent
+    if (role === 'teacher') {
+      await connection.query(
+        'INSERT INTO Teachers (TeacherID, FullName, PhoneNumber, Email) VALUES (?, ?, ?, ?)',
+        [userId, fullName, phoneNumber || null, email || null]
+      );
+    } else if (role === 'parent') {
+      await connection.query(
+        'INSERT INTO Parents (ParentID, FullName, PhoneNumber, Email) VALUES (?, ?, ?, ?)',
+        [userId, fullName, phoneNumber, email || null]
+      );
+    }
+
+    await connection.commit();
+    return userId;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 };
