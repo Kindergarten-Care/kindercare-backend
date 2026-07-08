@@ -39,7 +39,7 @@ export const getMonthlySchedule = async (req, res, next) => {
       throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không được phân công dạy lớp này');
     }
 
-    const data = await weeklyScheduleService.getMonthlyScheduleWithWeeks(numericClassId, numericYear, numericMonth);
+    const data = await weeklyScheduleService.getMonthlyScheduleWithWeeks(numericClassId, numericMonth, numericYear);
 
     res.status(httpStatus.OK).json(
       new ApiResponse(httpStatus.OK, data, 'Lấy thời khóa biểu thành công')
@@ -59,6 +59,8 @@ export const upsertMonthlySchedule = async (req, res, next) => {
     const { classId } = req.params;
     const { month, year, monthTheme } = req.body;
 
+    console.log('[BACKEND] upsertMonthlySchedule received:', { teacherId, classId, month, year, monthTheme });
+
     const numericClassId = parseInt(classId);
     if (isNaN(numericClassId)) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'classId phải là số');
@@ -68,21 +70,25 @@ export const upsertMonthlySchedule = async (req, res, next) => {
     }
 
     const yearId = await getActiveYearId();
+    console.log('[BACKEND] getActiveYearId result:', yearId);
     if (!yearId) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy niên khóa đang hoạt động');
     }
 
     const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    console.log('[BACKEND] isTeacherAssignedToClass result:', isAssigned);
     if (!isAssigned) {
       throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không được phân công dạy lớp này');
     }
 
     const result = await weeklyScheduleService.upsertMonthlySchedule(numericClassId, month, year, monthTheme);
+    console.log('[BACKEND] upsertMonthlySchedule result:', result);
 
     res.status(httpStatus.OK).json(
       new ApiResponse(httpStatus.OK, result, 'Lưu thông tin tháng thành công')
     );
   } catch (error) {
+    console.log('[BACKEND] upsertMonthlySchedule error:', error.message);
     next(error);
   }
 };
