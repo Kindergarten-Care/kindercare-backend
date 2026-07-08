@@ -19,6 +19,7 @@ import { startExtracurricularExpiryCron } from './jobs/extracurricularExpiry.cro
 import { startPaymentReconciliationCron } from './jobs/paymentReconciliation.cron.js';
 import './jobs/attendanceCron.js';
 import './jobs/leaveRequestAttendanceCron.js';
+import './socket.js';
 
 dotenv.config({
     path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env'
