@@ -1,4 +1,5 @@
 import pool from '../../config/db.js';
+import bcrypt from 'bcrypt';
 
 /**
  * Lấy thông tin profile của hiệu trưởng theo PrincipalID.
@@ -234,4 +235,23 @@ export const getParentDetail = async (id) => {
   const [children] = await pool.query(childrenQuery, [id]);
 
   return { ...rows[0], children };
+};
+
+/**
+ * Đặt lại mật khẩu của tài khoản về mặc định (123456)
+ * 
+ * @param {number} userId - UserID của tài khoản cần reset
+ * @returns {Promise<boolean>} true nếu thành công, false nếu không tìm thấy user
+ */
+export const resetAccountPassword = async (userId) => {
+  const saltRounds = 10;
+  const defaultPassword = '123456';
+  const hashedPassword = await bcrypt.hash(defaultPassword, saltRounds);
+
+  const [result] = await pool.query(
+    'UPDATE Users SET PasswordHash = ? WHERE UserID = ?',
+    [hashedPassword, userId]
+  );
+  
+  return result.affectedRows > 0;
 };

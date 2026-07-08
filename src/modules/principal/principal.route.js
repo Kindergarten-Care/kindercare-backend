@@ -18,4 +18,7 @@ router.get('/teacher/:id/detail', authenticate, authorize(2), principalControlle
 // Lấy thông tin chi tiết phụ huynh theo id
 router.get('/parent/:id/detail', authenticate, authorize(2), principalController.getParentDetail);
 
+// Đặt lại mật khẩu của tài khoản về mặc định (chỉ hiệu trưởng)
+router.patch('/accounts/:id/reset-password', authenticate, authorize(2), principalController.resetAccountPassword);
+
 export default router;

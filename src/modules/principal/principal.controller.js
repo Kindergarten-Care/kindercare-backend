@@ -179,6 +179,32 @@ const getParentDetail = async (req, res, next) => {
   }
 };
 
+const resetAccountPassword = async (req, res, next) => {
+  try {
+    const roleId = req.user.roleId;
+    if (roleId !== 2) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ hiệu trưởng mới có quyền reset mật khẩu');
+    }
+
+    const id = parsePositiveIntId(req.params.id);
+    const success = await principalService.resetAccountPassword(id);
+
+    if (!success) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy tài khoản với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        null,
+        'Reset mật khẩu thành công (Mặc định: 123456)'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyProfile,
   getTeachersList,
@@ -186,4 +212,5 @@ export default {
   getAccountsByRole,
   getTeacherDetail,
   getParentDetail,
+  resetAccountPassword,
 };
