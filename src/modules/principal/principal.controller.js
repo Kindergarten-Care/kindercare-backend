@@ -115,9 +115,75 @@ const getAccountsByRole = async (req, res, next) => {
   }
 };
 
+/**
+ * Validate id từ URL param: phải là số nguyên dương.
+ * Trả về number, hoặc throw 400 nếu sai.
+ */
+const parsePositiveIntId = (rawId) => {
+  const id = Number(rawId);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'ID không hợp lệ - phải là số nguyên dương');
+  }
+  return id;
+};
+
+const getTeacherDetail = async (req, res, next) => {
+  try {
+    const roleId = req.user.roleId;
+    if (roleId !== 2) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ hiệu trưởng mới có quyền truy cập chi tiết giáo viên');
+    }
+
+    const id = parsePositiveIntId(req.params.id);
+    const teacher = await principalService.getTeacherDetail(id);
+
+    if (!teacher) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy giáo viên với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        teacher,
+        'Lấy thông tin chi tiết giáo viên thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getParentDetail = async (req, res, next) => {
+  try {
+    const roleId = req.user.roleId;
+    if (roleId !== 2) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ hiệu trưởng mới có quyền truy cập chi tiết phụ huynh');
+    }
+
+    const id = parsePositiveIntId(req.params.id);
+    const parent = await principalService.getParentDetail(id);
+
+    if (!parent) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy phụ huynh với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        parent,
+        'Lấy thông tin chi tiết phụ huynh thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyProfile,
   getTeachersList,
   getParentsList,
   getAccountsByRole,
+  getTeacherDetail,
+  getParentDetail,
 };

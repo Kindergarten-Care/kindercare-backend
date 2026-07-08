@@ -12,4 +12,10 @@ router.get('/profile', authenticate, authorize(2), principalController.getMyProf
 //   GET /principal/accounts?role=parent
 router.get('/accounts', authenticate, authorize(2), principalController.getAccountsByRole);
 
+// Lấy thông tin chi tiết giáo viên theo id
+router.get('/teacher/:id/detail', authenticate, authorize(2), principalController.getTeacherDetail);
+
+// Lấy thông tin chi tiết phụ huynh theo id
+router.get('/parent/:id/detail', authenticate, authorize(2), principalController.getParentDetail);
+
 export default router;
