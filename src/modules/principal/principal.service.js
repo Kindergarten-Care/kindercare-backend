@@ -39,7 +39,8 @@ export const getTeachersList = async () => {
       t.TeacherID AS id,
       t.FullName  AS fullName,
       u.Username  AS username,
-      t.Email     AS email
+      t.Email     AS email,
+      u.AvatarURL AS avatarUrl
     FROM Users u
     INNER JOIN Teachers t ON u.UserID = t.TeacherID
     WHERE u.RoleID = 3
@@ -64,7 +65,8 @@ export const getParentsList = async () => {
       p.ParentID AS id,
       p.FullName AS fullName,
       u.Username AS username,
-      p.Email    AS email
+      p.Email    AS email,
+      u.AvatarURL AS avatarUrl
     FROM Users u
     INNER JOIN Parents p ON u.UserID = p.ParentID
     WHERE u.RoleID = 4
@@ -100,7 +102,8 @@ export const getAccountsByRole = async (roleId) => {
       u.UserID                                    AS id,
       COALESCE(t.FullName, p.FullName)             AS fullName,
       u.Username                                  AS username,
-      COALESCE(t.Email, p.Email)                  AS email
+      COALESCE(t.Email, p.Email)                  AS email,
+      u.AvatarURL                                AS avatarUrl
     FROM Users u
     INNER JOIN Roles r ON r.RoleID = u.RoleID
     LEFT  JOIN Teachers t ON u.RoleID = 3 AND u.UserID = t.TeacherID
@@ -160,7 +163,7 @@ export const getTeacherDetail = async (id) => {
   `;
   const [classes] = await pool.query(classesQuery, [id]);
 
-  return { ...rows[0], classes };
+  return { ...rows[0], classes, totalClasses: classes.length };
 };
 
 /**

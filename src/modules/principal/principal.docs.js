@@ -64,8 +64,8 @@
  *   get:
  *     summary: Lấy danh sách tài khoản theo role (gộp teacher + parent)
  *     description: |
- *       Trả về danh sách tài khoản theo role được chỉ định. Mỗi item gồm 4 trường:
- *       `id`, `fullName`, `username`, `email`. Dùng cho màn hình quản trị của hiệu trưởng
+ *       Trả về danh sách tài khoản theo role được chỉ định. Mỗi item gồm 5 trường:
+ *       `id`, `fullName`, `username`, `email`, `avatarUrl`. Dùng cho màn hình quản trị của hiệu trưởng
  *       khi cần chọn giáo viên hoặc tra cứu phụ huynh.
  *
  *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền truy cập.
@@ -120,6 +120,11 @@
  *                         type: string
  *                         nullable: true
  *                         example: lan.nguyen@kindercare.edu.vn
+ *                       avatarUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         description: URL avatar của tài khoản
+ *                         example: null
  *       400:
  *         description: Bad Request - thiếu hoặc sai giá trị `role`
  *       401:
@@ -180,6 +185,10 @@
  *                     address: { type: string, nullable: true, example: null }
  *                     professionalRank: { type: string, nullable: true, example: "Hạng II" }
  *                     workStatus: { type: string, example: Active }
+ *                     totalClasses:
+ *                       type: integer
+ *                       description: Tổng số lớp giáo viên đang phụ trách
+ *                       example: 2
  *                     classes:
  *                       type: array
  *                       description: Danh sách lớp giáo viên đang phụ trách
