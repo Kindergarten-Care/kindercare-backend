@@ -22,6 +22,9 @@ router.get('/grades-classes', authenticate, authorize(2), principalController.ge
 // Tạo khối và lớp
 router.post('/grades-classes', authenticate, authorize(2), principalController.createGradeAndClasses);
 
+// Lấy thông tin chi tiết lớp học
+router.get('/class/:id/detail', authenticate, authorize(2), principalController.getClassDetail);
+
 // Lấy thông tin chi tiết giáo viên theo id
 router.get('/teacher/:id/detail', authenticate, authorize(2), principalController.getTeacherDetail);
 
