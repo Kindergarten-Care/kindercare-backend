@@ -1,71 +1,91 @@
 import express from 'express';
 import multer from 'multer';
 import * as weeklyScheduleController from './weeklySchedule.controller.js';
+import {
+  validateClassIdParam,
+  validateGetMonthlySchedule,
+  validateUpsertMonthlySchedule,
+  validateGetWeeklySchedule,
+  validateSaveWeeklySchedule,
+  validateDeleteWeeklySchedule,
+  validatePreviewCSV,
+  validateImportCSV,
+} from './weeklySchedule.validation.js';
 
 const router = express.Router();
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }
+  limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-// ── Monthly Schedule ──────────────────────────────────────────────────────────
+// ── Helpers (Month metadata) ───────────────────────────────────────────────────
+
+// GET /teacher/classes/:classId/monthly-schedule/weeks/:year/:month
+router.get(
+  '/classes/:classId/monthly-schedule/weeks/:year/:month',
+  validateClassIdParam,
+  weeklyScheduleController.getWeeksInMonth
+);
+
+// ── MonthlySchedule (MS) ──────────────────────────────────────────────────────
 
 // GET full monthly schedule with all weeks + details
 router.get(
   '/classes/:classId/monthly-schedule/:year/:month',
+  validateGetMonthlySchedule,
   weeklyScheduleController.getMonthlySchedule
 );
 
 // POST upsert monthly schedule
 router.post(
   '/classes/:classId/monthly-schedule',
+  validateClassIdParam,
+  validateUpsertMonthlySchedule,
   weeklyScheduleController.upsertMonthlySchedule
 );
 
-// ── Weekly Schedule ──────────────────────────────────────────────────────────
+// ── WeeklySchedule (WS) ───────────────────────────────────────────────────────
+
+// POST upsert weekly schedule + details (replace mode)
+router.post(
+  '/classes/:classId/weekly-schedule',
+  validateClassIdParam,
+  validateSaveWeeklySchedule,
+  weeklyScheduleController.saveWeeklySchedule
+);
 
 // GET single weekly schedule by ID
 router.get(
   '/classes/:classId/weekly-schedule/:wsId',
+  validateGetWeeklySchedule,
   weeklyScheduleController.getWeeklyScheduleById
-);
-
-// POST upsert weekly schedule + details
-router.post(
-  '/classes/:classId/weekly-schedule',
-  weeklyScheduleController.saveWeeklySchedule
 );
 
 // DELETE weekly schedule (cascade)
 router.delete(
   '/classes/:classId/weekly-schedule/:wsId',
+  validateDeleteWeeklySchedule,
   weeklyScheduleController.deleteWeeklySchedule
 );
 
-// POST submit weekly schedule for approval
-router.post(
-  '/classes/:classId/weekly-schedule/:wsId/submit',
-  weeklyScheduleController.submitForApproval
-);
-
-// POST withdraw submitted weekly schedule
-router.post(
-  '/classes/:classId/weekly-schedule/:wsId/withdraw',
-  weeklyScheduleController.withdrawTemplate
-);
+// ── CSV (preview + import) ────────────────────────────────────────────────────
 
 // POST preview CSV (parse without saving)
 router.post(
-  '/classes/:classId/weekly-schedule/:wsId/preview-csv',
+  '/classes/:classId/weekly-schedule/preview-csv',
+  validateClassIdParam,
   upload.single('file'),
+  validatePreviewCSV,
   weeklyScheduleController.previewCSV
 );
 
-// POST import CSV
+// POST import CSV → writes WS/WSD per week
 router.post(
-  '/classes/:classId/weekly-schedule/:wsId/import-csv',
+  '/classes/:classId/weekly-schedule/import-csv',
+  validateClassIdParam,
   upload.single('file'),
+  validateImportCSV,
   weeklyScheduleController.importCSV
 );
 

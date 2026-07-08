@@ -1,176 +1,130 @@
 import Joi from 'joi';
 import httpStatus from 'http-status';
 import ApiError from '../../../utils/ApiError.js';
-import pool from '../../../config/db.js';
 
 const VALID_WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-export { VALID_WEEKDAYS };
+const VALID_ACTIVITY_TYPES = ['pickup', 'meal', 'study', 'nap', 'play', 'dropoff', 'other'];
+export { VALID_WEEKDAYS, VALID_ACTIVITY_TYPES };
 
 const weeklyScheduleItemSchema = Joi.object({
   dayOfWeek: Joi.string().valid(...VALID_WEEKDAYS).required(),
   startTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/).required(),
   endTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/).required(),
   activityName: Joi.string().max(150).required(),
-  activityType: Joi.string().valid('pickup', 'meal', 'study', 'nap', 'play', 'dropoff', 'other').default('other'),
+  activityType: Joi.string().valid(...VALID_ACTIVITY_TYPES).default('other'),
   details: Joi.string().allow('', null).optional(),
   location: Joi.string().max(100).allow('', null).optional(),
-  orderIndex: Joi.number().integer().min(0).optional()
 });
+
+const ALLOWED_CSV_MIME = ['text/csv', 'application/vnd.ms-excel', 'text/plain', 'application/octet-stream'];
+
+const formatError = (error) => {
+  if (!error) return null;
+  return error.details.map((d) => d.message).join('; ');
+};
+
+const parsePositiveInt = (raw, name) => {
+  const v = parseInt(raw, 10);
+  if (isNaN(v)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, `${name} phải là số`);
+  }
+  return v;
+};
+
+export const validateClassIdParam = (req, res, next) => {
+  try {
+    parsePositiveInt(req.params.classId, 'classId');
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const validateGetMonthlySchedule = (req, res, next) => {
+  try {
+    parsePositiveInt(req.params.classId, 'classId');
+    const y = parsePositiveInt(req.params.year, 'year');
+    const m = parsePositiveInt(req.params.month, 'month');
+    if (m < 1 || m > 12) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'month phải từ 1-12');
+    }
+    if (y < 2020 || y > 2100) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'year không hợp lệ');
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
 
 export const validateUpsertMonthlySchedule = (req, res, next) => {
   const schema = Joi.object({
     month: Joi.number().integer().min(1).max(12).required(),
     year: Joi.number().integer().min(2020).max(2100).required(),
-    monthTheme: Joi.string().max(200).required()
+    monthTheme: Joi.string().max(255).required(),
   });
-
   const { error, value } = schema.validate(req.body, { abortEarly: false });
-
-  if (error) {
-    const errors = error.details.map(d => d.message);
-    return next(new ApiError(httpStatus.BAD_REQUEST, errors.join('; ')));
-  }
-
+  if (error) return next(new ApiError(httpStatus.BAD_REQUEST, formatError(error)));
   req.body = value;
   next();
 };
 
-export const validatePreviewCSV = (req, res, next) => {
-  if (!req.file) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng upload file CSV'));
+export const validateGetWeeklySchedule = (req, res, next) => {
+  try {
+    parsePositiveInt(req.params.classId, 'classId');
+    parsePositiveInt(req.params.wsId, 'wsId');
+    next();
+  } catch (err) {
+    next(err);
   }
-
-  const allowedMimeTypes = ['text/csv', 'application/vnd.ms-excel', 'text/plain'];
-  if (!allowedMimeTypes.includes(req.file.mimetype)) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'Chỉ chấp nhận file CSV'));
-  }
-
-  next();
 };
 
-/**
- * Validate CSV rows for valid weekdays (Mon-Fri only)
- */
-export const validateCSVWeekdays = (csvData) => {
-  const invalidRows = [];
-  for (let i = 0; i < csvData.length; i++) {
-    const day = csvData[i].DayOfWeek || csvData[i].dayOfWeek || csvData[i].Day || csvData[i].day;
-    if (!VALID_WEEKDAYS.includes(day)) {
-      invalidRows.push({
-        row: i + 2,
-        day: day || 'unknown',
-        week: csvData[i].Week || csvData[i].weekOrder || 1
-      });
-    }
-  }
-  return invalidRows;
-};
-
-export const validateImportCSV = (req, res, next) => {
-  if (!req.file) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng upload file CSV'));
-  }
-
-  const allowedMimeTypes = ['text/csv', 'application/vnd.ms-excel', 'text/plain'];
-  if (!allowedMimeTypes.includes(req.file.mimetype)) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'Chỉ chấp nhận file CSV'));
-  }
-
+export const validateSaveWeeklySchedule = (req, res, next) => {
   const schema = Joi.object({
-    yearId: Joi.number().integer().positive().required(),
-    month: Joi.number().integer().min(1).max(12).required(),
-    year: Joi.number().integer().min(2020).max(2100).required(),
+    monthlyScheduleId: Joi.number().integer().positive().required(),
     weekOrder: Joi.number().integer().min(1).max(5).required(),
-    weekTheme: Joi.string().max(200).required()
+    weekTheme: Joi.string().max(255).allow('').required(),
+    items: Joi.array().items(weeklyScheduleItemSchema).default([]),
   });
-
   const { error, value } = schema.validate(req.body, { abortEarly: false });
-
-  if (error) {
-    const errors = error.details.map(d => d.message);
-    return next(new ApiError(httpStatus.BAD_REQUEST, errors.join('; ')));
-  }
-
+  if (error) return next(new ApiError(httpStatus.BAD_REQUEST, formatError(error)));
   req.body = value;
   next();
 };
 
-export const validateGetTemplates = (req, res, next) => {
-  const { classId, year, month } = req.params;
-
-  if (isNaN(parseInt(classId))) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId phải là số'));
+export const validateDeleteWeeklySchedule = (req, res, next) => {
+  try {
+    parsePositiveInt(req.params.classId, 'classId');
+    parsePositiveInt(req.params.wsId, 'wsId');
+    next();
+  } catch (err) {
+    next(err);
   }
+};
 
-  if (isNaN(parseInt(year))) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'year phải là số'));
+const validateCsvUpload = (req, res, next) => {
+  if (!req.file) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng upload file CSV'));
   }
-
-  const m = parseInt(month);
-  if (isNaN(m) || m < 1 || m > 12) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'month phải từ 1-12'));
+  if (!ALLOWED_CSV_MIME.includes(req.file.mimetype)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'Chỉ chấp nhận file CSV'));
   }
-
   next();
 };
 
-export const validateTemplateId = (req, res, next) => {
-  const { templateId } = req.params;
+export const validatePreviewCSV = [
+  validateCsvUpload,
+];
 
-  if (isNaN(parseInt(templateId))) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'templateId phải là số'));
-  }
-
-  next();
-};
-
-// Reason validation shared by snapshot + submit-change endpoints.
-const reasonSchema = Joi.string().trim().min(5).max(500).required();
-
-export const validateSnapshotItems = (req, res, next) => {
-  const schema = Joi.object({
-    reason: reasonSchema,
-  });
-
-  const { error, value } = schema.validate(req.body, { abortEarly: false });
-
-  if (error) {
-    const errors = error.details.map(d => d.message);
-    return next(new ApiError(httpStatus.BAD_REQUEST, errors.join('; ')));
-  }
-
-  req.body = value;
-  next();
-};
-
-export const validateSubmitChangeRequest = (req, res, next) => {
-  const schema = Joi.object({
-    reason: reasonSchema,
-  });
-
-  const { error, value } = schema.validate(req.body, { abortEarly: false });
-
-  if (error) {
-    const errors = error.details.map(d => d.message);
-    return next(new ApiError(httpStatus.BAD_REQUEST, errors.join('; ')));
-  }
-
-  req.body = value;
-  next();
-};
-
-export const validateWithdrawChangeRequest = (req, res, next) => {
-  const schema = Joi.object({
-    restoreOriginal: Joi.boolean().default(true),
-  });
-
-  const { error, value } = schema.validate(req.body, { abortEarly: false });
-
-  if (error) {
-    const errors = error.details.map(d => d.message);
-    return next(new ApiError(httpStatus.BAD_REQUEST, errors.join('; ')));
-  }
-
-  req.body = value;
-  next();
-};
+export const validateImportCSV = [
+  validateCsvUpload,
+  (req, res, next) => {
+    const schema = Joi.object({
+      monthlyScheduleId: Joi.number().integer().positive().required(),
+    });
+    const { error, value } = schema.validate(req.body, { abortEarly: false });
+    if (error) return next(new ApiError(httpStatus.BAD_REQUEST, formatError(error)));
+    req.body = value;
+    next();
+  },
+];
