@@ -328,4 +328,91 @@
  *         description: Forbidden - Chỉ hiệu trưởng mới có quyền
  *       404:
  *         description: Not Found - Không tìm thấy tài khoản
+ * 
+ * /principal/accounts/{id}/lock:
+ *   patch:
+ *     summary: Khóa tài khoản
+ *     description: Chuyển trạng thái của tài khoản sang "inactive"
+ *     tags: ["Principal - Accounts"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID của tài khoản cần khóa (UserID)
+ *     responses:
+ *       200:
+ *         description: Khóa tài khoản thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Khóa tài khoản thành công
+ *                 data:
+ *                   nullable: true
+ *                   example: null
+ *       400:
+ *         description: Bad Request - ID không hợp lệ
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Chỉ hiệu trưởng mới có quyền
+ *       404:
+ *         description: Not Found - Không tìm thấy tài khoản
+ * 
+ * /principal/accounts/{id}/unlock:
+ *   patch:
+ *     summary: Mở khóa tài khoản
+ *     description: Chuyển trạng thái của tài khoản sang "active"
+ *     tags: ["Principal - Accounts"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID của tài khoản cần mở khóa (UserID)
+ *     responses:
+ *       200:
+ *         description: Mở khóa tài khoản thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Mở khóa tài khoản thành công
+ *                 data:
+ *                   nullable: true
+ *                   example: null
+ *       400:
+ *         description: Bad Request - ID không hợp lệ
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Chỉ hiệu trưởng mới có quyền
+ *       404:
+ *       404:
+ *         description: Not Found - Không tìm thấy tài khoản
  */

@@ -123,6 +123,7 @@ export const getAccountsByRole = async (roleId) => {
       u.UserID                                    AS id,
       ${fullNameSelect},
       u.Username                                  AS username,
+      u.Status                                    AS status,
       ${emailSelect},
       ${phoneSelect},
       ${avatarSelect}
@@ -257,5 +258,29 @@ export const resetAccountPassword = async (userId) => {
     [hashedPassword, userId]
   );
   
+  return result.affectedRows > 0;
+};
+
+/**
+ * Khóa tài khoản (Chuyển status thành 'Inactive')
+ * 
+ * @param {number} userId - UserID của tài khoản cần khóa
+ * @returns {Promise<boolean>} true nếu thành công, false nếu không tìm thấy user
+ */
+export const lockAccount = async (userId) => {
+  const query = 'UPDATE Users SET Status = "Inactive" WHERE UserID = ?';
+  const [result] = await pool.query(query, [userId]);
+  return result.affectedRows > 0;
+};
+
+/**
+ * Mở khóa tài khoản (Chuyển status thành 'Active')
+ * 
+ * @param {number} userId - UserID của tài khoản cần mở khóa
+ * @returns {Promise<boolean>} true nếu thành công, false nếu không tìm thấy user
+ */
+export const unlockAccount = async (userId) => {
+  const query = 'UPDATE Users SET Status = "Active" WHERE UserID = ?';
+  const [result] = await pool.query(query, [userId]);
   return result.affectedRows > 0;
 };
