@@ -318,7 +318,7 @@
  *                   type: string
  *                   example: Reset mật khẩu thành công (Mặc định: 123456)
  *                 data:
- *                   type: 'null'
+ *                   nullable: true
  *                   example: null
  *       400:
  *         description: Bad Request - ID không hợp lệ
