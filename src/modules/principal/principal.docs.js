@@ -127,3 +127,150 @@
  *       403:
  *         description: Forbidden - không phải role hiệu trưởng
  */
+
+/**
+ * @swagger
+ * /principal/teacher/{id}/detail:
+ *   get:
+ *     summary: Lấy thông tin chi tiết tài khoản giáo viên
+ *     description: |
+ *       Trả về thông tin đầy đủ của giáo viên kèm danh sách lớp đang phụ trách
+ *       (join từ `ClassTeachers` ↔ `Classes`).
+ *
+ *       Dùng cho màn hình chi tiết khi hiệu trưởng bấm vào 1 dòng trong danh sách.
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền truy cập.
+ *     tags: ["Principal - Teacher"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: TeacherID (đồng thời là UserID)
+ *         example: 5
+ *     responses:
+ *       200:
+ *         description: Lấy thông tin chi tiết giáo viên thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Lấy thông tin chi tiết giáo viên thành công }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer, example: 5 }
+ *                     username: { type: string, example: gv_quanghuy }
+ *                     status: { type: string, example: Active }
+ *                     avatarUrl: { type: string, nullable: true, example: null }
+ *                     roleId: { type: integer, example: 3 }
+ *                     roleName: { type: string, example: Teacher }
+ *                     fullName: { type: string, example: Lê Quang Huy }
+ *                     phoneNumber: { type: string, nullable: true, example: "12312412" }
+ *                     email: { type: string, nullable: true, example: "ok" }
+ *                     dateOfBirth: { type: integer, nullable: true, example: null, description: "Unix timestamp (seconds)" }
+ *                     gender: { type: string, nullable: true, example: Nam }
+ *                     idCard: { type: string, nullable: true, example: null }
+ *                     address: { type: string, nullable: true, example: null }
+ *                     professionalRank: { type: string, nullable: true, example: "Hạng II" }
+ *                     workStatus: { type: string, example: Active }
+ *                     classes:
+ *                       type: array
+ *                       description: Danh sách lớp giáo viên đang phụ trách
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           classId: { type: integer, example: 1 }
+ *                           className: { type: string, example: "Mầm 1" }
+ *                           roleInClass: { type: string, example: "Giáo viên trưởng" }
+ *                           assignedDate: { type: integer, nullable: true, description: "Unix timestamp (seconds)", example: 1781082000 }
+ *       400:
+ *         description: Bad Request - id không hợp lệ
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy giáo viên
+ */
+
+/**
+ * @swagger
+ * /principal/parent/{id}/detail:
+ *   get:
+ *     summary: Lấy thông tin chi tiết tài khoản phụ huynh
+ *     description: |
+ *       Trả về thông tin đầy đủ của phụ huynh kèm danh sách con
+ *       (join từ `StudentParents` ↔ `Students` ↔ `Classes`).
+ *
+ *       Dùng cho màn hình chi tiết khi hiệu trưởng bấm vào 1 dòng trong danh sách.
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền truy cập.
+ *     tags: ["Principal - Parent"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: ParentID (đồng thời là UserID)
+ *         example: 4
+ *     responses:
+ *       200:
+ *         description: Lấy thông tin chi tiết phụ huynh thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Lấy thông tin chi tiết phụ huynh thành công }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer, example: 4 }
+ *                     username: { type: string, example: ph_tuan }
+ *                     status: { type: string, example: Active }
+ *                     avatarUrl: { type: string, nullable: true, example: null }
+ *                     roleId: { type: integer, example: 4 }
+ *                     roleName: { type: string, example: Parent }
+ *                     fullName: { type: string, example: "Nguyễn Anh Tuấn" }
+ *                     dateOfBirth: { type: integer, nullable: true, example: null }
+ *                     phoneNumber: { type: string, example: "0909090909" }
+ *                     email: { type: string, nullable: true, example: "tuan.nguyen@gmail.com" }
+ *                     idCard: { type: string, nullable: true, example: null }
+ *                     job: { type: string, nullable: true, example: "Kỹ sư phần mềm" }
+ *                     address: { type: string, nullable: true, example: "Quận 1, TP.HCM" }
+ *                     parentAvatarUrl: { type: string, nullable: true, example: null }
+ *                     children:
+ *                       type: array
+ *                       description: Danh sách con của phụ huynh
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           studentId: { type: integer, example: 1 }
+ *                           fullName: { type: string, example: "Nguyễn Minh Khang" }
+ *                           dateOfBirth: { type: integer, description: "Unix timestamp (seconds)", example: 1684108800 }
+ *                           gender: { type: string, nullable: true, example: Nam }
+ *                           classId: { type: integer, nullable: true, example: 1 }
+ *                           className: { type: string, nullable: true, example: "Mầm 1" }
+ *                           relationship: { type: string, example: "Bố" }
+ *                           isPrimary: { type: integer, description: "1 = phụ huynh chính", example: 1 }
+ *       400:
+ *         description: Bad Request - id không hợp lệ
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy phụ huynh
+ */
