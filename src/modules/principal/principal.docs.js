@@ -283,3 +283,49 @@
  *       404:
  *         description: Not Found - không tìm thấy phụ huynh
  */
+
+/**
+ * @swagger
+ * /principal/accounts/{id}/reset-password:
+ *   patch:
+ *     summary: Khôi phục mật khẩu tài khoản về mặc định
+ *     description: Đặt lại mật khẩu của tài khoản giáo viên hoặc phụ huynh về mặc định "123456"
+ *     tags: ["Principal - Accounts"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID của tài khoản cần đặt lại mật khẩu (UserID)
+ *     responses:
+ *       200:
+ *         description: Reset mật khẩu thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Reset mật khẩu thành công (Mặc định: 123456)
+ *                 data:
+ *                   type: 'null'
+ *                   example: null
+ *       400:
+ *         description: Bad Request - ID không hợp lệ
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Chỉ hiệu trưởng mới có quyền
+ *       404:
+ *         description: Not Found - Không tìm thấy tài khoản
+ */
