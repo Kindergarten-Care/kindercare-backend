@@ -107,7 +107,7 @@ export const getAccountsByRole = async (roleId) => {
   const emailSelect = roleId === 4
     ? 'p.Email AS email'
     : 't.Email AS email';
-    
+
   const phoneSelect = roleId === 4
     ? 'p.PhoneNumber AS phoneNumber'
     : 't.PhoneNumber AS phoneNumber';
@@ -246,7 +246,7 @@ export const getParentDetail = async (id) => {
 
 /**
  * Đặt lại mật khẩu của tài khoản về mặc định (123456)
- * 
+ *
  * @param {number} userId - UserID của tài khoản cần reset
  * @returns {Promise<boolean>} true nếu thành công, false nếu không tìm thấy user
  */
@@ -259,13 +259,13 @@ export const resetAccountPassword = async (userId) => {
     'UPDATE Users SET PasswordHash = ? WHERE UserID = ?',
     [hashedPassword, userId]
   );
-  
+
   return result.affectedRows > 0;
 };
 
 /**
  * Khóa tài khoản (Chuyển status thành 'Inactive')
- * 
+ *
  * @param {number} userId - UserID của tài khoản cần khóa
  * @returns {Promise<boolean>} true nếu thành công, false nếu không tìm thấy user
  */
@@ -277,7 +277,7 @@ export const lockAccount = async (userId) => {
 
 /**
  * Mở khóa tài khoản (Chuyển status thành 'Active')
- * 
+ *
  * @param {number} userId - UserID của tài khoản cần mở khóa
  * @returns {Promise<boolean>} true nếu thành công, false nếu không tìm thấy user
  */
@@ -377,7 +377,7 @@ export const createGradeAndClasses = async (gradeName, classes) => {
 
 export const createAccount = async (role, payload) => {
   const { username, fullName, phoneNumber, email } = payload;
-  
+
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -427,4 +427,84 @@ export const createAccount = async (role, payload) => {
   } finally {
     connection.release();
   }
+};
+
+/**
+ * Lấy thông tin chi tiết lớp học gồm: Khối - Tên lớp, ds giáo viên, ds học sinh, điểm danh hôm nay.
+ * @param {number} classId
+ * @returns {Promise<Object|null>}
+ */
+export const getClassDetail = async (classId) => {
+  // 1. Lấy thông tin Khối & Lớp
+  const classQuery = `
+    SELECT c.ClassID AS classId, c.ClassName AS className, g.GradeName AS gradeName
+    FROM Classes c
+    JOIN Grades g ON c.GradeID = g.GradeID
+    WHERE c.ClassID = ?
+  `;
+  const [classRows] = await pool.query(classQuery, [classId]);
+  if (classRows.length === 0) return null;
+
+  const classInfo = classRows[0];
+
+  // 2. Lấy danh sách Giáo viên (FullName, Email, PhoneNumber lấy từ Teachers; AvatarURL lấy từ Users)
+  const teachersQuery = `
+    SELECT
+      u.UserID AS id,
+      t.FullName AS fullName,
+      t.Email AS email,
+      t.PhoneNumber AS phoneNumber,
+      u.AvatarURL AS avatarUrl,
+      ct.RoleInClass AS roleInClass
+    FROM ClassTeachers ct
+    JOIN Teachers t ON ct.TeacherID = t.TeacherID
+    JOIN Users u ON t.TeacherID = u.UserID
+    WHERE ct.ClassID = ?
+  `;
+  const [teachers] = await pool.query(teachersQuery, [classId]);
+
+  // 3. Lấy danh sách Học sinh
+  const studentsQuery = `
+    SELECT
+      StudentID AS studentId,
+      FullName AS fullName,
+      AvatarURL AS avatarUrl,
+      DateOfBirth AS dateOfBirth,
+      AdmissionDate AS admissionDate
+    FROM Students
+    WHERE ClassID = ?
+  `;
+  const [students] = await pool.query(studentsQuery, [classId]);
+
+  // 4. Tổng hợp Điểm danh hôm nay — hardcode Asia/Ho_Chi_Minh để đảm bảo đúng giờ VN
+  // dù server đang chạy ở bất kỳ timezone nào (UTC, UTC+7, v.v.)
+  const nowVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+  const startOfToday = new Date(nowVN.getFullYear(), nowVN.getMonth(), nowVN.getDate(), 0, 0, 0);
+  const endOfToday = new Date(nowVN.getFullYear(), nowVN.getMonth(), nowVN.getDate(), 23, 59, 59);
+  const startOfTodayUnix = Math.floor(startOfToday.getTime() / 1000);
+  const endOfTodayUnix = Math.floor(endOfToday.getTime() / 1000);
+
+  const attendanceQuery = `
+    SELECT a.Status AS status, COUNT(*) AS count
+    FROM Attendances a
+    JOIN Students s ON a.StudentID = s.StudentID
+    WHERE s.ClassID = ? AND a.AttendanceDate BETWEEN ? AND ?
+    GROUP BY a.Status
+  `;
+  const [attendanceRows] = await pool.query(attendanceQuery, [classId, startOfTodayUnix, endOfTodayUnix]);
+
+  const attendanceStatus = { present: 0, absent: 0, excused: 0 };
+  attendanceRows.forEach(row => {
+    if (row.status === 'Present') attendanceStatus.present = row.count;
+    else if (row.status === 'Absent') attendanceStatus.absent = row.count;
+    else if (row.status === 'Excused') attendanceStatus.excused = row.count;
+  });
+
+  return {
+    ...classInfo,
+    teachers,
+    totalStudents: students.length,
+    attendanceToday: attendanceStatus,
+    students
+  };
 };

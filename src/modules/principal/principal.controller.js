@@ -249,6 +249,26 @@ const unlockAccount = async (req, res, next) => {
   }
 };
 
+const getClassDetail = async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id) || id <= 0) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Class ID không hợp lệ');
+    }
+
+    const classDetail = await principalService.getClassDetail(id);
+    if (!classDetail) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy lớp học với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, classDetail, 'Lấy thông tin chi tiết lớp học thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getGradesAndClasses = async (req, res, next) => {
   try {
     const grades = await principalService.getGradesAndClasses();
@@ -317,4 +337,5 @@ export default {
   getGradesAndClasses,
   createGradeAndClasses,
   createAccount,
+  getClassDetail,
 };

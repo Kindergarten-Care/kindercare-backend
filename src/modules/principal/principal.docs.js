@@ -609,6 +609,138 @@
  *       403:
  *         description: Forbidden - Chỉ hiệu trưởng mới có quyền
  *       404:
- *       404:
  *         description: Not Found - Không tìm thấy tài khoản
+ */
+
+/**
+ * @swagger
+ * /principal/class/{id}/detail:
+ *   get:
+ *     summary: Get class detail by ID
+ *     description: |
+ *       Returns full details of a class including:
+ *       - Grade name and class name
+ *       - List of teachers assigned to the class (full name, email, phone, avatar, role in class)
+ *       - Total number of students
+ *       - Today's attendance summary (present, absent, excused) based on `AttendanceDate` unix timestamp matching today's date range
+ *       - Full student list (ID, name, avatar, date of birth, admission date)
+ *
+ *       **Only Principal (roleId=2)** can access this endpoint.
+ *     tags: ["Principal - Grades"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ClassID to retrieve details for
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Class detail retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy thông tin chi tiết lớp học thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     classId:
+ *                       type: integer
+ *                       example: 1
+ *                     className:
+ *                       type: string
+ *                       example: Mầm 1
+ *                     gradeName:
+ *                       type: string
+ *                       example: Khối Mầm
+ *                     teachers:
+ *                       type: array
+ *                       description: List of teachers assigned to this class
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                             example: 7
+ *                           fullName:
+ *                             type: string
+ *                             example: Nguyễn Thị Lan
+ *                           email:
+ *                             type: string
+ *                             nullable: true
+ *                             example: lan.nguyen@kindercare.edu.vn
+ *                           phoneNumber:
+ *                             type: string
+ *                             nullable: true
+ *                             example: "0912345678"
+ *                           avatarUrl:
+ *                             type: string
+ *                             nullable: true
+ *                             example: https://media.kindercare.app/teachers/avatar.jpg
+ *                           roleInClass:
+ *                             type: string
+ *                             example: MainTeacher
+ *                     totalStudents:
+ *                       type: integer
+ *                       description: Total number of students in this class
+ *                       example: 18
+ *                     attendanceToday:
+ *                       type: object
+ *                       description: Attendance summary for today based on unix timestamp range
+ *                       properties:
+ *                         present:
+ *                           type: integer
+ *                           example: 15
+ *                         absent:
+ *                           type: integer
+ *                           example: 2
+ *                         excused:
+ *                           type: integer
+ *                           example: 1
+ *                     students:
+ *                       type: array
+ *                       description: Full list of students in this class
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           studentId:
+ *                             type: integer
+ *                             example: 19
+ *                           fullName:
+ *                             type: string
+ *                             example: Nguyễn Minh Chánh
+ *                           avatarUrl:
+ *                             type: string
+ *                             nullable: true
+ *                             example: https://media.kindercare.app/students/avatar.jpg
+ *                           dateOfBirth:
+ *                             type: integer
+ *                             description: Unix timestamp of student's date of birth
+ *                             example: 1464739200
+ *                           admissionDate:
+ *                             type: integer
+ *                             description: Unix timestamp of student's admission date (nullable)
+ *                             nullable: true
+ *                             example: 1781082000
+ *       400:
+ *         description: Bad Request - Invalid class ID
+ *       401:
+ *         description: Unauthorized - Missing or invalid token
+ *       403:
+ *         description: Forbidden - Only Principal can access
+ *       404:
+ *         description: Not Found - Class with given ID does not exist
  */
