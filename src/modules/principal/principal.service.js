@@ -202,7 +202,7 @@ export const getParentDetail = async (id) => {
       u.UserID         AS id,
       u.Username       AS username,
       u.Status         AS status,
-      u.AvatarURL      AS avatarUrl,
+      p.AvatarURL      AS avatarUrl,
       u.RoleID         AS roleId,
       r.RoleName       AS roleName,
       p.FullName       AS fullName,
@@ -211,8 +211,7 @@ export const getParentDetail = async (id) => {
       p.Email          AS email,
       p.IDCard         AS idCard,
       p.Job            AS job,
-      p.Address        AS address,
-      p.AvatarURL      AS parentAvatarUrl
+      p.Address        AS address
     FROM Users u
     INNER JOIN Roles   r ON r.RoleID = u.RoleID
     INNER JOIN Parents p ON u.UserID = p.ParentID
