@@ -205,6 +205,50 @@ const resetAccountPassword = async (req, res, next) => {
   }
 };
 
+const lockAccount = async (req, res, next) => {
+  try {
+    const roleId = req.user.roleId;
+    if (roleId !== 2) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ hiệu trưởng mới có quyền thao tác');
+    }
+
+    const id = parsePositiveIntId(req.params.id);
+    const success = await principalService.lockAccount(id);
+
+    if (!success) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy tài khoản với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Khóa tài khoản thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const unlockAccount = async (req, res, next) => {
+  try {
+    const roleId = req.user.roleId;
+    if (roleId !== 2) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ hiệu trưởng mới có quyền thao tác');
+    }
+
+    const id = parsePositiveIntId(req.params.id);
+    const success = await principalService.unlockAccount(id);
+
+    if (!success) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy tài khoản với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Mở khóa tài khoản thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyProfile,
   getTeachersList,
@@ -213,4 +257,6 @@ export default {
   getTeacherDetail,
   getParentDetail,
   resetAccountPassword,
+  lockAccount,
+  unlockAccount,
 };
