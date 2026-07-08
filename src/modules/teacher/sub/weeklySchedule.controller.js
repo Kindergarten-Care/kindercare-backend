@@ -299,5 +299,4 @@ const getActiveYearId = async () => {
   return rows.length > 0 ? rows[0].YearID : null;
 };
 
-// Import pool for helper
-import { pool } from '../../../config/database.js';
+import pool from '../../../config/db.js';

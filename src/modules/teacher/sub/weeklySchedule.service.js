@@ -1,4 +1,4 @@
-import { pool } from '../../../config/database.js';
+import pool from '../../../config/db.js';
 import ApiError from '../../../utils/ApiError.js';
 import httpStatus from 'http-status';
 
