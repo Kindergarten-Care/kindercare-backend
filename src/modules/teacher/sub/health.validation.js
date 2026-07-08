@@ -54,6 +54,21 @@ const healthLogUpdateSchema = Joi.object({
   loggedAt: Joi.number().integer().positive().optional()
 }).min(1);
 
+const developmentAssessmentItemSchema = Joi.object({
+  studentId: Joi.number().integer().positive().required(),
+  physicalScore: Joi.number().integer().min(0).max(5).allow(null).optional(),
+  emotionalScore: Joi.number().integer().min(0).max(5).allow(null).optional(),
+  socialScore: Joi.number().integer().min(0).max(5).allow(null).optional(),
+  languageScore: Joi.number().integer().min(0).max(5).allow(null).optional(),
+  cognitiveScore: Joi.number().integer().min(0).max(5).allow(null).optional(),
+  overallNote: Joi.string().trim().allow('', null).max(1000).optional()
+});
+
+const developmentAssessmentBodySchema = Joi.object({
+  termPeriod: Joi.string().trim().pattern(/^\d{4}-\d{2}$/).optional(),
+  items: Joi.array().items(developmentAssessmentItemSchema).min(1).required()
+});
+
 const validateNumericId = (name) => (req, _res, next) => {
   const raw = req.params[name];
   if (raw === undefined || isNaN(parseInt(raw))) {
@@ -120,6 +135,16 @@ export const validateCreateHealthLog = (req, _res, next) => {
 
 export const validateUpdateHealthLog = (req, _res, next) => {
   const { error, value } = healthLogUpdateSchema.validate(req.body, { abortEarly: false });
+  if (error) {
+    const details = error.details.map((d) => d.message).join('; ');
+    return next(new ApiError(httpStatus.BAD_REQUEST, details));
+  }
+  req.body = value;
+  next();
+};
+
+export const validateDevelopmentAssessmentBatch = (req, _res, next) => {
+  const { error, value } = developmentAssessmentBodySchema.validate(req.body, { abortEarly: false });
   if (error) {
     const details = error.details.map((d) => d.message).join('; ');
     return next(new ApiError(httpStatus.BAD_REQUEST, details));
