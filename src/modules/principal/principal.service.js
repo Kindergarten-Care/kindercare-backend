@@ -1,5 +1,5 @@
 import pool from '../../config/db.js';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 /**
  * Lấy thông tin profile của hiệu trưởng theo PrincipalID.
