@@ -8,15 +8,12 @@ const unixNow = () => Math.floor(Date.now() / 1000);
  * @returns {Promise<Object|null>}
  */
 export const getMonthlySchedule = async (classId, month, year) => {
-  console.log('[SERVICE] getMonthlySchedule called with:', { classId, month, year, types: { classId: typeof classId, month: typeof month, year: typeof year } });
   const [rows] = await pool.query(
     `SELECT * FROM MonthlySchedules WHERE ClassID = ? AND Month = ? AND Year = ?`,
     [classId, month, year]
   );
-  console.log('[SERVICE] getMonthlySchedule rows found:', rows.length);
   if (rows.length === 0) return null;
   const r = rows[0];
-  console.log('[SERVICE] getMonthlySchedule row:', r);
   return {
     monthlyScheduleId: r.MonthlyScheduleID,
     classId: r.ClassID,

@@ -18,7 +18,7 @@ const getActiveYearId = async () => {
  */
 export const getMonthlySchedule = async (req, res, next) => {
   try {
-    const teacherId = req.user.userId;
+    const teacherId = req.user.TeacherID || req.user.userId;
     const { classId, year, month } = req.params;
 
     const numericClassId = parseInt(classId);
@@ -55,11 +55,9 @@ export const getMonthlySchedule = async (req, res, next) => {
  */
 export const upsertMonthlySchedule = async (req, res, next) => {
   try {
-    const teacherId = req.user.userId;
+    const teacherId = req.user.TeacherID || req.user.userId;
     const { classId } = req.params;
     const { month, year, monthTheme } = req.body;
-
-    console.log('[BACKEND] upsertMonthlySchedule received:', { teacherId, classId, month, year, monthTheme });
 
     const numericClassId = parseInt(classId);
     if (isNaN(numericClassId)) {
@@ -70,25 +68,21 @@ export const upsertMonthlySchedule = async (req, res, next) => {
     }
 
     const yearId = await getActiveYearId();
-    console.log('[BACKEND] getActiveYearId result:', yearId);
     if (!yearId) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy niên khóa đang hoạt động');
     }
 
     const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
-    console.log('[BACKEND] isTeacherAssignedToClass result:', isAssigned);
     if (!isAssigned) {
       throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không được phân công dạy lớp này');
     }
 
     const result = await weeklyScheduleService.upsertMonthlySchedule(numericClassId, month, year, monthTheme);
-    console.log('[BACKEND] upsertMonthlySchedule result:', result);
 
     res.status(httpStatus.OK).json(
       new ApiResponse(httpStatus.OK, result, 'Lưu thông tin tháng thành công')
     );
   } catch (error) {
-    console.log('[BACKEND] upsertMonthlySchedule error:', error.message);
     next(error);
   }
 };
@@ -99,7 +93,7 @@ export const upsertMonthlySchedule = async (req, res, next) => {
  */
 export const getWeeklyScheduleById = async (req, res, next) => {
   try {
-    const teacherId = req.user.userId;
+    const teacherId = req.user.TeacherID || req.user.userId;
     const { classId, wsId } = req.params;
 
     const numericClassId = parseInt(classId);
@@ -132,7 +126,7 @@ export const getWeeklyScheduleById = async (req, res, next) => {
  */
 export const saveWeeklySchedule = async (req, res, next) => {
   try {
-    const teacherId = req.user.userId;
+    const teacherId = req.user.TeacherID || req.user.userId;
     const { classId } = req.params;
     const { monthlyScheduleId, weekOrder, weekTheme, items } = req.body;
 
@@ -170,7 +164,7 @@ export const saveWeeklySchedule = async (req, res, next) => {
  */
 export const deleteWeeklySchedule = async (req, res, next) => {
   try {
-    const teacherId = req.user.userId;
+    const teacherId = req.user.TeacherID || req.user.userId;
     const { classId, wsId } = req.params;
 
     const numericClassId = parseInt(classId);
@@ -200,7 +194,7 @@ export const deleteWeeklySchedule = async (req, res, next) => {
  */
 export const submitForApproval = async (req, res, next) => {
   try {
-    const teacherId = req.user.userId;
+    const teacherId = req.user.TeacherID || req.user.userId;
     const { classId, wsId } = req.params;
 
     const numericClassId = parseInt(classId);
@@ -230,7 +224,7 @@ export const submitForApproval = async (req, res, next) => {
  */
 export const withdrawTemplate = async (req, res, next) => {
   try {
-    const teacherId = req.user.userId;
+    const teacherId = req.user.TeacherID || req.user.userId;
     const { classId, wsId } = req.params;
 
     const numericClassId = parseInt(classId);
@@ -260,7 +254,7 @@ export const withdrawTemplate = async (req, res, next) => {
  */
 export const previewCSV = async (req, res, next) => {
   try {
-    const teacherId = req.user.userId;
+    const teacherId = req.user.TeacherID || req.user.userId;
     const { classId, wsId } = req.params;
 
     const numericClassId = parseInt(classId);
@@ -302,7 +296,7 @@ export const previewCSV = async (req, res, next) => {
  */
 export const importCSV = async (req, res, next) => {
   try {
-    const teacherId = req.user.userId;
+    const teacherId = req.user.TeacherID || req.user.userId;
     const { classId, wsId } = req.params;
 
     const numericClassId = parseInt(classId);
