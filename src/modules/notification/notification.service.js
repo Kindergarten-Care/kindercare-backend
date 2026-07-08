@@ -1,19 +1,36 @@
-import admin from '../../config/firebase.js';
+import { getMessaging } from 'firebase-admin/messaging';
+import firebaseApp from '../../config/firebase.js';
 import pool from '../../config/db.js';
 import logger from '../../config/logger.js';
+import { emitNotificationToUser } from '../../config/socket.js';
 
 export const sendPushToUser = async (userId, title, body, dataPayload = {}, isCritical = false) => {
   try {
     const now = Math.floor(Date.now() / 1000);
 
     // 1. Persist notification log to DB
-    await pool.query(
+    const [result] = await pool.query(
       `INSERT INTO Notifications (UserID, Title, Message, Type, IsRead, IsCritical, DataPayload, CreatedAt, UpdatedAt)
        VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)`,
       [userId, title, body, dataPayload.type || 'GENERAL', isCritical ? 1 : 0, JSON.stringify(dataPayload), now, now]
     );
 
-    // 2. Get registered device tokens
+    // 2. Emit real-time socket event to the user's private room
+    const newNotification = {
+      notifId:     result.insertId,
+      userId,
+      title,
+      message:     body,
+      type:        dataPayload.type || 'GENERAL',
+      isRead:      0,
+      isCritical:  isCritical ? 1 : 0,
+      dataPayload: JSON.stringify(dataPayload),
+      createdAt:   now,
+      updatedAt:   now,
+    };
+    emitNotificationToUser(userId, newNotification);
+
+    // 3. Get registered device tokens
     const [tokens] = await pool.query('SELECT DeviceToken FROM fcm_tokens WHERE UserID = ?', [userId]);
 
     if (!tokens || tokens.length === 0) {
@@ -23,14 +40,14 @@ export const sendPushToUser = async (userId, title, body, dataPayload = {}, isCr
 
     const tokenList = tokens.map((t) => t.DeviceToken);
 
-    // 3. Stringify all data values (FCM requirement)
+    // 4. Stringify all data values (FCM requirement)
     const stringifiedData = {};
     for (const [key, value] of Object.entries(dataPayload)) {
       stringifiedData[key] = String(value);
     }
     stringifiedData.isCritical = String(isCritical);
 
-    // 4. Send multicast
+    // 5. Send multicast
     const message = {
       notification: { title, body },
       data: stringifiedData,
@@ -39,10 +56,10 @@ export const sendPushToUser = async (userId, title, body, dataPayload = {}, isCr
       apns: { headers: { 'apns-priority': isCritical ? '10' : '5' } },
     };
 
-    const response = await admin.messaging().sendEachForMulticast(message);
+    const response = await getMessaging(firebaseApp).sendEachForMulticast(message);
     logger.info(`[FCM] Sent ${response.successCount} ok, ${response.failureCount} failed for UserID: ${userId}`);
 
-    // 5. Prune invalid tokens
+    // 6. Prune invalid tokens
     if (response.failureCount > 0) {
       const badTokens = [];
       response.responses.forEach((resp, idx) => {
@@ -66,3 +83,4 @@ export const sendPushToUser = async (userId, title, body, dataPayload = {}, isCr
     logger.error(`[FCM] sendPushToUser failed for UserID ${userId}: ${error.message}`);
   }
 };
+

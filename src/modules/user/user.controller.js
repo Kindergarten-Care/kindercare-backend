@@ -5,7 +5,7 @@ import httpStatus from 'http-status';
 const getUsersByRole = async (req, res, next) => {
     try {
         const query = `
-            SELECT 
+            SELECT
                 u.UserID AS userId,
                 u.Username AS username,
                 u.RoleID AS roleId,
@@ -38,7 +38,7 @@ const getUsersByRole = async (req, res, next) => {
             if (!acc[role]) {
                 acc[role] = [];
             }
-            
+
             // Construct a cleaned user object
             const user = {
                 userId: row.userId,

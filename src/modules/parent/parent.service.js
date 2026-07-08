@@ -3,6 +3,20 @@ import ApiError from '../../utils/ApiError.js';
 import httpStatus from 'http-status';
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
+import bcrypt from 'bcryptjs';
+import {
+  recordPayment as recordPaymentInBilling,
+  addToExtracurricularInvoice,
+  recalculateInvoicePaymentStatus,
+} from '../billing/billing.service.js';
+import { createMomoPayment as createMomoOrder, verifyMomoSignature, queryMomoTransactionStatus } from '../../utils/momo.js';
+import { createVnpayPaymentUrl, verifyVnpaySignature, queryVnpayTransactionStatus } from '../../utils/vnpay.js';
+import logger from '../../config/logger.js';
+import { getMonthKey } from '../../utils/dateHelpers.js';
+
+// Hủy đăng ký ngoại khóa trong vòng 48h kể từ lúc Active (thanh toán xong) vẫn được coi
+// như hoàn/trừ phí — quá thời hạn này thì giữ nguyên phí (không hoàn), xem cancelExtracurricular.
+const EXTRACURRICULAR_CANCEL_REFUND_WINDOW_HOURS = 48;
 
 /**
  * Get all children of a parent by ParentID
@@ -100,14 +114,15 @@ export const getChildrenByParentId = async (parentId) => {
 export const getParentProfileById = async (parentId) => {
   const query = `
     SELECT 
-      ParentID AS parentId,
-      FullName AS fullName,
-      PhoneNumber AS phoneNumber,
-      Email AS email,
-      IDCard AS idCard,
-      Job AS job,
-      Address AS address,
-      AvatarURL AS avatarUrl
+      ParentID     AS parentId,
+      FullName     AS fullName,
+      DateOfBirth  AS dateOfBirth,
+      PhoneNumber  AS phoneNumber,
+      Email        AS email,
+      IDCard       AS idCard,
+      Job          AS job,
+      Address      AS address,
+      AvatarURL    AS avatarUrl
     FROM Parents
     WHERE ParentID = ?
   `;
@@ -151,6 +166,137 @@ export const isParentOfStudent = async (parentId, studentId) => {
   `;
   const [rows] = await pool.query(query, [parentId, studentId]);
   return rows.length > 0;
+};
+
+/**
+ * Get detailed info of a single student (accessible by parent)
+ * @param {number} studentId
+ * @returns {Promise<Object|null>}
+ */
+export const getStudentDetailById = async (studentId) => {
+  const [rows] = await pool.query(
+    `SELECT
+       s.StudentID        AS studentId,
+       s.FullName         AS fullName,
+       s.DateOfBirth      AS dateOfBirth,
+       s.Gender           AS gender,
+       s.Allergies        AS allergies,
+       s.AdmissionDate    AS admissionDate,
+       s.EnrollmentStatus AS enrollmentStatus,
+       s.AvatarURL        AS avatarUrl,
+       s.ClassID          AS classId,
+       c.ClassName        AS className,
+       g.GradeID          AS gradeId,
+       g.GradeName        AS gradeName,
+       ay.YearID          AS academicYearId,
+       ay.YearName        AS academicYearName,
+       b.BuildingID       AS buildingId,
+       b.BuildingName     AS buildingName,
+       cp.CampusID        AS campusId,
+       cp.CampusName      AS campusName,
+       cp.Address         AS campusAddress
+     FROM Students s
+     LEFT JOIN Classes     c  ON s.ClassID      = c.ClassID
+     LEFT JOIN Grades      g  ON c.GradeID      = g.GradeID
+     LEFT JOIN AcademicYears ay ON c.YearID     = ay.YearID
+     LEFT JOIN Buildings   b  ON c.BuildingID   = b.BuildingID
+     LEFT JOIN Campuses    cp ON b.CampusID     = cp.CampusID
+     WHERE s.StudentID = ?`,
+    [studentId]
+  );
+
+  if (rows.length === 0) return null;
+
+  const student = rows[0];
+
+  if (student.classId) {
+    const [teacherRows] = await pool.query(
+      `SELECT
+         t.TeacherID    AS teacherId,
+         t.FullName     AS fullName,
+         t.PhoneNumber  AS phoneNumber,
+         t.Email        AS email,
+         t.Gender       AS gender,
+         ct.RoleInClass AS roleInClass
+       FROM ClassTeachers ct
+       JOIN Teachers t ON ct.TeacherID = t.TeacherID
+       WHERE ct.ClassID = ?`,
+      [student.classId]
+    );
+    student.teachers = teacherRows;
+  } else {
+    student.teachers = [];
+  }
+
+  return student;
+};
+
+/**
+ * Update parent profile
+ * @param {number} parentId
+ * @param {object} fields - { fullName, phoneNumber, email, idCard, job, address, avatarUrl }
+ * @returns {Promise<Object>}
+ */
+export const updateParentProfile = async (parentId, fields) => {
+  const { fullName, phoneNumber, email, idCard, job, address, avatarUrl } = fields;
+
+  const setClauses = [];
+  const values = [];
+
+  if (fullName !== undefined)    { setClauses.push('FullName = ?');    values.push(fullName); }
+  if (phoneNumber !== undefined) { setClauses.push('PhoneNumber = ?'); values.push(phoneNumber); }
+  if (email !== undefined)       { setClauses.push('Email = ?');       values.push(email); }
+  if (idCard !== undefined)      { setClauses.push('IDCard = ?');      values.push(idCard); }
+  if (job !== undefined)         { setClauses.push('Job = ?');         values.push(job); }
+  if (address !== undefined)     { setClauses.push('Address = ?');     values.push(address); }
+  if (avatarUrl !== undefined)   { setClauses.push('AvatarURL = ?');   values.push(avatarUrl); }
+
+  if (setClauses.length === 0) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Không có thông tin nào để cập nhật');
+  }
+
+  values.push(parentId);
+  await pool.query(
+    `UPDATE Parents SET ${setClauses.join(', ')} WHERE ParentID = ?`,
+    values
+  );
+
+  const [rows] = await pool.query(
+    `SELECT ParentID AS parentId, FullName AS fullName, DateOfBirth AS dateOfBirth,
+            PhoneNumber AS phoneNumber, Email AS email, IDCard AS idCard,
+            Job AS job, Address AS address, AvatarURL AS avatarUrl
+     FROM Parents WHERE ParentID = ?`,
+    [parentId]
+  );
+  return rows[0];
+};
+
+/**
+ * Get all relatives (parents/guardians) of a student
+ * @param {number} studentId
+ * @returns {Promise<Array>}
+ */
+export const getStudentRelatives = async (studentId) => {
+  const [rows] = await pool.query(
+    `SELECT
+       p.ParentID      AS parentId,
+       p.FullName      AS fullName,
+       p.DateOfBirth   AS dateOfBirth,
+       p.PhoneNumber   AS phoneNumber,
+       p.Email         AS email,
+       p.IDCard        AS idCard,
+       p.Job           AS job,
+       p.Address       AS address,
+       p.AvatarURL     AS avatarUrl,
+       sp.Relationship AS relationship,
+       sp.IsPrimary    AS isPrimary
+     FROM StudentParents sp
+     JOIN Parents p ON sp.ParentID = p.ParentID
+     WHERE sp.StudentID = ?
+     ORDER BY sp.IsPrimary DESC, p.FullName ASC`,
+    [studentId]
+  );
+  return rows;
 };
 
 /**
@@ -349,15 +495,35 @@ export const getMedicationRequestsByStudentId = async (studentId) => {
 export const getStudentAttendance = async (studentId, startDate, endDate) => {
   let query = `
     SELECT 
-      AttendanceID AS attendanceId,
-      StudentID AS studentId,
-      AttendanceDate AS attendanceDate,
-      Status AS status,
-      CheckInTime AS checkInTime,
-      CheckOutTime AS checkOutTime,
-      PickedUpBy AS pickedUpBy
-    FROM Attendances
-    WHERE StudentID = ?
+      a.AttendanceID AS attendanceId,
+      a.StudentID AS studentId,
+      a.AttendanceDate AS attendanceDate,
+      a.Status AS status,
+      a.CheckInTime AS checkInTime,
+      a.CheckOutTime AS checkOutTime,
+      
+      -- Dropped off info
+      a.DroppedOffByParentID AS droppedOffByParentId,
+      COALESCE(p_in.FullName, pa.ProxyName) AS droppedOffBy,
+      COALESCE(sp_in.Relationship, 'Người đưa đi') AS droppedOffRelationship,
+      p_in.AvatarURL AS droppedOffAvatarUrl,
+      
+      -- Picked up info
+      a.PickedUpByParentID AS pickedUpByParentId,
+      COALESCE(p_out.FullName, pa.ProxyName) AS pickedUpBy,
+      COALESCE(sp_out.Relationship, 'Người đón hộ') AS pickedUpRelationship,
+      COALESCE(p_out.AvatarURL, pa.ProxyPhotoURL) AS pickedUpAvatarUrl,
+      
+      a.CheckedInByTeacherID AS checkedInByTeacherId,
+      a.CheckedOutByTeacherID AS checkedOutByTeacherId,
+      a.ProxyAuthorizationID AS proxyAuthorizationId
+    FROM Attendances a
+    LEFT JOIN Parents p_in ON a.DroppedOffByParentID = p_in.ParentID
+    LEFT JOIN StudentParents sp_in ON p_in.ParentID = sp_in.ParentID AND sp_in.StudentID = a.StudentID
+    LEFT JOIN Parents p_out ON a.PickedUpByParentID = p_out.ParentID
+    LEFT JOIN StudentParents sp_out ON p_out.ParentID = sp_out.ParentID AND sp_out.StudentID = a.StudentID
+    LEFT JOIN ProxyAuthorizations pa ON a.ProxyAuthorizationID = pa.AuthorizationID
+    WHERE a.StudentID = ?
   `;
   const params = [studentId];
 
@@ -640,6 +806,7 @@ export const generateQrToken = async (parentId, studentId) => {
 
   const payload = {
     sub: String(studentId),
+    parentId: parentId,
     parentName: parentProfile?.fullName || 'Phụ huynh',
     relationship: relationship || 'Phụ huynh',
     iat: now,
@@ -651,6 +818,1107 @@ export const generateQrToken = async (parentId, studentId) => {
 
   return { token, expiresAt: now + ttl, ttl };
 };
+
+export const createProxyAuthorization = async (
+  studentId,
+  parentId,
+  authorizationDate,
+  type,
+  proxyName,
+  proxyPhone,
+  proxyIDCard,
+  proxyPhotoUrl,
+  notes
+) => {
+  const createdAt = Math.floor(Date.now() / 1000);
+  const insertQuery = `
+    INSERT INTO ProxyAuthorizations (StudentID, ParentID, AuthorizationDate, Type, ProxyName, ProxyPhone, ProxyIDCard, ProxyPhotoURL, Notes, Status, CreatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Approved', ?)
+  `;
+  const [result] = await pool.query(insertQuery, [
+    studentId,
+    parentId,
+    authorizationDate,
+    type,
+    proxyName,
+    proxyPhone,
+    proxyIDCard,
+    proxyPhotoUrl,
+    notes,
+    createdAt
+  ]);
+
+  const selectQuery = `
+    SELECT 
+      AuthorizationID AS authorizationId,
+      StudentID AS studentId,
+      ParentID AS parentId,
+      AuthorizationDate AS authorizationDate,
+      Type AS type,
+      ProxyName AS proxyName,
+      ProxyPhone AS proxyPhone,
+      ProxyIDCard AS proxyIDCard,
+      ProxyPhotoURL AS proxyPhotoUrl,
+      Notes AS notes,
+      Status AS status,
+      CreatedAt AS createdAt
+    FROM ProxyAuthorizations
+    WHERE AuthorizationID = ?
+  `;
+  const [rows] = await pool.query(selectQuery, [result.insertId]);
+  return rows[0];
+};
+
+export const getProxyAuthorizationsByStudentId = async (studentId) => {
+  const query = `
+    SELECT 
+      AuthorizationID AS authorizationId,
+      StudentID AS studentId,
+      ParentID AS parentId,
+      AuthorizationDate AS authorizationDate,
+      Type AS type,
+      ProxyName AS proxyName,
+      ProxyPhone AS proxyPhone,
+      ProxyIDCard AS proxyIDCard,
+      ProxyPhotoURL AS proxyPhotoUrl,
+      Notes AS notes,
+      Status AS status,
+      CreatedAt AS createdAt
+    FROM ProxyAuthorizations
+    WHERE StudentID = ?
+    ORDER BY AuthorizationDate DESC, AuthorizationID DESC
+  `;
+  const [rows] = await pool.query(query, [studentId]);
+  return rows;
+};
+
+export const cancelProxyAuthorization = async (authorizationId, parentId) => {
+  const updateQuery = `
+    UPDATE ProxyAuthorizations 
+    SET Status = 'Cancelled' 
+    WHERE AuthorizationID = ? AND ParentID = ?
+  `;
+  await pool.query(updateQuery, [authorizationId, parentId]);
+
+  const selectQuery = `
+    SELECT 
+      AuthorizationID AS authorizationId,
+      StudentID AS studentId,
+      ParentID AS parentId,
+      AuthorizationDate AS authorizationDate,
+      Type AS type,
+      ProxyName AS proxyName,
+      ProxyPhone AS proxyPhone,
+      ProxyIDCard AS proxyIDCard,
+      ProxyPhotoURL AS proxyPhotoUrl,
+      Notes AS notes,
+      Status AS status,
+      CreatedAt AS createdAt
+    FROM ProxyAuthorizations
+    WHERE AuthorizationID = ?
+  `;
+  const [rows] = await pool.query(selectQuery, [authorizationId]);
+  if (rows.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy đơn ủy quyền');
+  }
+  return rows[0];
+};
+
+/**
+ * Get newsfeeds of the class that a student is attending
+ * @param {number} studentId
+ * @returns {Promise<Array>} List of newsfeeds
+ */
+export const getNewsfeedsByStudentId = async (studentId) => {
+  const studentQuery = `
+    SELECT ClassID AS classId
+    FROM Students
+    WHERE StudentID = ?
+  `;
+  const [studentRows] = await pool.query(studentQuery, [studentId]);
+  if (studentRows.length === 0 || !studentRows[0].classId) {
+    return [];
+  }
+
+  const classId = studentRows[0].classId;
+
+  const newsfeedsQuery = `
+    SELECT 
+      n.PostID AS postId,
+      n.ClassID AS classId,
+      n.TeacherID AS teacherId,
+      n.Content AS content,
+      n.MediaURL AS mediaUrl,
+      n.PostedAt AS postedAt,
+      t.FullName AS teacherName,
+      u.AvatarURL AS teacherAvatarUrl
+    FROM Newsfeeds n
+    LEFT JOIN Teachers t ON n.TeacherID = t.TeacherID
+    LEFT JOIN Users u ON t.TeacherID = u.UserID
+    WHERE n.ClassID = ?
+    ORDER BY n.PostedAt DESC
+  `;
+  const [rows] = await pool.query(newsfeedsQuery, [classId]);
+  return rows;
+};
+
+/**
+ * Calculates the ISO week number and year for a given date
+ * @param {Date} date
+ * @returns {{ week: number, year: number }}
+ */
+const getISOWeekAndYear = (date) => {
+  const tempDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const dayNum = tempDate.getUTCDay() || 7;
+  tempDate.setUTCDate(tempDate.getUTCDate() + 4 - dayNum);
+  const year = tempDate.getUTCFullYear();
+  const firstDayOfYear = new Date(Date.UTC(year, 0, 1));
+  const weekNumber = Math.ceil((((tempDate - firstDayOfYear) / 86400000) + 1) / 7);
+  return { week: weekNumber, year };
+};
+
+/**
+ * Calculates the schedule configuration (year, month, weekOrderInMonth) based on custom educational rules:
+ * - A week starts on Monday, ends on Sunday.
+ * - Week 1 of a month starts on the first Monday of that month.
+ * - Prior days belong to the last week of the previous month.
+ * @param {Date} date
+ * @returns {{ year: number, month: number, weekOrder: number }}
+ */
+const getScheduleConfigFromDate = (date) => {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const year = d.getUTCFullYear();
+  const month = d.getUTCMonth() + 1;
+
+  // Find the first Monday of the month
+  let firstMonday = new Date(Date.UTC(year, d.getUTCMonth(), 1));
+  while (firstMonday.getUTCDay() !== 1) {
+    firstMonday.setUTCDate(firstMonday.getUTCDate() + 1);
+  }
+
+  // If the date is before the first Monday of this month, it belongs to the previous month
+  if (d < firstMonday) {
+    const prevMonthLastDay = new Date(Date.UTC(year, d.getUTCMonth(), 0));
+    return getScheduleConfigFromDate(prevMonthLastDay);
+  }
+
+  const diffInMs = d.getTime() - firstMonday.getTime();
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+  const weekOrder = Math.floor(diffInDays / 7) + 1;
+
+  return { year, month, weekOrder };
+};
+
+/**
+ * Get daily menu of a child's class by StudentID and MenuDate
+ * @param {number} studentId
+ * @param {number} targetDate - Midnight timestamp in seconds
+ * @returns {Promise<Object|null>} Daily menu with details
+ */
+export const getStudentMenu = async (studentId, targetDate, dayFilter = null) => {
+  const dateObj = new Date(targetDate * 1000);
+  const { week, year } = getISOWeekAndYear(dateObj);
+
+  const menuQuery = `
+    SELECT 
+      m.MenuID AS menuId,
+      m.ClassID AS classId,
+      m.WeekNumber AS weekNumber,
+      m.Year AS year,
+      m.MenuName AS menuName
+    FROM Menus m
+    JOIN Students s ON m.ClassID = s.ClassID
+    WHERE s.StudentID = ? AND m.WeekNumber = ? AND m.Year = ?
+  `;
+  const [menuRows] = await pool.query(menuQuery, [studentId, week, year]);
+  
+  if (menuRows.length === 0) {
+    return null;
+  }
+
+  const menu = menuRows[0];
+
+  let detailsQuery = `
+    SELECT 
+      MenuDetailID AS menuDetailId,
+      DayOfWeek AS dayOfWeek,
+      MealType AS mealType,
+      DishName AS dishName,
+      Calories AS calories,
+      NutritionalDetails AS nutritionalDetails
+    FROM MenuDetails
+    WHERE MenuID = ?
+  `;
+  const queryParams = [menu.menuId];
+
+  if (dayFilter) {
+    detailsQuery += ` AND DayOfWeek = ?`;
+    queryParams.push(dayFilter);
+  }
+
+  detailsQuery += ` ORDER BY MenuDetailID ASC`;
+
+  const [detailsRows] = await pool.query(detailsQuery, queryParams);
+  
+  return {
+    menuId: menu.menuId,
+    classId: menu.classId,
+    menuDate: targetDate,
+    weekNumber: menu.weekNumber,
+    year: menu.year,
+    menuName: menu.menuName,
+    details: detailsRows
+  };
+};
+
+/**
+ * Get daily activities of a child by StudentID and LogDate
+ * @param {number} studentId
+ * @param {string} logDateStr - Date in YYYY-MM-DD format
+ * @returns {Promise<Object|null>} Daily activities record
+ */
+export const getDailyActivities = async (studentId, logDateStr) => {
+  const query = `
+    SELECT
+      da.ActivityID AS activityId,
+      da.StudentID AS studentId,
+      da.LogDate AS logDate,
+      da.BreakfastStatus AS breakfastStatus,
+      da.LunchStatus AS lunchStatus,
+      da.NapStatus AS napStatus,
+      da.SnackStatus AS snackStatus,
+      da.HygieneStatus AS hygieneStatus,
+      da.TeacherNote AS teacherNote,
+      da.ActivityStatus AS activityStatus,
+      da.RecordedBy AS recordedBy,
+      da.UpdatedAt AS updatedAt,
+      t.FullName AS teacherName
+    FROM DailyActivities da
+    LEFT JOIN Teachers t ON da.RecordedBy = t.TeacherID
+    WHERE da.StudentID = ? AND da.LogDate = ?
+  `;
+  const [rows] = await pool.query(query, [studentId, logDateStr]);
+  return rows.length > 0 ? rows[0] : null;
+};
+
+export const getStudentBadges = async (studentId) => {
+  const [rows] = await pool.query(
+    `SELECT
+       sb.StudentBadgeID AS studentBadgeId,
+       sb.StudentID      AS studentId,
+       sb.DateEarned     AS dateEarned,
+       rb.BadgeID        AS badgeId,
+       rb.BadgeName      AS badgeName,
+       rb.BadgeImageURL  AS badgeImageUrl,
+       rb.CriteriaType   AS criteriaType
+     FROM StudentBadges sb
+     JOIN RewardBadges rb ON sb.BadgeID = rb.BadgeID
+     WHERE sb.StudentID = ?
+     ORDER BY sb.DateEarned DESC`,
+    [studentId]
+  );
+  return rows;
+};
+
+export const changePassword = async (parentId, currentPassword, newPassword) => {
+  const [rows] = await pool.query(
+    'SELECT PasswordHash FROM Users WHERE UserID = ?',
+    [parentId]
+  );
+  if (rows.length === 0) throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy tài khoản');
+
+  const isMatch = await bcrypt.compare(currentPassword, rows[0].PasswordHash);
+  if (!isMatch) throw new ApiError(httpStatus.BAD_REQUEST, 'Mật khẩu hiện tại không đúng');
+
+  const hashed = await bcrypt.hash(newPassword, 12);
+  await pool.query('UPDATE Users SET PasswordHash = ? WHERE UserID = ?', [hashed, parentId]);
+};
+
+export const getStudentWeeklyTimetable = async (studentId, dateParam = null) => {
+  // 1. Get student's classId
+  const [studentRows] = await pool.query('SELECT ClassID FROM Students WHERE StudentID = ?', [studentId]);
+  if (studentRows.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy học sinh');
+  }
+  const classId = studentRows[0].ClassID;
+  if (!classId) {
+    return null; // Student has no class assigned yet
+  }
+
+  // 2. Parse date in GMT+7
+  let dateObj = new Date();
+  if (dateParam) {
+    dateObj = new Date(dateParam * 1000);
+  }
+  // Shift to GMT+7 timezone for consistent date calculation
+  const tzOffset = 7 * 60 * 60 * 1000;
+  const localTime = new Date(dateObj.getTime() + tzOffset);
+  
+  const { year, month, weekOrder } = getScheduleConfigFromDate(localTime);
+
+  // 3. Find MonthlySchedule
+  let monthlyQuery = `
+    SELECT MonthlyScheduleID AS monthlyScheduleId, MonthTheme AS monthTheme, Month AS month, Year AS year
+    FROM MonthlySchedules
+    WHERE ClassID = ? AND Month = ? AND Year = ? AND IsActive = 1
+  `;
+  let [monthlyRows] = await pool.query(monthlyQuery, [classId, month, year]);
+  
+  if (monthlyRows.length === 0) {
+    return null; // No monthly schedule found
+  }
+
+  const monthlySchedule = monthlyRows[0];
+  const targetMonthlyScheduleId = monthlySchedule.monthlyScheduleId;
+
+  // 4. Find WeeklySchedule
+  let weeklyQuery = `
+    SELECT WeeklyScheduleID AS weeklyScheduleId, WeekTheme AS weekTheme, WeekOrder AS weekOrder
+    FROM WeeklySchedules
+    WHERE MonthlyScheduleID = ? AND WeekOrder = ?
+  `;
+  let [weeklyRows] = await pool.query(weeklyQuery, [targetMonthlyScheduleId, weekOrder]);
+
+  if (weeklyRows.length === 0) {
+    return {
+      monthlyScheduleId: monthlySchedule.monthlyScheduleId,
+      month: monthlySchedule.month,
+      year: monthlySchedule.year,
+      monthTheme: monthlySchedule.monthTheme,
+      weeklyScheduleId: null,
+      weekOrder: null,
+      weekTheme: null,
+      details: []
+    };
+  }
+
+  const weeklySchedule = weeklyRows[0];
+
+  // 5. Get WeeklyScheduleDetails
+  const detailsQuery = `
+    SELECT 
+      ScheduleDetailID AS scheduleDetailId,
+      DayOfWeek AS dayOfWeek,
+      StartTime AS startTime,
+      EndTime AS endTime,
+      ActivityName AS activityName,
+      Details AS details,
+      Location AS location,
+      ActivityType AS activityType
+    FROM WeeklyScheduleDetails
+    WHERE WeeklyScheduleID = ?
+    ORDER BY FIELD(DayOfWeek, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'), StartTime ASC
+  `;
+  const [details] = await pool.query(detailsQuery, [weeklySchedule.weeklyScheduleId]);
+
+  return {
+    monthlyScheduleId: monthlySchedule.monthlyScheduleId,
+    month: monthlySchedule.month,
+    year: monthlySchedule.year,
+    monthTheme: monthlySchedule.monthTheme,
+    weeklyScheduleId: weeklySchedule.weeklyScheduleId,
+    weekOrder: weeklySchedule.weekOrder,
+    weekTheme: weeklySchedule.weekTheme,
+    details: details
+  };
+};
+
+/**
+ * Get daily events for a student (combines school, holiday, class, and student-specific events)
+ * @param {number} studentId
+ * @param {string} dateString - YYYY-MM-DD
+ * @returns {Promise<Object>} Object containing classId and daily events array
+ */
+export const getStudentDailyEvents = async (studentId, startDateStr, endDateStr = null) => {
+  // 1. Get ClassID of the student
+  const [studentRows] = await pool.query('SELECT ClassID FROM Students WHERE StudentID = ?', [studentId]);
+  if (studentRows.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy học sinh');
+  }
+  const classId = studentRows[0].ClassID;
+
+  // 2. Convert date string (YYYY-MM-DD) to startOfDay and endOfDay local (GMT+7) Unix timestamps in seconds
+  const [startYear, startMonth, startDay] = startDateStr.split('-').map(Number);
+  const startOfDay = Math.floor(Date.UTC(startYear, startMonth - 1, startDay, 0, 0, 0) / 1000) - 7 * 3600;
+
+  let endOfDay;
+  if (endDateStr) {
+    const [endYear, endMonth, endDay] = endDateStr.split('-').map(Number);
+    endOfDay = Math.floor(Date.UTC(endYear, endMonth - 1, endDay, 23, 59, 59) / 1000) - 7 * 3600;
+  } else {
+    endOfDay = Math.floor(Date.UTC(startYear, startMonth - 1, startDay, 23, 59, 59) / 1000) - 7 * 3600;
+  }
+
+  // 3. Query multi-layer events
+  const query = `
+    SELECT DISTINCT 
+      e.EventID AS eventId, 
+      e.Title AS title, 
+      e.Description AS description, 
+      e.StartTime AS startTime, 
+      e.EndTime AS endTime, 
+      e.Location AS location, 
+      e.Status AS status, 
+      e.EventType AS eventType
+    FROM Events e
+    LEFT JOIN EventClasses ec ON e.EventID = ec.EventID
+    LEFT JOIN EventStudents es ON e.EventID = es.EventID
+    WHERE 
+      -- Filter events that overlap with or lie within the selected day/range
+      (e.StartTime <= ? AND e.EndTime >= ?)
+      
+      -- Filter authorization tiers
+      AND (
+        e.EventType IN ('School', 'Holiday')                   -- School-wide & holiday events
+        OR (e.EventType = 'Class' AND ec.ClassID = ?)          -- Class-level events
+        OR (e.EventType = 'Student' AND es.StudentID = ?)     -- Individual student events
+      )
+    ORDER BY e.StartTime ASC;
+  `;
+
+  const [events] = await pool.query(query, [endOfDay, startOfDay, classId || null, studentId]);
+
+  return {
+    classId,
+    events
+  };
+};
+
+/**
+ * Lấy danh sách hóa đơn của 1 học sinh, có thể lọc theo type/status/khoảng thời gian.
+ * @param {number} studentId
+ * @param {object} filters - { type?, status?, from?, to? } — from/to là 'MM-YYYY'
+ */
+export const getInvoicesByStudentId = async (studentId, filters = {}) => {
+  const { type, status, from, to } = filters;
+
+  const conditions = ['StudentID = ?'];
+  const values = [studentId];
+
+  if (type) { conditions.push('InvoiceType = ?'); values.push(type); }
+  if (status) { conditions.push('PaymentStatus = ?'); values.push(status); }
+  if (from) { conditions.push('BillingMonth >= ?'); values.push(from); }
+  if (to) { conditions.push('BillingMonth <= ?'); values.push(to); }
+
+  const query = `
+    SELECT
+       InvoiceID          AS invoiceId,
+       InvoiceType        AS invoiceType,
+       BillingMonth        AS billingMonth,
+       PeriodRange         AS periodRange,
+       TuitionFee          AS tuitionFee,
+       ExpectedMealFee     AS expectedMealFee,
+       ExtracurricularFee  AS extracurricularFee,
+       Surcharge           AS surcharge,
+       RefundAmount        AS refundAmount,
+       DiscountAmount      AS discountAmount,
+       TotalAmount         AS totalAmount,
+       PaymentStatus       AS paymentStatus,
+       DueDate             AS dueDate,
+       CreatedAt           AS createdAt
+     FROM Invoices
+     WHERE ${conditions.join(' AND ')}
+     ORDER BY BillingMonth DESC, InvoiceID DESC`;
+
+  let [rows] = await pool.query(query, values);
+
+  // Đối soát ngay các giao dịch (MoMo/VNPay) còn Pending của các hóa đơn này, phòng
+  // trường hợp IPN chưa/không gọi tới server kịp (xem thêm reconcilePendingTransaction).
+  const invoiceIds = rows.map((r) => r.invoiceId);
+  if (invoiceIds.length > 0) {
+    const [pendingTx] = await pool.query(
+      `SELECT TransactionID, InvoiceID, TransactionCode, PaymentMethod
+       FROM Transactions
+       WHERE PaymentMethod IN ('MoMo', 'VNPay') AND Status = 'Pending' AND InvoiceID IN (?)`,
+      [invoiceIds]
+    );
+    if (pendingTx.length > 0) {
+      await Promise.all(pendingTx.map((t) => reconcilePendingTransaction({
+        TransactionID: t.TransactionID,
+        InvoiceID: t.InvoiceID,
+        TransactionCode: t.TransactionCode,
+        PaymentMethod: t.PaymentMethod,
+      })));
+      [rows] = await pool.query(query, values);
+    }
+  }
+
+  return rows;
+};
+
+/**
+ * Lấy chi tiết 1 hóa đơn kèm danh sách transaction.
+ * @param {number} invoiceId
+ */
+export const getInvoiceDetail = async (invoiceId) => {
+  const invoiceQuery = `
+    SELECT
+       InvoiceID          AS invoiceId,
+       StudentID           AS studentId,
+       PackageID           AS packageId,
+       InvoiceType        AS invoiceType,
+       BillingMonth        AS billingMonth,
+       PeriodRange         AS periodRange,
+       TuitionFee          AS tuitionFee,
+       ExpectedMealFee     AS expectedMealFee,
+       ExtracurricularFee  AS extracurricularFee,
+       Surcharge           AS surcharge,
+       RefundAmount        AS refundAmount,
+       DiscountAmount      AS discountAmount,
+       TotalAmount         AS totalAmount,
+       PaymentStatus       AS paymentStatus,
+       DueDate             AS dueDate,
+       CreatedAt           AS createdAt
+     FROM Invoices
+     WHERE InvoiceID = ?`;
+  const transactionsQuery = `
+    SELECT
+       TransactionID    AS transactionId,
+       AmountPaid       AS amountPaid,
+       PaymentMethod    AS paymentMethod,
+       TransactionCode  AS transactionCode,
+       TransactionDate  AS transactionDate,
+       Status           AS status
+     FROM Transactions
+     WHERE InvoiceID = ?
+     ORDER BY TransactionDate DESC`;
+
+  const [invoiceRows] = await pool.query(invoiceQuery, [invoiceId]);
+  if (invoiceRows.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy hóa đơn');
+  }
+
+  let [transactions] = await pool.query(transactionsQuery, [invoiceId]);
+
+  // Đối soát ngay các giao dịch (MoMo/VNPay) còn Pending khi parent xem lại hóa đơn (vd
+  // sau khi quay về từ trang thanh toán), phòng trường hợp IPN chưa/không gọi tới server kịp.
+  const pendingTx = transactions.filter((t) => ['MoMo', 'VNPay'].includes(t.paymentMethod) && t.status === 'Pending');
+  if (pendingTx.length > 0) {
+    await Promise.all(pendingTx.map((t) => reconcilePendingTransaction({
+      TransactionID: t.transactionId,
+      InvoiceID: invoiceId,
+      TransactionCode: t.transactionCode,
+      PaymentMethod: t.paymentMethod,
+    })));
+
+    const [[freshInvoiceRows], [freshTransactions]] = await Promise.all([
+      pool.query(invoiceQuery, [invoiceId]),
+      pool.query(transactionsQuery, [invoiceId]),
+    ]);
+    invoiceRows[0] = freshInvoiceRows[0];
+    transactions = freshTransactions;
+  }
+
+  const invoice = { ...invoiceRows[0], transactions };
+
+  // Hóa đơn EXTRACURRICULAR gộp phí nhiều hoạt động trong cùng tháng vào 1 số
+  // (extracurricularFee) — trả thêm breakdown từng hoạt động để phụ huynh biết rõ trong
+  // đó gồm những gì, thay vì chỉ thấy 1 con số tổng.
+  if (invoice.invoiceType === 'EXTRACURRICULAR') {
+    const [extracurricularItems] = await pool.query(
+      `SELECT
+         se.EnrollmentID   AS enrollmentId,
+         se.ActivityID     AS activityId,
+         e.ActivityName    AS activityName,
+         e.MonthlyFee      AS monthlyFee,
+         se.Status         AS status,
+         se.FeeRefunded    AS feeRefunded
+       FROM StudentExtracurriculars se
+       JOIN Extracurriculars e ON se.ActivityID = e.ActivityID
+       WHERE se.InvoiceID = ?
+       ORDER BY e.ActivityName ASC`,
+      [invoiceId]
+    );
+    invoice.extracurricularItems = extracurricularItems.map((item) => ({
+      ...item,
+      feeRefunded: Boolean(item.feeRefunded),
+    }));
+  }
+
+  return invoice;
+};
+
+/**
+ * Kiểm tra 1 hóa đơn có thuộc về học sinh của phụ huynh hay không.
+ * @param {number} invoiceId
+ * @param {number} parentId
+ * @returns {Promise<boolean>}
+ */
+export const isParentOfInvoice = async (invoiceId, parentId) => {
+  const [rows] = await pool.query(
+    `SELECT 1
+     FROM Invoices i
+     JOIN StudentParents sp ON i.StudentID = sp.StudentID
+     WHERE i.InvoiceID = ? AND sp.ParentID = ?`,
+    [invoiceId, parentId]
+  );
+  return rows.length > 0;
+};
+
+/**
+ * Phụ huynh ghi nhận thanh toán cho 1 hóa đơn của con.
+ * @param {number} invoiceId
+ * @param {number} amountPaid
+ * @param {string} paymentMethod
+ * @param {string} [transactionCode]
+ */
+export const createPayment = async (invoiceId, amountPaid, paymentMethod, transactionCode) => {
+  return recordPaymentInBilling(invoiceId, amountPaid, paymentMethod, transactionCode);
+};
+
+/**
+ * Tạo đơn thanh toán MoMo cho 1 hóa đơn — gọi MoMo tạo đơn, insert Transaction
+ * Status='Pending' với TransactionCode = orderId để đối chiếu khi IPN gọi về.
+ * @param {number} invoiceId
+ */
+export const createMomoPayment = async (invoiceId) => {
+  const [invoiceRows] = await pool.query(
+    'SELECT InvoiceID, TotalAmount, BillingMonth, InvoiceType FROM Invoices WHERE InvoiceID = ?',
+    [invoiceId]
+  );
+  if (invoiceRows.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy hóa đơn');
+  }
+  const invoice = invoiceRows[0];
+
+  if (Number(invoice.TotalAmount) <= 0) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Hóa đơn không có số tiền cần thanh toán');
+  }
+
+  const orderInfo = `Thanh toan hoa don ${invoice.InvoiceType} ky ${invoice.BillingMonth} - KinderCare`;
+  const { payUrl, orderId } = await createMomoOrder({
+    invoiceId,
+    amount: invoice.TotalAmount,
+    orderInfo,
+  });
+
+  await pool.query(
+    `INSERT INTO Transactions (InvoiceID, AmountPaid, PaymentMethod, TransactionCode, Status)
+     VALUES (?, ?, 'MoMo', ?, 'Pending')`,
+    [invoiceId, invoice.TotalAmount, orderId]
+  );
+
+  return { payUrl, orderId };
+};
+
+/**
+ * Áp dụng kết quả giao dịch MoMo (Success/Failed) lên Transaction + Invoice liên quan.
+ * Dùng chung cho cả IPN callback và đối soát chủ động (query API).
+ * @param {object} tx - { TransactionID, InvoiceID }
+ * @param {string} orderId
+ * @param {number} resultCode
+ * @param {string} logPrefix - tiền tố log, vd '[MoMo IPN]' hoặc '[MoMo Reconcile]'
+ */
+const applyMomoResult = async (tx, orderId, resultCode, logPrefix) => {
+  if (Number(resultCode) === 0) {
+    await pool.query('UPDATE Transactions SET Status = ? WHERE TransactionID = ?', ['Success', tx.TransactionID]);
+    await recalculateInvoicePaymentStatus(tx.InvoiceID);
+    logger.info(`${logPrefix} Thanh toán thành công cho InvoiceID ${tx.InvoiceID}, orderId ${orderId}`);
+  } else {
+    await pool.query('UPDATE Transactions SET Status = ? WHERE TransactionID = ?', ['Failed', tx.TransactionID]);
+    logger.info(`${logPrefix} Thanh toán thất bại cho orderId ${orderId}, resultCode ${resultCode}`);
+  }
+};
+
+/**
+ * Xử lý IPN callback từ MoMo — verify chữ ký, cập nhật Transaction theo orderId
+ * (lưu ở TransactionCode), tính lại PaymentStatus nếu thanh toán thành công.
+ * @param {object} payload - body gửi từ MoMo
+ */
+export const handleMomoIpn = async (payload) => {
+  const isValid = verifyMomoSignature(payload);
+  if (!isValid) {
+    logger.error(`[MoMo IPN] Chữ ký không hợp lệ cho orderId: ${payload.orderId}`);
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Chữ ký không hợp lệ');
+  }
+
+  const { orderId, resultCode } = payload;
+
+  const [txRows] = await pool.query(
+    'SELECT TransactionID, InvoiceID, AmountPaid FROM Transactions WHERE TransactionCode = ?',
+    [orderId]
+  );
+  if (txRows.length === 0) {
+    logger.error(`[MoMo IPN] Không tìm thấy transaction cho orderId: ${orderId}`);
+    return;
+  }
+
+  await applyMomoResult(txRows[0], orderId, resultCode, '[MoMo IPN]');
+};
+
+/**
+ * Đối soát 1 giao dịch MoMo còn Pending bằng cách chủ động hỏi MoMo trạng thái thật
+ * (dùng khi IPN không tới được server). Bỏ qua an toàn nếu giao dịch đã được xử lý
+ * hoặc MoMo trả lỗi (transaction chưa tồn tại/hết hạn phía MoMo).
+ * @param {object} tx - { TransactionID, InvoiceID, TransactionCode }
+ */
+export const reconcileMomoTransaction = async (tx) => {
+  try {
+    const result = await queryMomoTransactionStatus(tx.TransactionCode);
+    // resultCode 1000/7000/7002 = MoMo còn đang xử lý, chưa có kết quả cuối cùng — bỏ qua, thử lại lần sau.
+    if ([1000, 7000, 7002].includes(Number(result.resultCode))) {
+      return;
+    }
+    await applyMomoResult(tx, tx.TransactionCode, result.resultCode, '[MoMo Reconcile]');
+  } catch (error) {
+    logger.error(`[MoMo Reconcile] Lỗi khi truy vấn orderId ${tx.TransactionCode}: ${error.message}`);
+  }
+};
+
+/**
+ * Quét toàn bộ Transaction MoMo còn Pending quá lâu (mặc định > 2 phút, để tránh
+ * đối soát đơn vừa tạo còn chưa kịp thanh toán) và đối soát trực tiếp với MoMo.
+ * Dùng cho cron job — bù cho trường hợp IPN không gọi được tới server.
+ * @returns {Promise<number>} số giao dịch đã quét
+ */
+export const reconcilePendingMomoTransactions = async () => {
+  const [pendingTx] = await pool.query(
+    `SELECT TransactionID, InvoiceID, TransactionCode
+     FROM Transactions
+     WHERE PaymentMethod = 'MoMo' AND Status = 'Pending' AND TransactionDate < UNIX_TIMESTAMP(NOW() - INTERVAL 2 MINUTE)`
+  );
+
+  for (const tx of pendingTx) {
+    await reconcileMomoTransaction(tx);
+  }
+
+  return pendingTx.length;
+};
+
+/**
+ * Tạo đơn thanh toán VNPay (redirect flow) cho 1 hóa đơn — build payUrl, insert
+ * Transaction Status='Pending'. TransactionCode lưu dạng '{txnRef}|{vnp_CreateDate}'
+ * vì API đối soát querydr của VNPay bắt buộc phải có lại đúng vnp_CreateDate gốc.
+ * @param {number} invoiceId
+ * @param {string} ipAddr - IP của parent đang thanh toán (VNPay bắt buộc)
+ */
+export const createVnpayPayment = async (invoiceId, ipAddr) => {
+  const [invoiceRows] = await pool.query(
+    'SELECT InvoiceID, TotalAmount, BillingMonth, InvoiceType FROM Invoices WHERE InvoiceID = ?',
+    [invoiceId]
+  );
+  if (invoiceRows.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy hóa đơn');
+  }
+  const invoice = invoiceRows[0];
+
+  if (Number(invoice.TotalAmount) <= 0) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Hóa đơn không có số tiền cần thanh toán');
+  }
+
+  // vnp_TxnRef giới hạn 34 ký tự nên không dùng UUID như MoMo — ghép invoiceId + timestamp là đủ duy nhất.
+  const txnRef = `${invoiceId}${Date.now()}`;
+  const orderInfo = `Thanh toan hoa don ${invoice.InvoiceType} ky ${invoice.BillingMonth} - KinderCare`;
+  const { payUrl, createDate } = createVnpayPaymentUrl({
+    txnRef,
+    amount: invoice.TotalAmount,
+    orderInfo,
+    ipAddr: ipAddr || '127.0.0.1',
+  });
+
+  await pool.query(
+    `INSERT INTO Transactions (InvoiceID, AmountPaid, PaymentMethod, TransactionCode, Status)
+     VALUES (?, ?, 'VNPay', ?, 'Pending')`,
+    [invoiceId, invoice.TotalAmount, `${txnRef}|${createDate}`]
+  );
+
+  return { payUrl, txnRef };
+};
+
+/**
+ * Áp dụng kết quả giao dịch VNPay (Success/Failed) lên Transaction + Invoice liên quan.
+ * Dùng chung cho cả IPN callback và đối soát chủ động (query API).
+ * @param {object} tx - { TransactionID, InvoiceID }
+ * @param {string} txnRef
+ * @param {boolean} isSuccess
+ * @param {string} logPrefix
+ */
+const applyVnpayResult = async (tx, txnRef, isSuccess, logPrefix) => {
+  if (isSuccess) {
+    await pool.query('UPDATE Transactions SET Status = ? WHERE TransactionID = ?', ['Success', tx.TransactionID]);
+    await recalculateInvoicePaymentStatus(tx.InvoiceID);
+    logger.info(`${logPrefix} Thanh toán thành công cho InvoiceID ${tx.InvoiceID}, txnRef ${txnRef}`);
+  } else {
+    await pool.query('UPDATE Transactions SET Status = ? WHERE TransactionID = ?', ['Failed', tx.TransactionID]);
+    logger.info(`${logPrefix} Thanh toán thất bại cho txnRef ${txnRef}`);
+  }
+};
+
+/**
+ * Xử lý IPN callback từ VNPay (GET, query string) — verify chữ ký, kiểm tra số tiền,
+ * chống xử lý trùng, cập nhật Transaction theo vnp_TxnRef. Trả về object { RspCode, Message }
+ * đúng chuẩn VNPay yêu cầu — controller phải trả nguyên object này dưới dạng JSON, HTTP 200.
+ * @param {Record<string,string>} query - req.query gốc từ VNPay
+ * @returns {Promise<{RspCode: string, Message: string}>}
+ */
+export const handleVnpayIpn = async (query) => {
+  const isValid = verifyVnpaySignature(query);
+  if (!isValid) {
+    logger.error(`[VNPay IPN] Chữ ký không hợp lệ cho txnRef: ${query.vnp_TxnRef}`);
+    return { RspCode: '97', Message: 'Invalid signature' };
+  }
+
+  const {
+    vnp_TxnRef: txnRef,
+    vnp_Amount: amount,
+    vnp_ResponseCode: responseCode,
+    vnp_TransactionStatus: transactionStatus,
+  } = query;
+
+  const [txRows] = await pool.query(
+    `SELECT TransactionID, InvoiceID, AmountPaid, Status FROM Transactions WHERE TransactionCode LIKE CONCAT(?, '|%')`,
+    [txnRef]
+  );
+  if (txRows.length === 0) {
+    logger.error(`[VNPay IPN] Không tìm thấy transaction cho txnRef: ${txnRef}`);
+    return { RspCode: '01', Message: 'Order not found' };
+  }
+  const tx = txRows[0];
+
+  if (Number(amount) !== Math.round(tx.AmountPaid) * 100) {
+    logger.error(`[VNPay IPN] Sai số tiền cho txnRef: ${txnRef}`);
+    return { RspCode: '04', Message: 'Invalid amount' };
+  }
+
+  if (tx.Status !== 'Pending') {
+    return { RspCode: '02', Message: 'Order already confirmed' };
+  }
+
+  const isSuccess = responseCode === '00' && transactionStatus === '00';
+  await applyVnpayResult(tx, txnRef, isSuccess, '[VNPay IPN]');
+
+  return { RspCode: '00', Message: 'Confirm Success' };
+};
+
+/**
+ * Đối soát 1 giao dịch VNPay còn Pending bằng cách chủ động hỏi VNPay trạng thái thật
+ * (API querydr) — dùng khi IPN không tới được server.
+ * @param {object} tx - { TransactionID, InvoiceID, TransactionCode }
+ */
+export const reconcileVnpayTransaction = async (tx) => {
+  const [txnRef, createDate] = tx.TransactionCode.split('|');
+  try {
+    const result = await queryVnpayTransactionStatus(txnRef, createDate, '127.0.0.1');
+    if (result.vnp_ResponseCode !== '00') {
+      // Query thất bại hoặc VNPay chưa ghi nhận được giao dịch này — bỏ qua, thử lại lần sau.
+      return;
+    }
+    if (result.vnp_TransactionStatus === '01') {
+      // Giao dịch còn đang xử lý, chưa có kết quả cuối cùng.
+      return;
+    }
+    const isSuccess = result.vnp_TransactionStatus === '00';
+    await applyVnpayResult(tx, txnRef, isSuccess, '[VNPay Reconcile]');
+  } catch (error) {
+    logger.error(`[VNPay Reconcile] Lỗi khi truy vấn txnRef ${txnRef}: ${error.message}`);
+  }
+};
+
+/**
+ * Quét toàn bộ Transaction VNPay còn Pending quá lâu (> 2 phút) và đối soát trực tiếp
+ * với VNPay. Dùng cho cron job — bù cho trường hợp IPN không gọi được tới server.
+ * @returns {Promise<number>} số giao dịch đã quét
+ */
+export const reconcilePendingVnpayTransactions = async () => {
+  const [pendingTx] = await pool.query(
+    `SELECT TransactionID, InvoiceID, TransactionCode
+     FROM Transactions
+     WHERE PaymentMethod = 'VNPay' AND Status = 'Pending' AND TransactionDate < UNIX_TIMESTAMP(NOW() - INTERVAL 2 MINUTE)`
+  );
+
+  for (const tx of pendingTx) {
+    await reconcileVnpayTransaction(tx);
+  }
+
+  return pendingTx.length;
+};
+
+/**
+ * Đối soát 1 giao dịch Pending, tự chọn cổng thanh toán tương ứng dựa vào PaymentMethod.
+ * Dùng ở các chỗ đọc dữ liệu (getInvoiceDetail, getInvoicesByStudentId) để không cần biết
+ * trước giao dịch thuộc cổng nào.
+ * @param {object} tx - { TransactionID, InvoiceID, TransactionCode, PaymentMethod }
+ */
+const reconcilePendingTransaction = (tx) => {
+  if (tx.PaymentMethod === 'MoMo') return reconcileMomoTransaction(tx);
+  if (tx.PaymentMethod === 'VNPay') return reconcileVnpayTransaction(tx);
+  return Promise.resolve();
+};
+
+/**
+ * Lấy danh sách hoạt động ngoại khóa hiện có (bảng Extracurriculars).
+ */
+export const getExtracurriculars = async () => {
+  const [rows] = await pool.query(
+    `SELECT ActivityID AS activityId, ActivityName AS activityName,
+            MonthlyFee AS monthlyFee, Description AS description
+     FROM Extracurriculars
+     ORDER BY ActivityName ASC`
+  );
+  return rows;
+};
+
+/**
+ * Lấy danh sách đăng ký ngoại khóa của 1 học sinh.
+ * @param {number} studentId
+ * @param {string} [month] - 'MM-YYYY', lọc theo RegisteredMonth nếu có
+ */
+export const getStudentExtracurriculars = async (studentId, month) => {
+  const conditions = ['se.StudentID = ?'];
+  const values = [studentId];
+  if (month) { conditions.push('se.RegisteredMonth = ?'); values.push(month); }
+
+  const [rows] = await pool.query(
+    `SELECT se.EnrollmentID AS enrollmentId, se.ActivityID AS activityId,
+            e.ActivityName AS activityName, e.MonthlyFee AS monthlyFee,
+            se.RegisteredMonth AS registeredMonth, se.Status AS status,
+            se.FeeRefunded AS feeRefunded, se.ActivatedAt AS activatedAt,
+            se.CreatedAt AS createdAt, se.InvoiceID AS invoiceId
+     FROM StudentExtracurriculars se
+     JOIN Extracurriculars e ON se.ActivityID = e.ActivityID
+     WHERE ${conditions.join(' AND ')}
+     ORDER BY se.RegisteredMonth DESC, e.ActivityName ASC`,
+    values
+  );
+  return rows;
+};
+
+/**
+ * Đăng ký 1 hoạt động ngoại khóa cho học sinh — có hiệu lực NGAY tháng
+ * hiện tại. Tạo/nối vào 1 invoice EXTRACURRICULAR riêng của tháng đó
+ * (gộp nhiều hoạt động cùng tháng vào 1 invoice). Enrollment ở trạng
+ * thái Pending cho tới khi invoice đó được thanh toán đủ → tự động
+ * chuyển Active (xem activateExtracurricularsForInvoice).
+ * @param {number} studentId
+ * @param {number} activityId
+ */
+export const registerExtracurricular = async (studentId, activityId) => {
+  const [activityRows] = await pool.query(
+    'SELECT ActivityID, MonthlyFee FROM Extracurriculars WHERE ActivityID = ?',
+    [activityId]
+  );
+  if (activityRows.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy hoạt động ngoại khóa');
+  }
+  const activity = activityRows[0];
+
+  const currentMonth = getMonthKey(Math.floor(Date.now() / 1000));
+
+  const [existingEnrollment] = await pool.query(
+    `SELECT EnrollmentID, Status, InvoiceID, FeeRefunded FROM StudentExtracurriculars
+     WHERE StudentID = ? AND ActivityID = ? AND RegisteredMonth = ?`,
+    [studentId, activityId, currentMonth]
+  );
+  if (existingEnrollment.length > 0) {
+    const existing = existingEnrollment[0];
+    if (existing.Status !== 'Cancelled' && existing.Status !== 'Expired') {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Học sinh đã đăng ký hoạt động này cho tháng đó rồi');
+    }
+
+    // FeeRefunded=1 (tự hết hạn, hoặc hủy tay còn trong grace period 48h) — phí đã bị
+    // trừ khỏi invoice cũ, chắc chắn phải cộng lại phí mới.
+    // FeeRefunded=0 (hủy tay ngoài grace period, không hoàn tiền) — phí vẫn còn nguyên
+    // trong invoice cũ, không cộng lại để tránh tính 2 lần.
+    const needsNewFee = existing.FeeRefunded === 1;
+
+    const invoiceId = needsNewFee
+      ? await addToExtracurricularInvoice(studentId, currentMonth, Number(activity.MonthlyFee))
+      : existing.InvoiceID;
+
+    await pool.query(
+      'UPDATE StudentExtracurriculars SET Status = ?, InvoiceID = ? WHERE EnrollmentID = ?',
+      ['Pending', invoiceId, existing.EnrollmentID]
+    );
+    return {
+      enrollmentId: existing.EnrollmentID,
+      studentId,
+      activityId,
+      registeredMonth: currentMonth,
+      status: 'Pending',
+      invoiceId,
+    };
+  }
+
+  const invoiceId = await addToExtracurricularInvoice(studentId, currentMonth, Number(activity.MonthlyFee));
+
+  const [result] = await pool.query(
+    `INSERT INTO StudentExtracurriculars (StudentID, ActivityID, RegisteredMonth, Status, InvoiceID)
+     VALUES (?, ?, ?, 'Pending', ?)`,
+    [studentId, activityId, currentMonth, invoiceId]
+  );
+
+  return {
+    enrollmentId: result.insertId,
+    studentId,
+    activityId,
+    registeredMonth: currentMonth,
+    status: 'Pending',
+    invoiceId,
+  };
+};
+
+/**
+ * Hủy đăng ký ngoại khóa — chỉ ngăn không gia hạn sang các tháng sau
+ * (renewExtracurricularEnrollments chỉ gia hạn enrollment còn Status='Active'
+ * của tháng liền trước). Có hoàn/trừ phí (FeeRefunded=1) khi:
+ * - Enrollment đang Pending (chưa thanh toán) — luôn trừ phí, giống hệt tự hết hạn 48h.
+ * - Enrollment đang Active (đã thanh toán) NHƯNG còn trong 48h kể từ lúc Active
+ *   (ActivatedAt) — coi như "grace period" sau khi thanh toán.
+ * Ngoài 2 trường hợp trên (Active đã quá 48h kể từ lúc thanh toán) thì KHÔNG hoàn tiền.
+ * @param {number} enrollmentId
+ * @param {number} studentId - để verify quyền sở hữu
+ */
+export const cancelExtracurricular = async (enrollmentId, studentId) => {
+  const [rows] = await pool.query(
+    'SELECT EnrollmentID, StudentID, Status, InvoiceID, ActivatedAt FROM StudentExtracurriculars WHERE EnrollmentID = ?',
+    [enrollmentId]
+  );
+  if (rows.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy đăng ký hoạt động ngoại khóa');
+  }
+  const enrollment = rows[0];
+
+  if (enrollment.StudentID !== studentId) {
+    throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền hủy đăng ký này');
+  }
+  if (enrollment.Status === 'Cancelled' || enrollment.Status === 'Expired') {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Đăng ký này đã được hủy trước đó');
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const withinRefundWindow = enrollment.Status === 'Active'
+    && now - enrollment.ActivatedAt <= EXTRACURRICULAR_CANCEL_REFUND_WINDOW_HOURS * 3600;
+  const shouldRefund = enrollment.Status === 'Pending' || withinRefundWindow;
+
+  await pool.query(
+    'UPDATE StudentExtracurriculars SET Status = ?, FeeRefunded = ? WHERE EnrollmentID = ?',
+    ['Cancelled', shouldRefund ? 1 : 0, enrollmentId]
+  );
+
+  if (shouldRefund && enrollment.InvoiceID) {
+    const [[activity]] = await pool.query(
+      `SELECT e.MonthlyFee FROM StudentExtracurriculars se
+       JOIN Extracurriculars e ON se.ActivityID = e.ActivityID
+       WHERE se.EnrollmentID = ?`,
+      [enrollmentId]
+    );
+    await pool.query(
+      'UPDATE Invoices SET ExtracurricularFee = GREATEST(ExtracurricularFee - ?, 0) WHERE InvoiceID = ?',
+      [activity.MonthlyFee, enrollment.InvoiceID]
+    );
+    // ExtracurricularFee vừa giảm kéo TotalAmount (generated column) giảm theo — số tiền
+    // đã trả trước đó có thể giờ đã đủ/dư cho TotalAmount mới, phải tính lại PaymentStatus
+    // (vd: 2 hoạt động 900k đã Paid, hủy 1 hoạt động 400k -> còn 500k, đã trả 900k -> Paid).
+    await recalculateInvoicePaymentStatus(enrollment.InvoiceID);
+  }
+
+  return { enrollmentId, status: 'Cancelled', feeRefunded: shouldRefund };
+};
+
+
+
+
+
 
 
 

@@ -1,22 +1,218 @@
+// ─────────────────────────────────────────────────────────────
+//  TAG DEFINITIONS
+// ─────────────────────────────────────────────────────────────
+
 /**
  * @swagger
  * tags:
- *   name: Parent
- *   description: Parent-dashboard specific operations
+ *   - name: "Parent - Profile"
+ *     description: "Parent own profile and children overview"
+ *   - name: "Parent - Child Info"
+ *     description: "Detailed info of a specific child (profile, health, assessments, attendance, daily activities)"
+ *   - name: "Parent - Classroom"
+ *     description: "Class-level content: schedule, lessons, albums, newsfeeds, menu"
+ *   - name: "Parent - Requests"
+ *     description: "Leave requests and medication requests"
+ *   - name: "Parent - Authorizations"
+ *     description: "Proxy pickup/drop-off authorizations and QR attendance token"
+ *   - name: "Parent - Billing"
+ *     description: "View and pay a child's tuition/monthly invoices"
+ *   - name: "Parent - Extracurriculars"
+ *     description: "Browse and manage a child's extracurricular activity enrollments"
+ */
+
+// ─────────────────────────────────────────────────────────────
+//  GROUP 1 · Parent - Profile
+//  GET  /parent/profile
+//  PATCH /parent/profile
+//  GET  /parent/children
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /parent/profile:
+ *   get:
+ *     summary: Get own profile
+ *     description: Retrieve the full profile of the currently authenticated parent.
+ *     tags: ["Parent - Profile"]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved parent profile
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy thông tin phụ huynh thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     parentId:
+ *                       type: integer
+ *                       example: 4
+ *                     fullName:
+ *                       type: string
+ *                       example: Nguyễn Anh Tuấn
+ *                     dateOfBirth:
+ *                       type: integer
+ *                       nullable: true
+ *                       description: Unix timestamp (seconds)
+ *                       example: 631584000
+ *                     phoneNumber:
+ *                       type: string
+ *                       example: 0911111111
+ *                     email:
+ *                       type: string
+ *                       nullable: true
+ *                       example: tuan.nguyen@gmail.com
+ *                     idCard:
+ *                       type: string
+ *                       nullable: true
+ *                       example: null
+ *                     job:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Kỹ sư
+ *                     address:
+ *                       type: string
+ *                       nullable: true
+ *                       example: 65 Huỳnh Thúc Kháng, Q1
+ *                     avatarUrl:
+ *                       type: string
+ *                       nullable: true
+ *                       example: https://media.kindercare.app/Avatar/Parent%20Avatar/avatar.jpg
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a parent
+ *       404:
+ *         description: Not Found - parent profile not found
+ *       500:
+ *         description: Internal Server Error
+ *   patch:
+ *     summary: Update own profile
+ *     description: Update one or more fields of the authenticated parent's profile. All body fields are optional. Send as multipart/form-data when uploading an avatar image.
+ *     tags: ["Parent - Profile"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               fullName:
+ *                 type: string
+ *                 example: Nguyễn Anh Tuấn
+ *               dateOfBirth:
+ *                 type: integer
+ *                 description: Unix timestamp (seconds)
+ *                 example: 631584000
+ *               phoneNumber:
+ *                 type: string
+ *                 example: 0911111111
+ *               email:
+ *                 type: string
+ *                 example: tuan.nguyen@gmail.com
+ *               idCard:
+ *                 type: string
+ *                 example: 079090001234
+ *               job:
+ *                 type: string
+ *                 example: Kỹ sư
+ *               address:
+ *                 type: string
+ *                 example: 65 Huỳnh Thúc Kháng, Q1
+ *               avatar:
+ *                 type: string
+ *                 format: binary
+ *                 description: Avatar image (jpg, jpeg, png, webp, gif — max 5 MB)
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Cập nhật thông tin phụ huynh thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     parentId:
+ *                       type: integer
+ *                       example: 4
+ *                     fullName:
+ *                       type: string
+ *                       example: Nguyễn Anh Tuấn
+ *                     dateOfBirth:
+ *                       type: integer
+ *                       nullable: true
+ *                       description: Unix timestamp (seconds)
+ *                       example: 631584000
+ *                     phoneNumber:
+ *                       type: string
+ *                       example: 0911111111
+ *                     email:
+ *                       type: string
+ *                       nullable: true
+ *                       example: tuan.nguyen@gmail.com
+ *                     idCard:
+ *                       type: string
+ *                       nullable: true
+ *                       example: 079090001234
+ *                     job:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Kỹ sư
+ *                     address:
+ *                       type: string
+ *                       nullable: true
+ *                       example: 65 Huỳnh Thúc Kháng, Q1
+ *                     avatarUrl:
+ *                       type: string
+ *                       nullable: true
+ *                       example: https://media.kindercare.app/parents/parents-profile-avatar/1782901725329-816008711.jpg
+ *       400:
+ *         description: Bad Request - no fields provided or invalid file type
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a parent
+ *       500:
+ *         description: Internal Server Error
  */
 
 /**
  * @swagger
  * /parent/children:
  *   get:
- *     summary: Get children of the logged-in parent
- *     description: Retrieve detailed information of all children associated with the currently authenticated parent.
- *     tags: [Parent]
+ *     summary: Get all children of the logged-in parent
+ *     description: Retrieve a list of all children linked to the authenticated parent, including class, campus, building, grade, and teacher details.
+ *     tags: ["Parent - Profile"]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Successfully retrieved the list of children
+ *         description: Successfully retrieved children list
  *         content:
  *           application/json:
  *             schema:
@@ -118,9 +314,9 @@
  *                               example: Nữ
  *                             roleInClass:
  *                               type: string
- *                               example: Lead
+ *                               example: Giáo viên trưởng
  *       401:
- *         description: Unauthorized - token missing or invalid
+ *         description: Unauthorized
  *       403:
  *         description: Forbidden - user is not a parent
  *       500:
@@ -129,16 +325,39 @@
 
 /**
  * @swagger
- * /parent/profile:
- *   get:
- *     summary: Get profile of the logged-in parent
- *     description: Retrieve detailed profile information of the currently authenticated parent.
- *     tags: [Parent]
+ * /parent/change-password:
+ *   patch:
+ *     summary: Change own password
+ *     description: Change the password of the authenticated parent. Requires the current password for verification.
+ *     tags: ["Parent - Profile"]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *               - confirmNewPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 description: The parent's current password
+ *                 example: OldPass123
+ *               newPassword:
+ *                 type: string
+ *                 description: New password (minimum 6 characters, must differ from current)
+ *                 example: NewPass456
+ *               confirmNewPassword:
+ *                 type: string
+ *                 description: Must match newPassword exactly
+ *                 example: NewPass456
  *     responses:
  *       200:
- *         description: Successfully retrieved the parent profile
+ *         description: Password changed successfully
  *         content:
  *           application/json:
  *             schema:
@@ -152,53 +371,39 @@
  *                   example: 200
  *                 message:
  *                   type: string
- *                   example: Lấy thông tin phụ huynh thành công
+ *                   example: Đổi mật khẩu thành công
  *                 data:
- *                   type: object
- *                   properties:
- *                     parentId:
- *                       type: integer
- *                       example: 4
- *                     fullName:
- *                       type: string
- *                       example: Nguyễn Anh Tuấn
- *                     phoneNumber:
- *                       type: string
- *                       example: 0911111111
- *                     email:
- *                       type: string
- *                       example: tuan.nguyen@gmail.com
- *                     idCard:
- *                       type: string
- *                       nullable: true
- *                       example: null
- *                     job:
- *                       type: string
- *                       example: Kỹ sư
- *                     address:
- *                       type: string
- *                       example: 65 Huỳnh Thúc Kháng, Q1
- *                     avatarUrl:
- *                       type: string
- *                       nullable: true
- *                       example: https://media.kindercare.app/Avatar/Parent%20Avatar/534926184_1951092382389301_2242079378559548722_n.jpg
+ *                   nullable: true
+ *                   example: null
+ *       400:
+ *         description: "Bad Request — one of: missing fields | mật khẩu xác nhận không khớp | mật khẩu mới < 6 ký tự | mật khẩu mới trùng mật khẩu cũ | mật khẩu hiện tại sai"
  *       401:
- *         description: Unauthorized - token missing or invalid
+ *         description: Unauthorized
  *       403:
  *         description: Forbidden - user is not a parent
  *       404:
- *         description: Not Found - parent profile not found
+ *         description: Not Found - account not found
  *       500:
  *         description: Internal Server Error
  */
 
+// ─────────────────────────────────────────────────────────────
+//  GROUP 2 · Parent - Child Info
+//  GET  /parent/children/{studentId}
+//  GET  /parent/children/{studentId}/relatives
+//  GET  /parent/children/{studentId}/health-records
+//  GET  /parent/children/{studentId}/assessments
+//  GET  /parent/children/{studentId}/attendance
+//  GET  /parent/children/{studentId}/daily-activities
+// ─────────────────────────────────────────────────────────────
+
 /**
  * @swagger
- * /parent/children/{studentId}/health-records:
+ * /parent/children/{studentId}:
  *   get:
- *     summary: Get health records of a child
- *     description: Retrieve all developmental health records (height, weight, BMI, term period) of a child associated with the authenticated parent.
- *     tags: [Parent]
+ *     summary: Get detailed info of a single child
+ *     description: Retrieve full details of a specific child belonging to the authenticated parent, including class, grade, campus, building and teacher list.
+ *     tags: ["Parent - Child Info"]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -208,9 +413,343 @@
  *         schema:
  *           type: integer
  *         description: ID of the student
+ *         example: 1
  *     responses:
  *       200:
- *         description: Successfully retrieved child health records
+ *         description: Successfully retrieved student detail
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy thông tin học sinh thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     studentId:
+ *                       type: integer
+ *                       example: 1
+ *                     fullName:
+ *                       type: string
+ *                       example: Nguyễn Minh Khang
+ *                     dateOfBirth:
+ *                       type: integer
+ *                       example: 1684108800
+ *                     gender:
+ *                       type: string
+ *                       example: Nam
+ *                     allergies:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Dị ứng lạc
+ *                     admissionDate:
+ *                       type: integer
+ *                       nullable: true
+ *                       example: 1781082000
+ *                     enrollmentStatus:
+ *                       type: string
+ *                       example: Active
+ *                     avatarUrl:
+ *                       type: string
+ *                       nullable: true
+ *                       example: null
+ *                     classId:
+ *                       type: integer
+ *                       example: 1
+ *                     className:
+ *                       type: string
+ *                       example: Mầm 1
+ *                     gradeId:
+ *                       type: integer
+ *                       example: 1
+ *                     gradeName:
+ *                       type: string
+ *                       example: Mầm
+ *                     academicYearId:
+ *                       type: integer
+ *                       example: 1
+ *                     academicYearName:
+ *                       type: string
+ *                       example: Niên khóa 2026-2027
+ *                     buildingId:
+ *                       type: integer
+ *                       example: 1
+ *                     buildingName:
+ *                       type: string
+ *                       example: Tòa A (Khối Mầm)
+ *                     campusId:
+ *                       type: integer
+ *                       example: 1
+ *                     campusName:
+ *                       type: string
+ *                       example: Cơ sở 1 - Quận 1
+ *                     campusAddress:
+ *                       type: string
+ *                       example: 65 Huỳnh Thúc Kháng, Bến Nghé, Q1
+ *                     teachers:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           teacherId:
+ *                             type: integer
+ *                             example: 16
+ *                           fullName:
+ *                             type: string
+ *                             example: Trần Hoàng Anh
+ *                           phoneNumber:
+ *                             type: string
+ *                             example: 0977111222
+ *                           email:
+ *                             type: string
+ *                             example: hoanganh.tran@kindercare.edu.vn
+ *                           gender:
+ *                             type: string
+ *                             example: Nữ
+ *                           roleInClass:
+ *                             type: string
+ *                             example: Giáo viên trưởng
+ *       400:
+ *         description: Bad Request - studentId is not a valid number
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - student does not belong to the logged-in parent
+ *       404:
+ *         description: Not Found - student not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/relatives:
+ *   get:
+ *     summary: Get relatives (guardians) of a child
+ *     description: Retrieve all parents/guardians linked to a specific child. Only accessible by a parent already associated with that child. Primary contact is listed first.
+ *     tags: ["Parent - Child Info"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the student
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved relatives list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách người thân của học sinh thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       parentId:
+ *                         type: integer
+ *                         example: 17
+ *                       fullName:
+ *                         type: string
+ *                         example: Lê Minh Tuấn
+ *                       dateOfBirth:
+ *                         type: integer
+ *                         nullable: true
+ *                         description: Unix timestamp (seconds)
+ *                         example: 631584000
+ *                       phoneNumber:
+ *                         type: string
+ *                         example: 0988777666
+ *                       email:
+ *                         type: string
+ *                         nullable: true
+ *                         example: minhtuan.le@gmail.com
+ *                       idCard:
+ *                         type: string
+ *                         nullable: true
+ *                         example: 079088001234
+ *                       job:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Kiến trúc sư
+ *                       address:
+ *                         type: string
+ *                         nullable: true
+ *                         example: 102 Nguyễn Đình Chiểu, Quận 3, TP.HCM
+ *                       avatarUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: null
+ *                       relationship:
+ *                         type: string
+ *                         example: Ba
+ *                       isPrimary:
+ *                         type: integer
+ *                         description: "1 = primary contact, 0 = secondary"
+ *                         example: 1
+ *       400:
+ *         description: Bad Request - studentId is not a valid number
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - student does not belong to the logged-in parent
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/weekly-timetable:
+ *   get:
+ *     summary: Get weekly timetable and themes for a child's class
+ *     description: Retrieve the monthly theme, weekly theme, and full weekly schedule details (lessons/activities) for the class of a given student. Defaults to the current date if not specified. Only accessible by parents associated with the child.
+ *     tags: ["Parent - Child Info"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the student
+ *         example: 1
+ *       - in: query
+ *         name: date
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Unix timestamp in seconds to specify a custom target date
+ *         example: 1783008683
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved weekly timetable and themes
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy thời khóa biểu tuần của học sinh thành công
+ *                 data:
+ *                   type: object
+ *                   nullable: true
+ *                   properties:
+ *                     monthlyScheduleId:
+ *                       type: integer
+ *                       example: 1
+ *                     month:
+ *                       type: integer
+ *                       example: 10
+ *                     year:
+ *                       type: integer
+ *                       example: 2026
+ *                     monthTheme:
+ *                       type: string
+ *                       example: "Vòng Tay Gia Đình & Lễ Hội Sắc Màu"
+ *                     weeklyScheduleId:
+ *                       type: integer
+ *                       example: 1
+ *                     weekOrder:
+ *                       type: integer
+ *                       example: 1
+ *                     weekTheme:
+ *                       type: string
+ *                       example: "Tuần 1: Tổ ấm của bé (Yêu thương gia đình)"
+ *                     details:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           scheduleDetailId:
+ *                             type: integer
+ *                             example: 1
+ *                           dayOfWeek:
+ *                             type: string
+ *                             enum: [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday]
+ *                             example: Monday
+ *                           startTime:
+ *                             type: string
+ *                             example: "09:00:00"
+ *                           endTime:
+ *                             type: string
+ *                             example: "10:15:00"
+ *                           activityName:
+ *                             type: string
+ *                             example: "Vẽ tranh ngôi nhà"
+ *                           details:
+ *                             type: string
+ *                             nullable: true
+ *                             example: "Bé vẽ và tô màu ngôi nhà của mình"
+ *                           location:
+ *                             type: string
+ *                             nullable: true
+ *                             example: null
+ *                           activityType:
+ *                             type: string
+ *                             enum: [pickup, meal, study, nap, play, dropoff, other]
+ *                             example: study
+ *       400:
+ *         description: Bad Request - invalid studentId
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - student does not belong to the logged-in parent
+ *       404:
+ *         description: Not Found - student not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/health-records:
+ *   get:
+ *     summary: Get health records of a child
+ *     description: Retrieve all developmental health records (height, weight, BMI by term period) of a child. Only accessible by parents associated with the child.
+ *     tags: ["Parent - Child Info"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the student
+ *         example: 19
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved health records
  *         content:
  *           application/json:
  *             schema:
@@ -249,628 +788,9 @@
  *                         type: string
  *                         example: "16.60"
  *       401:
- *         description: Unauthorized - token missing or invalid
+ *         description: Unauthorized
  *       403:
- *         description: Forbidden - user is not a parent or is not associated with this child
- *       500:
- *         description: Internal Server Error
- */
-
-/**
- * @swagger
- * /parent/leave-requests:
- *   post:
- *     summary: Create a leave request
- *     description: Submit a new leave request for a child. Only accessible by parents associated with the child. After creation, a push notification is automatically sent to all teachers of the child's class.
- *     tags: [Parent]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - studentId
- *               - fromDate
- *               - toDate
- *               - reason
- *             properties:
- *               studentId:
- *                 type: integer
- *                 description: ID of the child student
- *                 example: 19
- *               fromDate:
- *                 type: integer
- *                 description: Start date of leave as Unix timestamp in seconds
- *                 example: 1781827200
- *               toDate:
- *                 type: integer
- *                 description: End date of leave as Unix timestamp in seconds
- *                 example: 1781913599
- *               reason:
- *                 type: string
- *                 description: Category of leave (e.g., Bệnh/Ốm, Việc gia đình, Du lịch / nghỉ phép, Khám bệnh định kỳ, Bé đi tiêm chủng định kỳ, Lý do khác)
- *                 example: Bệnh/Ốm
- *               evidenceUrl:
- *                 type: string
- *                 nullable: true
- *                 description: URL to medical certificate or other supporting documents
- *                 example: null
- *               parentNotes:
- *                 type: string
- *                 nullable: true
- *                 description: Detailed notes or messages from the parent
- *                 example: Bé Khang bị sốt nhẹ từ đêm qua, gia đình xin phép thầy Huy cho bé nghỉ hôm nay để theo dõi thêm ạ.
- *     responses:
- *       201:
- *         description: Leave request successfully created
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 statusCode:
- *                   type: integer
- *                   example: 201
- *                 message:
- *                   type: string
- *                   example: Tạo đơn xin nghỉ phép thành công
- *                 data:
- *                   type: object
- *                   properties:
- *                     requestId:
- *                       type: integer
- *                       example: 22
- *                     studentId:
- *                       type: integer
- *                       example: 19
- *                     parentId:
- *                       type: integer
- *                       example: 6
- *                     fromDate:
- *                       type: integer
- *                       example: 1781827200
- *                     toDate:
- *                       type: integer
- *                       example: 1781913599
- *                     reason:
- *                       type: string
- *                       example: Bệnh/Ốm
- *                     evidenceUrl:
- *                       type: string
- *                       nullable: true
- *                       example: null
- *                     status:
- *                       type: string
- *                       example: Pending
- *                     approverId:
- *                       type: integer
- *                       nullable: true
- *                       example: null
- *                     isMealFeeDeducted:
- *                       type: integer
- *                       example: 0
- *                     parentNotes:
- *                       type: string
- *                       example: Bé Khang bị sốt nhẹ từ đêm qua, gia đình xin phép thầy Huy cho bé nghỉ hôm nay để theo dõi thêm ạ.
- *                     createdAt:
- *                       type: integer
- *                       example: 1781827200
- *                     updatedTime:
- *                       type: integer
- *                       nullable: true
- *                       example: null
- *       400:
- *         description: Bad Request - invalid or missing parameters
- *       401:
- *         description: Unauthorized - token missing or invalid
- *       403:
- *         description: Forbidden - user is not a parent or is not associated with this child
- *       500:
- *         description: Internal Server Error
- */
-
-/**
- * @swagger
- * /parent/leave-requests/{requestId}/cancel:
- *   patch:
- *     summary: Cancel a pending leave request
- *     description: Cancel a leave request that is currently in "Pending" status. Only accessible by the parent who created it.
- *     tags: [Parent]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: requestId
- *         required: true
- *         schema:
- *           type: integer
- *         description: ID of the leave request to cancel
- *     responses:
- *       200:
- *         description: Leave request successfully cancelled
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 statusCode:
- *                   type: integer
- *                   example: 200
- *                 message:
- *                   type: string
- *                   example: Hủy đơn xin nghỉ phép thành công
- *                 data:
- *                   type: object
- *                   properties:
- *                     requestId:
- *                       type: integer
- *                       example: 22
- *                     status:
- *                       type: string
- *                       example: Cancelled
- *                     updatedTime:
- *                       type: integer
- *                       example: 1781827200
- *       400:
- *         description: Bad Request - request is not in Pending status
- *       401:
- *         description: Unauthorized - token missing or invalid
- *       403:
- *         description: Forbidden - user is not a parent or did not create this request
- *       404:
- *         description: Not Found - leave request not found
- *       500:
- *         description: Internal Server Error
- */
-
-/**
- * @swagger
- * /parent/medication-requests:
- *   post:
- *     summary: Create a medication request
- *     description: Submit medication details and dosage instructions for a child. Only accessible by parents associated with the child. After creation, a push notification is automatically sent to all teachers of the child's class.
- *     tags: [Parent]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - studentId
- *               - requestDate
- *               - medicineDetails
- *               - dosage
- *             properties:
- *               studentId:
- *                 type: integer
- *                 description: ID of the child student
- *                 example: 26
- *               requestDate:
- *                 type: integer
- *                 description: Date of the request as Unix timestamp in seconds
- *                 example: 1778803200
- *               medicineDetails:
- *                 type: string
- *                 description: Detailed name and description of the medicine
- *                 example: Men tiêu hóa BioGaia
- *               dosage:
- *                 type: string
- *                 description: Instructions on dosage
- *                 example: Nhỏ 5 giọt
- *               frequency:
- *                 type: string
- *                 description: Frequency of taking the medicine per day
- *                 nullable: true
- *                 example: 2 lần
- *               timeToTake:
- *                 type: string
- *                 description: Specific timing to take the medicine (e.g. Sau ăn sáng, Sau ăn trưa)
- *                 nullable: true
- *                 example: Sau ăn trưa
- *               parentNote:
- *                 type: string
- *                 description: General note or instructions for the teacher
- *                 nullable: true
- *                 example: Tất cả thuốc để trong ba lô
- *     responses:
- *       201:
- *         description: Medication request successfully created
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 statusCode:
- *                   type: integer
- *                   example: 201
- *                 message:
- *                   type: string
- *                   example: Tạo dặn dò thuốc thành công
- *                 data:
- *                   type: object
- *                   properties:
- *                     medRequestId:
- *                       type: integer
- *                       example: 2
- *                     studentId:
- *                       type: integer
- *                       example: 26
- *                     parentId:
- *                       type: integer
- *                       example: 6
- *                     requestDate:
- *                       type: integer
- *                       example: 1778803200
- *                     medicineDetails:
- *                       type: string
- *                       example: Men tiêu hóa BioGaia
- *                     dosage:
- *                       type: string
- *                       example: Nhỏ 5 giọt
- *                     status:
- *                       type: string
- *                       example: Pending
- *                     teacherNote:
- *                       type: string
- *                       nullable: true
- *                       example: null
- *                     frequency:
- *                       type: string
- *                       nullable: true
- *                       example: 2 lần
- *                     timeToTake:
- *                       type: string
- *                       nullable: true
- *                       example: Sau ăn trưa
- *                     parentNote:
- *                       type: string
- *                       nullable: true
- *                       example: Tất cả thuốc để trong ba lô
- *                     updatedTime:
- *                       type: integer
- *                       nullable: true
- *                       example: null
- *       400:
- *         description: Bad Request - invalid or missing parameters
- *       401:
- *         description: Unauthorized - token missing or invalid
- *       403:
- *         description: Forbidden - user is not a parent or is not associated with this child
- *       500:
- *         description: Internal Server Error
- */
-
-/**
- * @swagger
- * /parent/medication-requests/{medRequestId}/cancel:
- *   patch:
- *     summary: Cancel a pending medication request group
- *     description: Cancel all pending medication requests in the group associated with the given medRequestId. Only accessible by the parent who created it.
- *     tags: [Parent]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: medRequestId
- *         required: true
- *         schema:
- *           type: integer
- *         description: ID of one of the medication requests in the group to cancel
- *     responses:
- *       200:
- *         description: Medication request group successfully cancelled
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 statusCode:
- *                   type: integer
- *                   example: 200
- *                 message:
- *                   type: string
- *                   example: Hủy dặn dò thuốc thành công
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       medRequestId:
- *                         type: integer
- *                         example: 2
- *                       status:
- *                         type: string
- *                         example: Cancelled
- *                       updatedTime:
- *                         type: integer
- *                         example: 1778803200
- *       400:
- *         description: Bad Request - request is not in Pending status
- *       401:
- *         description: Unauthorized - token missing or invalid
- *       403:
- *         description: Forbidden - user is not a parent or did not create this request
- *       404:
- *         description: Not Found - medication request not found
- *       500:
- *         description: Internal Server Error
- */
-
-/**
- * @swagger
- * /parent/children/{studentId}/attendance:
- *   get:
- *     summary: Get attendance records of a child
- *     description: Retrieve all attendance history (check-in/out times, status, pickup information) of a child. Only accessible by parents associated with the child.
- *     tags: [Parent]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: studentId
- *         required: true
- *         schema:
- *           type: integer
- *         description: ID of the child student
- *       - in: query
- *         name: startDate
- *         schema:
- *           type: integer
- *         description: Start date filter as Unix timestamp in seconds
- *       - in: query
- *         name: endDate
- *         schema:
- *           type: integer
- *         description: End date filter as Unix timestamp in seconds
- *     responses:
- *       200:
- *         description: Successfully retrieved child attendance records
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 statusCode:
- *                   type: integer
- *                   example: 200
- *                 message:
- *                   type: string
- *                   example: Lấy thông tin điểm danh của bé thành công
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       attendanceId:
- *                         type: integer
- *                         example: 1
- *                       studentId:
- *                         type: integer
- *                         example: 20
- *                       attendanceDate:
- *                         type: integer
- *                         example: 1778803200
- *                       status:
- *                         type: string
- *                         example: Present
- *                       checkInTime:
- *                         type: integer
- *                         nullable: true
- *                         example: 1778830200
- *                       checkOutTime:
- *                         type: integer
- *                         nullable: true
- *                         example: 1778862600
- *                       pickedUpBy:
- *                         type: string
- *                         nullable: true
- *                         example: Bà nội
- *       400:
- *         description: Bad Request - invalid parameters
- *       401:
- *         description: Unauthorized - token missing or invalid
- *       403:
- *         description: Forbidden - user is not a parent or is not associated with this child
- *       500:
- *         description: Internal Server Error
- */
-
-/**
- * @swagger
- * /parent/children/{studentId}/leave-requests:
- *   get:
- *     summary: Get leave requests of a child
- *     description: Retrieve all leave request history of a child. Only accessible by parents associated with the child.
- *     tags: [Parent]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: studentId
- *         required: true
- *         schema:
- *           type: integer
- *         description: ID of the child student
- *     responses:
- *       200:
- *         description: Successfully retrieved child leave requests
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 statusCode:
- *                   type: integer
- *                   example: 200
- *                 message:
- *                   type: string
- *                   example: Lấy danh sách đơn xin nghỉ phép của bé thành công
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       requestId:
- *                         type: integer
- *                         example: 1
- *                       studentId:
- *                         type: integer
- *                         example: 19
- *                       parentId:
- *                         type: integer
- *                         example: 6
- *                       fromDate:
- *                         type: integer
- *                         example: 1782172800
- *                       toDate:
- *                         type: integer
- *                         example: 1782431999
- *                       reason:
- *                         type: string
- *                         example: Lý do khác
- *                       evidenceUrl:
- *                         type: string
- *                         nullable: true
- *                         example: https://media.kindercare.app/parents/student-leave-evidences/evidence.jpg
- *                       status:
- *                         type: string
- *                         example: Pending
- *                       approverId:
- *                         type: integer
- *                         nullable: true
- *                         example: null
- *                       isMealFeeDeducted:
- *                         type: integer
- *                         example: 0
- *                       parentNotes:
- *                         type: string
- *                         example: Thèm thuốc quá nên nghỉ học. Yêu cầu nhà trường mua thuốc cho bé uống.
- *                       createdAt:
- *                         type: integer
- *                         example: 1781740800
- *                       updatedTime:
- *                         type: integer
- *                         nullable: true
- *                         example: null
- *       401:
- *         description: Unauthorized - token missing or invalid
- *       403:
- *         description: Forbidden - user is not a parent or is not associated with this child
- *       500:
- *         description: Internal Server Error
- */
-
-/**
- * @swagger
- * /parent/children/{studentId}/medication-requests:
- *   get:
- *     summary: Get medication requests of a child
- *     description: Retrieve all medication request history (medicine, dosage, status, note, etc.) of a child. Only accessible by parents associated with the child.
- *     tags: [Parent]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: studentId
- *         required: true
- *         schema:
- *           type: integer
- *         description: ID of the child student
- *     responses:
- *       200:
- *         description: Successfully retrieved child medication requests
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 statusCode:
- *                   type: integer
- *                   example: 200
- *                 message:
- *                   type: string
- *                   example: Lấy danh sách dặn dò thuốc của bé thành công
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       medRequestId:
- *                         type: integer
- *                         example: 1
- *                       studentId:
- *                         type: integer
- *                         example: 19
- *                       parentId:
- *                         type: integer
- *                         example: 6
- *                       requestDate:
- *                         type: integer
- *                         example: 1778803200
- *                       medicineDetails:
- *                         type: string
- *                         example: Men tiêu hóa BioGaia
- *                       dosage:
- *                         type: string
- *                         example: Nhỏ 5 giọt
- *                       medicineImageUrl:
- *                         type: string
- *                         nullable: true
- *                         example: https://media.kindercare.app/parents/student-medication-requests/medicine.jpg
- *                       status:
- *                         type: string
- *                         example: Pending
- *                       teacherNote:
- *                         type: string
- *                         nullable: true
- *                         example: null
- *                       frequency:
- *                         type: string
- *                         nullable: true
- *                         example: 2 lần
- *                       timeToTake:
- *                         type: string
- *                         nullable: true
- *                         example: Sau ăn trưa
- *                       parentNote:
- *                         type: string
- *                         nullable: true
- *                         example: Tất cả thuốc để trong ba lô
- *                       updatedTime:
- *                         type: integer
- *                         nullable: true
- *                         example: null
- *       401:
- *         description: Unauthorized - token missing or invalid
- *       403:
- *         description: Forbidden - user is not a parent or is not associated with this child
+ *         description: Forbidden - user is not a parent or not associated with this child
  *       500:
  *         description: Internal Server Error
  */
@@ -880,8 +800,8 @@
  * /parent/children/{studentId}/assessments:
  *   get:
  *     summary: Get assessments of a child
- *     description: Retrieve all monthly assessment logs (physical, cognitive, language, social-emotional, aesthetic scores, and teacher comments) of a child. Only accessible by parents associated with the child.
- *     tags: [Parent]
+ *     description: Retrieve monthly assessment scores (physical, cognitive, language, social-emotional, aesthetic) and teacher comments. Filter by month using the optional `month` query param.
+ *     tags: ["Parent - Child Info"]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -890,17 +810,19 @@
  *         required: true
  *         schema:
  *           type: integer
- *         description: ID of the child student
+ *         description: ID of the student
+ *         example: 19
  *       - in: query
  *         name: month
  *         required: false
  *         schema:
  *           type: string
  *           pattern: '^(0[1-9]|1[0-2])-\d{4}$'
- *         description: Month in MM-YYYY format to filter assessments (e.g. 06-2026)
+ *         description: "Month filter in MM-YYYY format (e.g. 06-2026)"
+ *         example: 06-2026
  *     responses:
  *       200:
- *         description: Successfully retrieved child assessments
+ *         description: Successfully retrieved assessments
  *         content:
  *           application/json:
  *             schema:
@@ -957,22 +879,22 @@
  *                         type: integer
  *                         example: 1781740800
  *       400:
- *         description: Bad Request - invalid studentId or invalid month format (should be MM-YYYY)
+ *         description: Bad Request - invalid studentId or month format (expected MM-YYYY)
  *       401:
- *         description: Unauthorized - token missing or invalid
+ *         description: Unauthorized
  *       403:
- *         description: Forbidden - user is not a parent or is not associated with this child
+ *         description: Forbidden - user is not a parent or not associated with this child
  *       500:
  *         description: Internal Server Error
  */
 
 /**
  * @swagger
- * /parent/children/{studentId}/daily-schedule:
+ * /parent/children/{studentId}/attendance:
  *   get:
- *     summary: Get daily schedule of a child's class
- *     description: Retrieve the daily activity schedule (study, play, meal, nap, pickup/dropoff times, activity details, location, status, etc.) for the class of a given child student. Defaults to the current date if not specified. Only accessible by parents associated with the child.
- *     tags: [Parent]
+ *     summary: Get attendance records of a child
+ *     description: Retrieve attendance history (check-in/out times, status, who dropped off / picked up) of a child. Supports optional date range filters.
+ *     tags: ["Parent - Child Info"]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -981,16 +903,309 @@
  *         required: true
  *         schema:
  *           type: integer
- *         description: ID of the child student
+ *         description: ID of the student
+ *         example: 19
+ *       - in: query
+ *         name: startDate
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Start date filter as Unix timestamp (seconds)
+ *       - in: query
+ *         name: endDate
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: End date filter as Unix timestamp (seconds)
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved attendance records
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy thông tin điểm danh của bé thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       attendanceId:
+ *                         type: integer
+ *                         example: 1
+ *                       studentId:
+ *                         type: integer
+ *                         example: 19
+ *                       attendanceDate:
+ *                         type: integer
+ *                         example: 1778803200
+ *                       status:
+ *                         type: string
+ *                         example: Present
+ *                       checkInTime:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 1778830200
+ *                       checkOutTime:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 1778862600
+ *                       droppedOffBy:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Bố
+ *                       droppedOffAvatarUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://media.kindercare.app/parents/avatar.png
+ *                       pickedUpBy:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Bà nội
+ *                       pickedUpAvatarUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://media.kindercare.app/proxy/avatar.png
+ *                       checkedInByTeacherId:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 5
+ *                       checkedOutByTeacherId:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 5
+ *                       proxyAuthorizationId:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 12
+ *       400:
+ *         description: Bad Request - invalid parameters
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a parent or not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/daily-activities:
+ *   get:
+ *     summary: Get daily activity log of a child
+ *     description: Retrieve the daily behavior record (meal statuses, nap, hygiene, teacher notes) for a child on a specific date. Defaults to today if not specified.
+ *     tags: ["Parent - Child Info"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the student
+ *         example: 1
  *       - in: query
  *         name: date
  *         required: false
  *         schema:
  *           type: integer
- *         description: Target date represented as a Unix timestamp in seconds. Midnight UTC of the corresponding date will be used. Defaults to the current date.
+ *         description: Target date as Unix timestamp (seconds). Defaults to today.
  *     responses:
  *       200:
- *         description: Successfully retrieved child daily schedule
+ *         description: Successfully retrieved daily activity log
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy nhật ký hoạt động ngày của bé thành công
+ *                 data:
+ *                   type: object
+ *                   nullable: true
+ *                   properties:
+ *                     activityId:
+ *                       type: integer
+ *                       example: 1
+ *                     studentId:
+ *                       type: integer
+ *                       example: 1
+ *                     logDate:
+ *                       type: string
+ *                       example: 2026-06-22
+ *                     breakfastStatus:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Ăn hết
+ *                     lunchStatus:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Ăn hết
+ *                     napStatus:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Ngủ ngoan
+ *                     snackStatus:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Ăn hết
+ *                     hygieneStatus:
+ *                       type: string
+ *                       example: Tốt
+ *                     teacherNote:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Hôm nay Khang rất ngoan, tự xúc cơm không cần cô đút.
+ *                     activityStatus:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Vui chơi tích cực
+ *                     recordedBy:
+ *                       type: integer
+ *                       nullable: true
+ *                       example: 5
+ *                     updatedAt:
+ *                       type: integer
+ *                       example: 1782669357
+ *                     teacherName:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Nguyễn Thị Lan
+ *       400:
+ *         description: Bad Request - invalid studentId or date parameter
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a parent or not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/badges:
+ *   get:
+ *     summary: Get badges of a child
+ *     description: Retrieve all reward badges earned by a specific child, sorted by most recently earned first.
+ *     tags: ["Parent - Child Info"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the student
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved badges
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách huy hiệu của bé thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       studentBadgeId:
+ *                         type: integer
+ *                         example: 1
+ *                       studentId:
+ *                         type: integer
+ *                         example: 1
+ *                       dateEarned:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2026-06-15T08:00:00.000Z"
+ *                       badgeId:
+ *                         type: integer
+ *                         example: 2
+ *                       badgeName:
+ *                         type: string
+ *                         example: Bé ngoan tuần này
+ *                       badgeImageUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://media.kindercare.app/badges/good-kid.png
+ *                       criteriaType:
+ *                         type: string
+ *                         enum: [WEEKLY, MONTHLY, SPECIAL]
+ *                         example: WEEKLY
+ *       400:
+ *         description: Bad Request - studentId is not a valid number
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - student does not belong to the logged-in parent
+ *       500:
+ *         description: Internal Server Error
+ */
+
+// ─────────────────────────────────────────────────────────────
+//  GROUP 3 · Parent - Classroom
+//  GET  /parent/children/{studentId}/daily-schedule
+//  GET  /parent/children/{studentId}/daily-lessons
+//  GET  /parent/children/{studentId}/daily-albums
+//  GET  /parent/children/{studentId}/newsfeeds
+//  GET  /parent/children/{studentId}/menu
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/daily-schedule:
+ *   get:
+ *     summary: Get daily schedule of a child's class
+ *     description: Retrieve the day's activity schedule (study, play, meal, nap, pickup/dropoff, etc.) for the child's class. Defaults to today.
+ *     tags: ["Parent - Classroom"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the student
+ *         example: 1
+ *       - in: query
+ *         name: date
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Target date as Unix timestamp (seconds). UTC midnight of that date is used. Defaults to today.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved daily schedule
  *         content:
  *           application/json:
  *             schema:
@@ -1045,11 +1260,11 @@
  *                         enum: [Chưa diễn ra, Đang diễn ra, Xong]
  *                         example: Xong
  *       400:
- *         description: Bad Request - invalid studentId or invalid date parameter
+ *         description: Bad Request - invalid studentId or date parameter
  *       401:
- *         description: Unauthorized - token missing or invalid
+ *         description: Unauthorized
  *       403:
- *         description: Forbidden - user is not a parent or is not associated with this child
+ *         description: Forbidden - user is not a parent or not associated with this child
  *       500:
  *         description: Internal Server Error
  */
@@ -1059,8 +1274,8 @@
  * /parent/children/{studentId}/daily-lessons:
  *   get:
  *     summary: Get daily lessons of a child's class
- *     description: Retrieve the daily academic lessons (subject name, lesson title, details, icon type, etc.) for the class of a given child student. Defaults to the current date if not specified. Only accessible by parents associated with the child.
- *     tags: [Parent]
+ *     description: Retrieve the academic lessons (subject, title, details, icon type) taught in the child's class on a given date. Defaults to today.
+ *     tags: ["Parent - Classroom"]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -1069,16 +1284,17 @@
  *         required: true
  *         schema:
  *           type: integer
- *         description: ID of the child student
+ *         description: ID of the student
+ *         example: 1
  *       - in: query
  *         name: date
  *         required: false
  *         schema:
  *           type: integer
- *         description: Target date represented as a Unix timestamp in seconds. Midnight UTC of the corresponding date will be used. Defaults to the current date.
+ *         description: Target date as Unix timestamp (seconds). Defaults to today.
  *     responses:
  *       200:
- *         description: Successfully retrieved child daily lessons
+ *         description: Successfully retrieved daily lessons
  *         content:
  *           application/json:
  *             schema:
@@ -1126,11 +1342,11 @@
  *                         type: integer
  *                         example: 1781359832
  *       400:
- *         description: Bad Request - invalid studentId or invalid date parameter
+ *         description: Bad Request - invalid studentId or date parameter
  *       401:
- *         description: Unauthorized - token missing or invalid
+ *         description: Unauthorized
  *       403:
- *         description: Forbidden - user is not a parent or is not associated with this child
+ *         description: Forbidden - user is not a parent or not associated with this child
  *       500:
  *         description: Internal Server Error
  */
@@ -1139,9 +1355,9 @@
  * @swagger
  * /parent/children/{studentId}/daily-albums:
  *   get:
- *     summary: Get daily albums of a child's class
- *     description: Retrieve the daily albums (caption, album date, and associated photo URLs) for the class of a given child student. Defaults to the current date if not specified. Only accessible by parents associated with the child.
- *     tags: [Parent]
+ *     summary: Get daily photo albums of a child's class
+ *     description: Retrieve photo albums (caption, date, photos with URL and description) published by teachers for the child's class on a given date. Defaults to today.
+ *     tags: ["Parent - Classroom"]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -1150,16 +1366,17 @@
  *         required: true
  *         schema:
  *           type: integer
- *         description: ID of the child student
+ *         description: ID of the student
+ *         example: 1
  *       - in: query
  *         name: date
  *         required: false
  *         schema:
  *           type: integer
- *         description: Target date represented as a Unix timestamp in seconds. Midnight UTC of the corresponding date will be used. Defaults to the current date.
+ *         description: Target date as Unix timestamp (seconds). Defaults to today.
  *     responses:
  *       200:
- *         description: Successfully retrieved child daily albums
+ *         description: Successfully retrieved daily albums
  *         content:
  *           application/json:
  *             schema:
@@ -1223,22 +1440,22 @@
  *                               type: integer
  *                               example: 1782215794
  *       400:
- *         description: Bad Request - invalid studentId or invalid date parameter
+ *         description: Bad Request - invalid studentId or date parameter
  *       401:
- *         description: Unauthorized - token missing or invalid
+ *         description: Unauthorized
  *       403:
- *         description: Forbidden - user is not a parent or is not associated with this child
+ *         description: Forbidden - user is not a parent or not associated with this child
  *       500:
  *         description: Internal Server Error
  */
 
 /**
  * @swagger
- * /parent/children/{studentId}/qr-token:
+ * /parent/children/{studentId}/newsfeeds:
  *   get:
- *     summary: Generate QR attendance token for a child
- *     description: Generate a signed JWT (HS256) to be displayed as a QR code for teacher attendance scanning. Token expires in 60 seconds. Frontend should refresh every 60 seconds.
- *     tags: [Parent]
+ *     summary: Get class newsfeeds of a child's class
+ *     description: Retrieve all newsfeed posts (content, media URL, teacher info) published in the child's class.
+ *     tags: ["Parent - Classroom"]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -1247,7 +1464,849 @@
  *         required: true
  *         schema:
  *           type: integer
- *         description: ID of the child student
+ *         description: ID of the student
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved newsfeeds
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách bản tin lớp học thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       postId:
+ *                         type: integer
+ *                         example: 1
+ *                       classId:
+ *                         type: integer
+ *                         example: 1
+ *                       teacherId:
+ *                         type: integer
+ *                         example: 5
+ *                       content:
+ *                         type: string
+ *                         example: Hôm nay các bé học vẽ rất hăng say!
+ *                       mediaUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://media.kindercare.app/daily-albums/photo.jpg
+ *                       postedAt:
+ *                         type: integer
+ *                         example: 1782400606
+ *                       teacherName:
+ *                         type: string
+ *                         example: Nguyễn Thị Lan
+ *                       teacherAvatarUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://media.kindercare.app/Avatar/Teacher%20Avatar/avatar1.jpg
+ *       400:
+ *         description: Bad Request - invalid studentId
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a parent or not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/menu:
+ *   get:
+ *     summary: Get daily menu of a child's class
+ *     description: Retrieve the meal menu (dish names, calories, nutritional info per meal type) for the child's class on a given date. Defaults to today.
+ *     tags: ["Parent - Classroom"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the student
+ *         example: 1
+ *       - in: query
+ *         name: date
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Target date as Unix timestamp (seconds). Defaults to today.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved daily menu
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy thực đơn ngày của bé thành công
+ *                 data:
+ *                   type: object
+ *                   nullable: true
+ *                   properties:
+ *                     menuId:
+ *                       type: integer
+ *                       example: 1
+ *                     classId:
+ *                       type: integer
+ *                       example: 1
+ *                     menuDate:
+ *                       type: integer
+ *                       example: 1782172800
+ *                     weekNumber:
+ *                       type: integer
+ *                       example: 27
+ *                     year:
+ *                       type: integer
+ *                       example: 2026
+ *                     menuName:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Thực đơn tuần 1 tháng 7
+ *                     details:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           menuDetailId:
+ *                             type: integer
+ *                             example: 1
+ *                           dayOfWeek:
+ *                             type: string
+ *                             example: Monday
+ *                           mealType:
+ *                             type: string
+ *                             example: Breakfast
+ *                           dishName:
+ *                             type: string
+ *                             example: Cháo lươn đồng hạt sen
+ *                           calories:
+ *                             type: integer
+ *                             nullable: true
+ *                             example: null
+ *                           nutritionalDetails:
+ *                             type: string
+ *                             nullable: true
+ *                             example: Protein, Canxi
+ *       400:
+ *         description: Bad Request - invalid studentId or date parameter
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a parent or not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/events/daily:
+ *   get:
+ *     summary: Get daily events of a child
+ *     description: Retrieve all events (School, Holiday, Class, and Student-specific) for the child on a given date.
+ *     tags: ["Parent - Classroom"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the student
+ *         example: 1
+ *       - in: query
+ *         name: date
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Target date in YYYY-MM-DD format (Alternative to startDate/endDate)
+ *         example: "2026-07-03"
+ *       - in: query
+ *         name: startDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date in YYYY-MM-DD format for range query
+ *         example: "2026-07-01"
+ *       - in: query
+ *         name: endDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date in YYYY-MM-DD format for range query
+ *         example: "2026-07-31"
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved daily events
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách sự kiện trong ngày thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     date:
+ *                       type: string
+ *                       example: "2026-07-03"
+ *                     studentId:
+ *                       type: integer
+ *                       example: 1
+ *                     classId:
+ *                       type: integer
+ *                       nullable: true
+ *                       example: 1
+ *                     events:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           eventId:
+ *                             type: integer
+ *                             example: 1
+ *                           title:
+ *                             type: string
+ *                             example: Nghỉ lễ Quốc Khánh
+ *                           description:
+ *                             type: string
+ *                             nullable: true
+ *                             example: Toàn trường nghỉ học theo quy định.
+ *                           startTime:
+ *                             type: integer
+ *                             example: 1783000000
+ *                           endTime:
+ *                             type: integer
+ *                             example: 1783036800
+ *                           location:
+ *                             type: string
+ *                             nullable: true
+ *                             example: Tại nhà
+ *                           status:
+ *                             type: string
+ *                             example: Upcoming
+ *                           eventType:
+ *                             type: string
+ *                             enum: [Class, School, Holiday, Student]
+ *                             example: Holiday
+ *       400:
+ *         description: Bad Request - missing parameters or invalid date format
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a parent or not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+// ─────────────────────────────────────────────────────────────
+//  GROUP 4 · Parent - Requests
+//  POST  /parent/leave-requests
+//  GET   /parent/children/{studentId}/leave-requests
+//  PATCH /parent/leave-requests/{requestId}/cancel
+//  POST  /parent/medication-requests
+//  GET   /parent/children/{studentId}/medication-requests
+//  PATCH /parent/medication-requests/{medRequestId}/cancel
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /parent/leave-requests:
+ *   post:
+ *     summary: Create a leave request
+ *     description: Submit a leave request for a child. A push notification is automatically sent to all teachers of the child's class upon creation.
+ *     tags: ["Parent - Requests"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - studentId
+ *               - fromDate
+ *               - toDate
+ *               - reason
+ *             properties:
+ *               studentId:
+ *                 type: integer
+ *                 example: 19
+ *               fromDate:
+ *                 type: integer
+ *                 description: Start date as Unix timestamp (seconds)
+ *                 example: 1781827200
+ *               toDate:
+ *                 type: integer
+ *                 description: End date as Unix timestamp (seconds)
+ *                 example: 1781913599
+ *               reason:
+ *                 type: string
+ *                 description: "Category: Bệnh/Ốm | Việc gia đình | Du lịch / nghỉ phép | Khám bệnh định kỳ | Lý do khác"
+ *                 example: Bệnh/Ốm
+ *               parentNotes:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Bé bị sốt nhẹ, gia đình xin phép nghỉ hôm nay.
+ *               evidence:
+ *                 type: string
+ *                 format: binary
+ *                 description: Optional supporting document image (max 5 MB)
+ *     responses:
+ *       201:
+ *         description: Leave request created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 201
+ *                 message:
+ *                   type: string
+ *                   example: Tạo đơn xin nghỉ phép thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     requestId:
+ *                       type: integer
+ *                       example: 22
+ *                     studentId:
+ *                       type: integer
+ *                       example: 19
+ *                     parentId:
+ *                       type: integer
+ *                       example: 6
+ *                     fromDate:
+ *                       type: integer
+ *                       example: 1781827200
+ *                     toDate:
+ *                       type: integer
+ *                       example: 1781913599
+ *                     reason:
+ *                       type: string
+ *                       example: Bệnh/Ốm
+ *                     evidenceUrl:
+ *                       type: string
+ *                       nullable: true
+ *                       example: null
+ *                     status:
+ *                       type: string
+ *                       example: Pending
+ *                     approverId:
+ *                       type: integer
+ *                       nullable: true
+ *                       example: null
+ *                     isMealFeeDeducted:
+ *                       type: integer
+ *                       example: 0
+ *                     parentNotes:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Bé bị sốt nhẹ, gia đình xin phép nghỉ hôm nay.
+ *                     createdAt:
+ *                       type: integer
+ *                       example: 1781827200
+ *                     updatedTime:
+ *                       type: integer
+ *                       nullable: true
+ *                       example: null
+ *       400:
+ *         description: Bad Request - invalid or missing parameters
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a parent or not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/leave-requests:
+ *   get:
+ *     summary: Get leave requests of a child
+ *     description: Retrieve all leave request history of a child. Only accessible by parents associated with the child.
+ *     tags: ["Parent - Requests"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the student
+ *         example: 19
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved leave requests
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách đơn xin nghỉ phép của bé thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       requestId:
+ *                         type: integer
+ *                         example: 1
+ *                       studentId:
+ *                         type: integer
+ *                         example: 19
+ *                       parentId:
+ *                         type: integer
+ *                         example: 6
+ *                       fromDate:
+ *                         type: integer
+ *                         example: 1782172800
+ *                       toDate:
+ *                         type: integer
+ *                         example: 1782431999
+ *                       reason:
+ *                         type: string
+ *                         example: Bệnh/Ốm
+ *                       evidenceUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://media.kindercare.app/parents/student-leave-evidences/evidence.jpg
+ *                       status:
+ *                         type: string
+ *                         example: Pending
+ *                       approverId:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: null
+ *                       isMealFeeDeducted:
+ *                         type: integer
+ *                         example: 0
+ *                       parentNotes:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Bé bị sốt nhẹ.
+ *                       createdAt:
+ *                         type: integer
+ *                         example: 1781740800
+ *                       updatedTime:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: null
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a parent or not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/leave-requests/{requestId}/cancel:
+ *   patch:
+ *     summary: Cancel a pending leave request
+ *     description: Cancel a leave request currently in "Pending" status. Only the parent who created it may cancel.
+ *     tags: ["Parent - Requests"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the leave request
+ *         example: 22
+ *     responses:
+ *       200:
+ *         description: Leave request cancelled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Hủy đơn xin nghỉ phép thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     requestId:
+ *                       type: integer
+ *                       example: 22
+ *                     status:
+ *                       type: string
+ *                       example: Cancelled
+ *                     updatedTime:
+ *                       type: integer
+ *                       example: 1781827200
+ *       400:
+ *         description: Bad Request - request is not in Pending status
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user did not create this request
+ *       404:
+ *         description: Not Found - leave request not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/medication-requests:
+ *   post:
+ *     summary: Create a medication request
+ *     description: Submit medication instructions for a child for a specific day. A push notification is sent to all teachers in the child's class upon creation.
+ *     tags: ["Parent - Requests"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - studentId
+ *               - requestDate
+ *               - medicineDetails
+ *               - dosage
+ *             properties:
+ *               studentId:
+ *                 type: integer
+ *                 example: 26
+ *               requestDate:
+ *                 type: integer
+ *                 description: Date of request as Unix timestamp (seconds)
+ *                 example: 1778803200
+ *               medicineDetails:
+ *                 type: string
+ *                 example: Men tiêu hóa BioGaia
+ *               dosage:
+ *                 type: string
+ *                 example: Nhỏ 5 giọt
+ *               frequency:
+ *                 type: string
+ *                 nullable: true
+ *                 example: 2 lần/ngày
+ *               timeToTake:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Sau ăn trưa
+ *               parentNote:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Tất cả thuốc để trong ba lô
+ *               medicineImage:
+ *                 type: string
+ *                 format: binary
+ *                 description: Optional prescription/medicine image (max 5 MB)
+ *     responses:
+ *       201:
+ *         description: Medication request created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 201
+ *                 message:
+ *                   type: string
+ *                   example: Tạo dặn dò thuốc thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     medRequestId:
+ *                       type: integer
+ *                       example: 2
+ *                     studentId:
+ *                       type: integer
+ *                       example: 26
+ *                     parentId:
+ *                       type: integer
+ *                       example: 6
+ *                     requestDate:
+ *                       type: integer
+ *                       example: 1778803200
+ *                     medicineDetails:
+ *                       type: string
+ *                       example: Men tiêu hóa BioGaia
+ *                     dosage:
+ *                       type: string
+ *                       example: Nhỏ 5 giọt
+ *                     status:
+ *                       type: string
+ *                       example: Pending
+ *                     teacherNote:
+ *                       type: string
+ *                       nullable: true
+ *                       example: null
+ *                     frequency:
+ *                       type: string
+ *                       nullable: true
+ *                       example: 2 lần/ngày
+ *                     timeToTake:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Sau ăn trưa
+ *                     parentNote:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Tất cả thuốc để trong ba lô
+ *                     updatedTime:
+ *                       type: integer
+ *                       nullable: true
+ *                       example: null
+ *       400:
+ *         description: Bad Request - invalid or missing parameters
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a parent or not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/medication-requests:
+ *   get:
+ *     summary: Get medication requests of a child
+ *     description: Retrieve all medication request history (medicine name, dosage, status, teacher note) of a child.
+ *     tags: ["Parent - Requests"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the student
+ *         example: 19
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved medication requests
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách dặn dò thuốc của bé thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       medRequestId:
+ *                         type: integer
+ *                         example: 1
+ *                       studentId:
+ *                         type: integer
+ *                         example: 19
+ *                       parentId:
+ *                         type: integer
+ *                         example: 6
+ *                       requestDate:
+ *                         type: integer
+ *                         example: 1778803200
+ *                       medicineDetails:
+ *                         type: string
+ *                         example: Men tiêu hóa BioGaia
+ *                       dosage:
+ *                         type: string
+ *                         example: Nhỏ 5 giọt
+ *                       medicineImageUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://media.kindercare.app/parents/student-medication-requests/medicine.jpg
+ *                       status:
+ *                         type: string
+ *                         example: Pending
+ *                       teacherNote:
+ *                         type: string
+ *                         nullable: true
+ *                         example: null
+ *                       frequency:
+ *                         type: string
+ *                         nullable: true
+ *                         example: 2 lần/ngày
+ *                       timeToTake:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Sau ăn trưa
+ *                       parentNote:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Tất cả thuốc để trong ba lô
+ *                       updatedTime:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: null
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a parent or not associated with this child
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/medication-requests/{medRequestId}/cancel:
+ *   patch:
+ *     summary: Cancel a pending medication request
+ *     description: Cancel all pending medication requests in the group associated with the given ID. Only the parent who created it may cancel.
+ *     tags: ["Parent - Requests"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: medRequestId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the medication request to cancel
+ *         example: 2
+ *     responses:
+ *       200:
+ *         description: Medication request cancelled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Hủy dặn dò thuốc thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       medRequestId:
+ *                         type: integer
+ *                         example: 2
+ *                       status:
+ *                         type: string
+ *                         example: Cancelled
+ *                       updatedTime:
+ *                         type: integer
+ *                         example: 1778803200
+ *       400:
+ *         description: Bad Request - request is not in Pending status
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user did not create this request
+ *       404:
+ *         description: Not Found - medication request not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+// ─────────────────────────────────────────────────────────────
+//  GROUP 5 · Parent - Authorizations
+//  GET   /parent/children/{studentId}/qr-token
+//  POST  /parent/proxy-authorizations
+//  GET   /parent/children/{studentId}/proxy-authorizations
+//  PATCH /parent/proxy-authorizations/{authorizationId}/cancel
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/qr-token:
+ *   get:
+ *     summary: Generate QR attendance token for a child
+ *     description: Generate a signed JWT (HS256) to be rendered as a QR code for teacher attendance scanning. Token expires in 60 seconds — frontend should refresh on each expiry.
+ *     tags: ["Parent - Authorizations"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the student
  *         example: 19
  *     responses:
  *       200:
@@ -1271,11 +2330,11 @@
  *                   properties:
  *                     token:
  *                       type: string
- *                       description: Signed JWT string to be rendered as QR code
+ *                       description: Signed JWT to render as QR code
  *                       example: eyJhbGciOiJIUzI1NiJ9...
  *                     expiresAt:
  *                       type: integer
- *                       description: Token expiry as Unix timestamp in seconds
+ *                       description: Token expiry as Unix timestamp (seconds)
  *                       example: 1719532860
  *                     ttl:
  *                       type: integer
@@ -1284,14 +2343,1000 @@
  *       400:
  *         description: Bad Request - invalid studentId
  *       401:
- *         description: Unauthorized - token missing or invalid
+ *         description: Unauthorized
  *       403:
  *         description: Forbidden - student does not belong to this parent
  *       500:
  *         description: Internal Server Error
  */
 
+/**
+ * @swagger
+ * /parent/proxy-authorizations:
+ *   post:
+ *     summary: Create a proxy pickup/drop-off authorization
+ *     description: Authorize another person to check-in or check-out a child on a specific date. A push notification is sent to all teachers in the child's class upon creation.
+ *     tags: ["Parent - Authorizations"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - studentId
+ *               - authorizationDate
+ *               - type
+ *               - proxyName
+ *             properties:
+ *               studentId:
+ *                 type: integer
+ *                 example: 19
+ *               authorizationDate:
+ *                 type: integer
+ *                 description: Unix timestamp (seconds) of the authorization day
+ *                 example: 1782824107
+ *               type:
+ *                 type: string
+ *                 enum: [checkin, checkout, both]
+ *                 example: checkout
+ *               proxyName:
+ *                 type: string
+ *                 example: Nguyễn Văn B
+ *               proxyPhone:
+ *                 type: string
+ *                 example: "0901234567"
+ *               proxyIDCard:
+ *                 type: string
+ *                 example: "079123456789"
+ *               notes:
+ *                 type: string
+ *                 example: Là chú của bé, đi xe Lead đỏ
+ *               proxyPhoto:
+ *                 type: string
+ *                 format: binary
+ *                 description: Portrait photo of the proxy person (max 5 MB)
+ *     responses:
+ *       201:
+ *         description: Proxy authorization created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 201
+ *                 message:
+ *                   type: string
+ *                   example: Đăng ký ủy quyền đưa đón thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     authorizationId:
+ *                       type: integer
+ *                       example: 12
+ *       400:
+ *         description: Bad Request - validation failed or invalid format
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - student does not belong to this parent
+ *       500:
+ *         description: Internal Server Error
+ */
 
+/**
+ * @swagger
+ * /parent/children/{studentId}/proxy-authorizations:
+ *   get:
+ *     summary: Get proxy authorizations of a child
+ *     description: Retrieve all proxy pickup/drop-off authorizations submitted by the logged-in parent for a specific child.
+ *     tags: ["Parent - Authorizations"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the student
+ *         example: 19
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved proxy authorizations
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách ủy quyền đón hộ thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       authorizationId:
+ *                         type: integer
+ *                         example: 12
+ *                       studentId:
+ *                         type: integer
+ *                         example: 19
+ *                       parentId:
+ *                         type: integer
+ *                         example: 4
+ *                       authorizationDate:
+ *                         type: integer
+ *                         description: Unix timestamp of the authorization day
+ *                         example: 1782824107
+ *                       type:
+ *                         type: string
+ *                         enum: [checkin, checkout, both]
+ *                         example: checkout
+ *                       proxyName:
+ *                         type: string
+ *                         example: Nguyễn Văn B
+ *                       proxyPhone:
+ *                         type: string
+ *                         example: "0901234567"
+ *                       proxyIDCard:
+ *                         type: string
+ *                         example: "079123456789"
+ *                       proxyPhotoUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://media.kindercare.app/parents/proxy-photos/168910291.jpg
+ *                       notes:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Là chú của bé, đi xe Lead đỏ
+ *                       status:
+ *                         type: string
+ *                         enum: [Approved, Cancelled, Completed]
+ *                         example: Approved
+ *                       createdAt:
+ *                         type: integer
+ *                         example: 1782810000
+ *       400:
+ *         description: Bad Request
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - student does not belong to this parent
+ *       500:
+ *         description: Internal Server Error
+ */
 
+/**
+ * @swagger
+ * /parent/proxy-authorizations/{authorizationId}/cancel:
+ *   patch:
+ *     summary: Cancel a proxy authorization
+ *     description: Cancel an active proxy authorization. Only allowed when status is "Approved" and the authorization date has not yet passed.
+ *     tags: ["Parent - Authorizations"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: authorizationId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the proxy authorization
+ *         example: 12
+ *     responses:
+ *       200:
+ *         description: Proxy authorization cancelled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Hủy ủy quyền đón hộ thành công
+ *       400:
+ *         description: Bad Request - authorization already cancelled or completed
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - record does not belong to the logged-in parent's child
+ *       404:
+ *         description: Not Found - proxy authorization not found
+ *       500:
+ *         description: Internal Server Error
+ */
 
+// ─────────────────────────────────────────────────────────────
+//  GROUP · Parent - Billing
+//  GET  /parent/children/:studentId/invoices
+//  GET  /parent/invoices/:invoiceId
+//  POST /parent/invoices/:invoiceId/pay
+// ─────────────────────────────────────────────────────────────
 
+/**
+ * @swagger
+ * /parent/children/{studentId}/invoices:
+ *   get:
+ *     summary: Get invoices of a child
+ *     description: Returns the list of TUITION and MONTHLY invoices for a child, optionally filtered.
+ *     tags: ["Parent - Billing"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 19
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TUITION, MONTHLY]
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [Unpaid, Partial, Paid]
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *         description: "'MM-YYYY', inclusive lower bound on BillingMonth"
+ *         example: "01-2026"
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *         description: "'MM-YYYY', inclusive upper bound on BillingMonth"
+ *         example: "12-2026"
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved invoices
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách hóa đơn thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       invoiceId:
+ *                         type: integer
+ *                         example: 9
+ *                       invoiceType:
+ *                         type: string
+ *                         example: MONTHLY
+ *                       billingMonth:
+ *                         type: string
+ *                         example: "08-2026"
+ *                       periodRange:
+ *                         type: string
+ *                         nullable: true
+ *                         example: null
+ *                       tuitionFee:
+ *                         type: number
+ *                         example: 0
+ *                       expectedMealFee:
+ *                         type: number
+ *                         example: 1495000
+ *                       extracurricularFee:
+ *                         type: number
+ *                         example: 500000
+ *                       surcharge:
+ *                         type: number
+ *                         example: 0
+ *                       refundAmount:
+ *                         type: number
+ *                         example: 65000
+ *                       discountAmount:
+ *                         type: number
+ *                         example: 0
+ *                       totalAmount:
+ *                         type: number
+ *                         example: 1930000
+ *                       paymentStatus:
+ *                         type: string
+ *                         example: Unpaid
+ *                       dueDate:
+ *                         type: integer
+ *                         nullable: true
+ *                         description: Unix timestamp (seconds) — hạn đóng, ngày 10 của billingMonth
+ *                         example: 1786269600
+ *                       createdAt:
+ *                         type: integer
+ *                         description: Unix timestamp (seconds)
+ *                         example: 1783067067
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a parent, or child does not belong to this parent
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/invoices/{invoiceId}:
+ *   get:
+ *     summary: Get detail of a single invoice
+ *     description: Returns full invoice breakdown plus its list of transactions.
+ *     tags: ["Parent - Billing"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: invoiceId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 9
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved invoice detail
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy chi tiết hóa đơn thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     invoiceId:
+ *                       type: integer
+ *                       example: 9
+ *                     studentId:
+ *                       type: integer
+ *                       example: 19
+ *                     packageId:
+ *                       type: integer
+ *                       nullable: true
+ *                       example: null
+ *                     invoiceType:
+ *                       type: string
+ *                       example: MONTHLY
+ *                     billingMonth:
+ *                       type: string
+ *                       example: "08-2026"
+ *                     totalAmount:
+ *                       type: number
+ *                       example: 1930000
+ *                     paymentStatus:
+ *                       type: string
+ *                       example: Unpaid
+ *                     dueDate:
+ *                       type: integer
+ *                       nullable: true
+ *                       description: Unix timestamp (seconds) — hạn đóng, ngày 10 của billingMonth
+ *                       example: 1786269600
+ *                     transactions:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           transactionId:
+ *                             type: integer
+ *                             example: 3
+ *                           amountPaid:
+ *                             type: number
+ *                             example: 1930000
+ *                           paymentMethod:
+ *                             type: string
+ *                             example: "Chuyển khoản Bank"
+ *                           transactionCode:
+ *                             type: string
+ *                             nullable: true
+ *                             example: "MB-INV009-XYZ"
+ *                           transactionDate:
+ *                             type: integer
+ *                             description: Unix timestamp (seconds)
+ *                             example: 1783100000
+ *                           status:
+ *                             type: string
+ *                             example: Success
+ *                     extracurricularItems:
+ *                       type: array
+ *                       description: Chỉ có khi invoiceType='EXTRACURRICULAR' — breakdown từng hoạt động gộp trong extracurricularFee
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           enrollmentId:
+ *                             type: integer
+ *                             example: 3
+ *                           activityId:
+ *                             type: integer
+ *                             example: 1
+ *                           activityName:
+ *                             type: string
+ *                             example: "Tiếng Anh Phonics"
+ *                           monthlyFee:
+ *                             type: number
+ *                             example: 500000
+ *                           status:
+ *                             type: string
+ *                             enum: [Pending, Active, Cancelled, Expired]
+ *                             example: Active
+ *                           feeRefunded:
+ *                             type: boolean
+ *                             description: Chỉ có ý nghĩa khi status là Cancelled/Expired — true nếu phí đã bị trừ khỏi extracurricularFee
+ *                             example: false
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - invoice does not belong to this parent's child
+ *       404:
+ *         description: Not Found - invoice not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/invoices/{invoiceId}/pay:
+ *   post:
+ *     summary: Pay an invoice (manual)
+ *     description: Manually records a payment transaction (e.g. cash, bank transfer already confirmed by staff) for an invoice and recalculates its PaymentStatus (Unpaid/Partial/Paid). For online MoMo payment use POST /parent/invoices/{invoiceId}/pay-momo instead.
+ *     tags: ["Parent - Billing"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: invoiceId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 9
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [amountPaid, paymentMethod]
+ *             properties:
+ *               amountPaid:
+ *                 type: number
+ *                 example: 1930000
+ *               paymentMethod:
+ *                 type: string
+ *                 example: "Chuyển khoản Bank"
+ *               transactionCode:
+ *                 type: string
+ *                 example: "MB-INV009-XYZ"
+ *     responses:
+ *       200:
+ *         description: Payment recorded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Thanh toán hóa đơn thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     transactionId:
+ *                       type: integer
+ *                       example: 3
+ *                     invoiceId:
+ *                       type: integer
+ *                       example: 9
+ *                     amountPaid:
+ *                       type: number
+ *                       example: 1930000
+ *                     totalPaid:
+ *                       type: number
+ *                       example: 1930000
+ *                     totalAmount:
+ *                       type: number
+ *                       example: 1930000
+ *                     paymentStatus:
+ *                       type: string
+ *                       example: Paid
+ *       400:
+ *         description: Bad Request - missing amountPaid or paymentMethod
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - invoice does not belong to this parent's child
+ *       404:
+ *         description: Not Found - invoice not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /parent/invoices/{invoiceId}/pay-momo:
+ *   post:
+ *     summary: Create a MoMo payment order for an invoice
+ *     description: Calls the MoMo sandbox API to create a payment order (payWithMethod, redirect flow) and records a Transaction with Status='Pending'. The frontend should redirect the parent to the returned payUrl. MoMo will call the IPN endpoint (POST /parent/invoices/momo-ipn) to confirm the result.
+ *     tags: ["Parent - Billing"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: invoiceId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 9
+ *     responses:
+ *       200:
+ *         description: MoMo payment order created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Tạo đơn thanh toán MoMo thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     payUrl:
+ *                       type: string
+ *                       example: "https://test-payment.momo.vn/v2/gateway/pay/abc123"
+ *                     orderId:
+ *                       type: string
+ *                       example: "INV9-a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+ *       400:
+ *         description: Bad Request - invoice has no amount due
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - invoice does not belong to this parent's child
+ *       404:
+ *         description: Not Found - invoice not found
+ *       500:
+ *         description: Internal Server Error - failed to create MoMo order
+ */
+
+/**
+ * @swagger
+ * /parent/invoices/momo-ipn:
+ *   post:
+ *     summary: MoMo IPN callback (internal — called by MoMo servers)
+ *     description: Receives the asynchronous payment result from MoMo. Verifies the HMAC-SHA256 signature, then updates the matching Transaction (looked up by TransactionCode = orderId) to Success or Failed, and recalculates the invoice's PaymentStatus on success. Not intended to be called by clients — no JWT auth, authenticated via MoMo's signature instead.
+ *     tags: ["Parent - Billing"]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             description: Standard MoMo IPN payload (partnerCode, orderId, resultCode, signature, etc.)
+ *     responses:
+ *       204:
+ *         description: IPN received and processed
+ *       400:
+ *         description: Bad Request - invalid signature
+ */
+
+/**
+ * @swagger
+ * /parent/invoices/{invoiceId}/pay-vnpay:
+ *   post:
+ *     summary: Create a VNPay payment order for an invoice
+ *     description: Builds a signed VNPay payment URL (HMAC-SHA512, redirect flow) and records a Transaction with Status='Pending'. The frontend should redirect the parent to the returned payUrl. VNPay will call the IPN endpoint (GET /parent/invoices/vnpay-ipn) to confirm the result — the IPN URL must be configured once on the VNPay merchant admin portal, it is not sent per-request like MoMo's.
+ *     tags: ["Parent - Billing"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: invoiceId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 11
+ *     responses:
+ *       200:
+ *         description: VNPay payment order created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Tạo đơn thanh toán VNPay thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     payUrl:
+ *                       type: string
+ *                       example: "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_Version=2.1.0&vnp_Command=pay&..."
+ *                     txnRef:
+ *                       type: string
+ *                       example: "111751234567890"
+ *       400:
+ *         description: Bad Request - invoice has no amount due
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - invoice does not belong to this parent's child
+ *       404:
+ *         description: Not Found - invoice not found
+ *       500:
+ *         description: Internal Server Error - failed to build VNPay order (e.g. missing VNPAY_TMN_CODE config)
+ */
+
+/**
+ * @swagger
+ * /parent/invoices/vnpay-ipn:
+ *   get:
+ *     summary: VNPay IPN callback (internal — called by VNPay servers)
+ *     description: |
+ *       Receives the asynchronous payment result from VNPay as a GET request with query parameters (not POST JSON like MoMo). Verifies the HMAC-SHA512 signature, looks up the matching Transaction (TransactionCode stored as '{txnRef}|{vnp_CreateDate}'), validates the amount, and guards against duplicate processing.
+ *       Always responds HTTP 200 with a JSON body `{ RspCode, Message }` per VNPay's contract — never an HTTP error status, to avoid triggering VNPay's retry mechanism unnecessarily. Not intended to be called by clients — no JWT auth, authenticated via VNPay's signature instead. The IPN URL must be registered once on the VNPay merchant admin portal.
+ *     tags: ["Parent - Billing"]
+ *     parameters:
+ *       - in: query
+ *         name: vnp_TxnRef
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: vnp_Amount
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: vnp_ResponseCode
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: vnp_TransactionStatus
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: vnp_SecureHash
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Always returned regardless of outcome — see RspCode for the actual result
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 RspCode:
+ *                   type: string
+ *                   description: "'00' success, '01' order not found, '02' already confirmed, '04' invalid amount, '97' invalid signature"
+ *                   example: "00"
+ *                 Message:
+ *                   type: string
+ *                   example: "Confirm Success"
+ */
+
+// ─────────────────────────────────────────────────────────────
+//  GROUP · Parent - Extracurriculars
+//  GET   /parent/extracurriculars
+//  GET   /parent/children/:studentId/extracurriculars
+//  POST  /parent/children/:studentId/extracurriculars
+//  PATCH /parent/children/:studentId/extracurriculars/:enrollmentId/cancel
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /parent/extracurriculars:
+ *   get:
+ *     summary: Get the catalog of extracurricular activities
+ *     description: Returns all activities available to register for (school-wide catalog, not tied to a specific child).
+ *     tags: ["Parent - Extracurriculars"]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved activity catalog
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách hoạt động ngoại khóa thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       activityId:
+ *                         type: integer
+ *                         example: 1
+ *                       activityName:
+ *                         type: string
+ *                         example: "Vẽ sáng tạo"
+ *                       monthlyFee:
+ *                         type: number
+ *                         example: 500000
+ *                       description:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "Lớp vẽ sáng tạo cho bé, 2 buổi/tuần"
+ *       401:
+ *         description: Unauthorized
+ */
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/extracurriculars:
+ *   get:
+ *     summary: Get a child's extracurricular enrollments
+ *     description: Returns all enrollment records of a child, optionally filtered by month.
+ *     tags: ["Parent - Extracurriculars"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 19
+ *       - in: query
+ *         name: month
+ *         schema:
+ *           type: string
+ *         description: "'MM-YYYY', filters by RegisteredMonth"
+ *         example: "08-2026"
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved enrollments
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách đăng ký ngoại khóa thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       enrollmentId:
+ *                         type: integer
+ *                         example: 3
+ *                       activityId:
+ *                         type: integer
+ *                         example: 1
+ *                       activityName:
+ *                         type: string
+ *                         example: "Vẽ sáng tạo"
+ *                       monthlyFee:
+ *                         type: number
+ *                         example: 500000
+ *                       registeredMonth:
+ *                         type: string
+ *                         example: "08-2026"
+ *                       status:
+ *                         type: string
+ *                         enum: [Pending, Active, Cancelled, Expired]
+ *                         example: Active
+ *                       createdAt:
+ *                         type: integer
+ *                         description: Unix timestamp (seconds)
+ *                         example: 1783067067
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - child does not belong to this parent
+ *   post:
+ *     summary: Register a child for an extracurricular activity
+ *     description: |
+ *       Enrollment takes effect from the CURRENT month (RegisteredMonth = this month). Creates or reuses an unpaid EXTRACURRICULAR invoice for that month/student (multiple activities registered the same month are merged into one invoice via ExtracurricularFee). The enrollment starts as `Pending` and only becomes `Active` once that invoice is paid in full (via POST /parent/invoices/{invoiceId}/pay or /pay-momo) — see activateExtracurricularsForInvoice.
+ *       Each following month, a monthly cron automatically renews any still-`Active` enrollment into a new `Pending` enrollment + invoice for the next month — the parent must pay again each month to keep it `Active`. Cancelling stops this renewal (see the cancel endpoint below).
+ *     tags: ["Parent - Extracurriculars"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 19
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [activityId]
+ *             properties:
+ *               activityId:
+ *                 type: integer
+ *                 example: 1
+ *     responses:
+ *       201:
+ *         description: Enrollment created successfully (Pending, awaiting payment)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 201
+ *                 message:
+ *                   type: string
+ *                   example: Đăng ký hoạt động ngoại khóa thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     enrollmentId:
+ *                       type: integer
+ *                       example: 3
+ *                     studentId:
+ *                       type: integer
+ *                       example: 19
+ *                     activityId:
+ *                       type: integer
+ *                       example: 1
+ *                     registeredMonth:
+ *                       type: string
+ *                       example: "07-2026"
+ *                     status:
+ *                       type: string
+ *                       example: Pending
+ *                     invoiceId:
+ *                       type: integer
+ *                       description: The EXTRACURRICULAR invoice this enrollment is billed under — pay this to activate.
+ *                       example: 11
+ *       400:
+ *         description: Bad Request - missing activityId, or already enrolled in this activity for that month
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - child does not belong to this parent
+ *       404:
+ *         description: Not Found - activity not found
+ */
+
+/**
+ * @swagger
+ * /parent/children/{studentId}/extracurriculars/{enrollmentId}/cancel:
+ *   patch:
+ *     summary: Cancel a child's extracurricular enrollment
+ *     description: |
+ *       Sets Status='Cancelled'. No refund is issued for the current RegisteredMonth regardless of whether it was Pending or already Active/paid — cancelling only prevents the monthly renewal cron from creating a new enrollment/invoice for the following month.
+ *     tags: ["Parent - Extracurriculars"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 19
+ *       - in: path
+ *         name: enrollmentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 3
+ *     responses:
+ *       200:
+ *         description: Enrollment cancelled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Hủy đăng ký hoạt động ngoại khóa thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     enrollmentId:
+ *                       type: integer
+ *                       example: 3
+ *                     status:
+ *                       type: string
+ *                       example: Cancelled
+ *                     feeRefunded:
+ *                       type: boolean
+ *                       description: true if the activity fee was removed from its invoice (cancelled while still Pending, or within the 48h grace period after payment); false if the fee was kept (no refund, cancelled more than 48h after payment)
+ *                       example: true
+ *       400:
+ *         description: Bad Request - enrollment already cancelled
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - enrollment does not belong to this parent's child
+ *       404:
+ *         description: Not Found - enrollment not found
+ */
