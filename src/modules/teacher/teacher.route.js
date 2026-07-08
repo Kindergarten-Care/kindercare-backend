@@ -146,39 +146,16 @@ router.put('/classes/:classId/schedule/:scheduleId/status', teacherValidation.va
 
 router.post('/attendance/scan', teacherValidation.validateScanQR, teacherController.scanQRAttendance);
 
-// =============================
-// Lesson Plans (Giáo án)
-// =============================
-router.get(
-  '/lesson-plans',
-  lessonPlanValidation.validateListLessonPlans,
-  lessonPlanController.getLessonPlans
-);
-router.get(
-  '/lesson-plans/:id',
-  lessonPlanValidation.validateLessonPlanIdParam,
-  lessonPlanController.getLessonPlanDetail
-);
-router.post(
-  '/lesson-plans',
-  lessonPlanValidation.validateUpsertLessonPlan,
-  lessonPlanController.upsertLessonPlan
-);
-router.post(
-  '/lesson-plans/:id/submit',
-  lessonPlanValidation.validateSubmitOrWithdraw,
-  lessonPlanController.submitLessonPlan
-);
-router.post(
-  '/lesson-plans/:id/withdraw',
-  lessonPlanValidation.validateSubmitOrWithdraw,
-  lessonPlanController.withdrawLessonPlan
-);
-router.patch(
-  '/lesson-plans/:id/items/:itemId/complete',
-  lessonPlanValidation.validateCompleteLessonPlanItem,
-  lessonPlanController.completeLessonPlanItem
-);
+// Lesson Plans
+import { upsertLessonPlan as upsertLessonPlanValidation } from './sub/lessonPlan.validation.js';
+import validate from '../../middlewares/validate.middleware.js';
+
+router.get('/lesson-plans', lessonPlanController.getLessonPlans);
+router.get('/lesson-plans/:id', lessonPlanController.getLessonPlanById);
+router.post('/lesson-plans', validate(upsertLessonPlanValidation), lessonPlanController.upsertLessonPlan);
+router.post('/lesson-plans/:id/submit', lessonPlanController.submitLessonPlan);
+router.post('/lesson-plans/:id/withdraw', lessonPlanController.withdrawLessonPlan);
+router.patch('/lesson-plans/:planId/items/:itemId/complete', lessonPlanController.completeLessonPlanItem);
 
 // Weekly Schedule Templates
 import weeklyScheduleRouter from './sub/weeklySchedule.route.js';
