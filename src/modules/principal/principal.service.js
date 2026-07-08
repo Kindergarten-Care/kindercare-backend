@@ -476,13 +476,12 @@ export const getClassDetail = async (classId) => {
   `;
   const [students] = await pool.query(studentsQuery, [classId]);
 
-  // 4. Tổng hợp Điểm danh hôm nay — hardcode Asia/Ho_Chi_Minh để đảm bảo đúng giờ VN
-  // dù server đang chạy ở bất kỳ timezone nào (UTC, UTC+7, v.v.)
+  // 4. Tổng hợp Điểm danh hôm nay — tính chính xác unix timestamp midnight VN time (+07:00)
+  // Dùng explicit offset +07:00 khi tạo Date để đảm bảo đúng dù server chạy UTC hay UTC+7
   const nowVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-  const startOfToday = new Date(nowVN.getFullYear(), nowVN.getMonth(), nowVN.getDate(), 0, 0, 0);
-  const endOfToday = new Date(nowVN.getFullYear(), nowVN.getMonth(), nowVN.getDate(), 23, 59, 59);
-  const startOfTodayUnix = Math.floor(startOfToday.getTime() / 1000);
-  const endOfTodayUnix = Math.floor(endOfToday.getTime() / 1000);
+  const vnDateStr = `${nowVN.getFullYear()}-${String(nowVN.getMonth() + 1).padStart(2, '0')}-${String(nowVN.getDate()).padStart(2, '0')}`;
+  const startOfTodayUnix = Math.floor(new Date(`${vnDateStr}T00:00:00+07:00`).getTime() / 1000);
+  const endOfTodayUnix = Math.floor(new Date(`${vnDateStr}T23:59:59+07:00`).getTime() / 1000);
 
   const attendanceQuery = `
     SELECT a.Status AS status, COUNT(*) AS count
