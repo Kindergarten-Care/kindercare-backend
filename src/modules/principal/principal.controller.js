@@ -386,14 +386,17 @@ const endAcademicYear = async (req, res, next) => {
   }
 };
 
-const startAcademicYear = async (req, res, next) => {
-  try {
-    const { yearName, startDate, endDate, monthlyTuition, dailyMealFee } = req.body;
-    if (!yearName || !startDate || !endDate || !monthlyTuition || !dailyMealFee) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'Thiếu thông tin năm học hoặc học phí');
-    }
-    const result = await principalService.startAcademicYear({ yearName, startDate, endDate, monthlyTuition, dailyMealFee });
-    res.status(httpStatus.OK).json(new ApiResponse(httpStatus.OK, result, 'Bắt đầu năm học mới thành công'));
+  const startAcademicYear = async (req, res, next) => {
+    try {
+      const { yearName, startDate, endDate } = req.body;
+      const monthlyTuition = req.body.monthlyTuition || 0;
+      const dailyMealFee = req.body.dailyMealFee || 0;
+      
+      if (!yearName || !startDate || !endDate) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Thiếu thông tin năm học');
+      }
+      const result = await principalService.startAcademicYear({ yearName, startDate, endDate, monthlyTuition, dailyMealFee });
+      res.status(httpStatus.OK).json(new ApiResponse(httpStatus.OK, result, 'Bắt đầu năm học mới thành công'));
   } catch (error) {
     next(error);
   }

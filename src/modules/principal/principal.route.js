@@ -34,6 +34,9 @@ router.get('/parent/:id/detail', authenticate, authorize(2), principalController
 // Lấy thông tin chi tiết học sinh theo id
 router.get('/student/:id/detail', authenticate, authorize(2), principalController.getStudentDetail);
 
+// Lấy danh sách học sinh chưa có lớp
+router.get('/students/unassigned', authenticate, authorize(2), principalController.getUnassignedStudents);
+
 // Đặt lại mật khẩu của tài khoản về mặc định (chỉ hiệu trưởng)
 router.patch('/accounts/:id/reset-password', authenticate, authorize(2), principalController.resetAccountPassword);
 

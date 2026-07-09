@@ -250,6 +250,17 @@ export const getParentDetail = async (id) => {
  * @param {number} id - StudentID
  * @returns {Promise<object|null>}
  */
+
+export const getUnassignedStudents = async () => {
+  const query = `
+    SELECT StudentID as studentId, FullName as fullName, AvatarURL as avatarUrl, DateOfBirth as dateOfBirth, AdmissionDate as admissionDate
+    FROM Students
+    WHERE ClassID IS NULL AND EnrollmentStatus = 'Active'
+  `;
+  const [rows] = await pool.query(query);
+  return rows;
+};
+
 export const getStudentDetail = async (id) => {
   const studentQuery = `
     SELECT
