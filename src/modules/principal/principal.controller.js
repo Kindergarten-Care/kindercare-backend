@@ -402,6 +402,15 @@ const endAcademicYear = async (req, res, next) => {
   }
 };
 
+const getUnassignedStudents = async (req, res, next) => {
+  try {
+    const students = await principalService.getUnassignedStudents();
+    res.status(httpStatus.OK).json(new ApiResponse(httpStatus.OK, students, 'Lấy danh sách học sinh chưa xếp lớp thành công'));
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyProfile,
   getTeachersList,
@@ -410,6 +419,7 @@ export default {
   getTeacherDetail,
   getParentDetail,
   getStudentDetail,
+  getUnassignedStudents,
   resetAccountPassword,
   lockAccount,
   unlockAccount,
