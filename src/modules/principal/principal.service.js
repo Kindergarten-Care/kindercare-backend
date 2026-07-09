@@ -648,7 +648,7 @@ export const getAllStudents = async () => {
 
 export const searchParentsByPhone = async (phone) => {
   const [rows] = await pool.query(
-    'SELECT ParentID as id, FullName as fullName, PhoneNumber as phoneNumber, Email as email, Occupation as occupation, Address as address FROM Parents WHERE PhoneNumber = ?',
+    'SELECT ParentID as id, FullName as fullName, PhoneNumber as phoneNumber, Email as email, Job as occupation, Address as address FROM Parents WHERE PhoneNumber = ?',
     [phone]
   );
   return rows[0] || null;
@@ -693,7 +693,7 @@ export const enrollStudent = async ({ student, parent, account, isNewParent, pac
 
       // 2. Create Parent
       await connection.query(
-        'INSERT INTO Parents (ParentID, FullName, PhoneNumber, Email, Occupation, Address) VALUES (?, ?, ?, ?, ?, ?)',
+        'INSERT INTO Parents (ParentID, FullName, PhoneNumber, Email, Job, Address) VALUES (?, ?, ?, ?, ?, ?)',
         [parentId, parent.fullName, parent.phoneNumber, parent.email, parent.occupation, parent.address]
       );
     }
@@ -765,7 +765,7 @@ export const addParentToStudent = async (studentId, { parentId, isNewParent, par
       
       // 2. Create Parent
       const [parentResult] = await connection.query(
-        'INSERT INTO Parents (ParentID, FullName, PhoneNumber, Email, Occupation, Address) VALUES (?, ?, ?, ?, ?, ?)',
+        'INSERT INTO Parents (ParentID, FullName, PhoneNumber, Email, Job, Address) VALUES (?, ?, ?, ?, ?, ?)',
         [userId, parent.fullName, parent.phoneNumber, parent.email, parent.occupation, parent.address]
       );
       finalParentId = userId || parentResult.insertId;
