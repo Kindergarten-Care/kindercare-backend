@@ -484,6 +484,20 @@ const enrollStudent = async (req, res, next) => {
   }
 };
 
+const addParentToStudent = async (req, res, next) => {
+  try {
+    const { id: studentId } = req.params;
+    const result = await principalService.addParentToStudent(studentId, req.body);
+    res.status(201).json({
+      success: true,
+      data: result,
+      message: 'Đã thêm phụ huynh thành công'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const importStudents = async (req, res, next) => {
   try {
     if (!req.file) {
@@ -507,6 +521,7 @@ export default {
   searchParentsByPhone,
   getPaymentConfigs,
   enrollStudent,
+  addParentToStudent,
   importStudents,
   getAccountsByRole,
   getTeacherDetail,

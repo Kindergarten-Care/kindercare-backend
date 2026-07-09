@@ -708,7 +708,7 @@ export const enrollStudent = async ({ student, parent, account, isNewParent, pac
 
     // 4. Link Student and Parent
     await connection.query(
-      'INSERT INTO StudentParents (StudentID, ParentID, Relationship, IsPrimaryContact) VALUES (?, ?, "Phụ huynh", 1)',
+      'INSERT INTO StudentParents (StudentID, ParentID, Relationship, IsPrimary) VALUES (?, ?, "Phụ huynh", 1)',
       [studentId, parentId]
     );
 
@@ -736,6 +736,50 @@ export const enrollStudent = async ({ student, parent, account, isNewParent, pac
 
     await connection.commit();
     return { studentId, parentId };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+export const addParentToStudent = async (studentId, { parentId, isNewParent, parent, account, relationship, isPrimary }) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    let finalParentId = parentId;
+
+    if (isNewParent) {
+      // 1. Create User (if account provided) or just parent
+      let userId = null;
+      if (account) {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(account.password, salt);
+        const [userResult] = await connection.query(
+          'INSERT INTO Users (Username, PasswordHash, RoleID, Status) VALUES (?, ?, 4, "Active")',
+          [account.username, hashedPassword]
+        );
+        userId = userResult.insertId;
+      }
+      
+      // 2. Create Parent
+      const [parentResult] = await connection.query(
+        'INSERT INTO Parents (ParentID, FullName, PhoneNumber, Email, Occupation, Address) VALUES (?, ?, ?, ?, ?, ?)',
+        [userId, parent.fullName, parent.phoneNumber, parent.email, parent.occupation, parent.address]
+      );
+      finalParentId = userId || parentResult.insertId;
+    }
+
+    // 3. Link Student and Parent
+    await connection.query(
+      'INSERT INTO StudentParents (StudentID, ParentID, Relationship, IsPrimary) VALUES (?, ?, ?, ?)',
+      [studentId, finalParentId, relationship, isPrimary ? 1 : 0]
+    );
+
+    await connection.commit();
+    return { studentId, parentId: finalParentId };
   } catch (error) {
     await connection.rollback();
     throw error;

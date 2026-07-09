@@ -45,6 +45,9 @@ router.get('/payment-configs', authenticate, authorize(2), principalController.g
 // Thêm học sinh mới (Wizard Flow)
 router.post('/students/enroll', authenticate, authorize(2), principalController.enrollStudent);
 
+// Thêm/Liên kết phụ huynh cho học sinh
+router.post('/student/:id/parents', authenticate, authorize(2), principalController.addParentToStudent);
+
 // Import học sinh từ CSV
 router.post('/students/import', authenticate, authorize(2), upload.single('file'), principalController.importStudents);
 
