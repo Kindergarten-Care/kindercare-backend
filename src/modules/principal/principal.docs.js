@@ -512,7 +512,7 @@
  *                   example: 200
  *                 message:
  *                   type: string
- *                   example: Reset mật khẩu thành công (Mặc định: 123456)
+ *                   example: "Reset mật khẩu thành công (Mặc định: 123456)"
  *                 data:
  *                   nullable: true
  *                   example: null
