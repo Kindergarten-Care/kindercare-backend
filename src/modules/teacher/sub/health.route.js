@@ -67,38 +67,87 @@ router.delete(
 );
 
 // -----------------------------------------------------------------------------
-// Health Records  (mapped to /logs endpoint for FE consistency)
+// BMI Measurements (Height/Weight → BE tự tính BMI)
+//   GET    /classes/:classId/student-health/bmi              (danh sách BMI theo kỳ)
+//   POST   /classes/:classId/student-health/bmi              (tạo 1 bản ghi)
+//   PUT    /classes/:classId/student-health/bmi              (batch upsert theo kỳ)
+//   PATCH  /classes/:classId/student-health/bmi/item/:logId  (sửa 1 bản ghi)
+//   DELETE /classes/:classId/student-health/bmi/item/:logId  (xóa 1 bản ghi)
+// -----------------------------------------------------------------------------
+router.get(
+  '/classes/:classId/student-health/bmi',
+  healthValidation.validateClassIdParam,
+  healthValidation.validateBmiQuery,
+  healthController.listClassBmiLogs
+);
+
+router.post(
+  '/classes/:classId/student-health/bmi',
+  healthValidation.validateClassIdParam,
+  healthValidation.validateCreateBmiLog,
+  healthController.createBmiLog
+);
+
+router.put(
+  '/classes/:classId/student-health/bmi',
+  healthValidation.validateClassIdParam,
+  healthValidation.validateBatchUpsertBmi,
+  healthController.batchUpsertBmiLogs
+);
+
+router.patch(
+  '/classes/:classId/student-health/bmi/item/:logId',
+  healthValidation.validateClassIdParam,
+  healthValidation.validateLogIdParam,
+  healthValidation.validateUpdateBmiLog,
+  healthController.updateBmiLog
+);
+
+router.delete(
+  '/classes/:classId/student-health/bmi/item/:logId',
+  healthValidation.validateClassIdParam,
+  healthValidation.validateLogIdParam,
+  healthController.deleteBmiLog
+);
+
+// -----------------------------------------------------------------------------
+// Health Records (legacy - alias of BMI routes for backward compatibility)
+//   Vẫn map sang BMI service. Đường dẫn /logs được giữ để tương thích FE cũ.
 // -----------------------------------------------------------------------------
 router.get(
   '/classes/:classId/student-health/logs',
   healthValidation.validateClassIdParam,
-  healthController.listClassHealthRecords
+  healthValidation.validateBmiQuery,
+  healthController.listClassBmiLogs
 );
 
 router.put(
   '/classes/:classId/student-health/logs',
   healthValidation.validateClassIdParam,
-  healthController.batchUpdateClassHealthRecords
+  healthValidation.validateBatchUpsertBmi,
+  healthController.batchUpsertBmiLogs
 );
 
 router.post(
   '/classes/:classId/student-health/logs',
   healthValidation.validateClassIdParam,
-  healthController.createClassHealthLog
+  healthValidation.validateCreateBmiLog,
+  healthController.createBmiLog
 );
 
 router.patch(
   '/classes/:classId/student-health/logs/item/:logId',
   healthValidation.validateClassIdParam,
   healthValidation.validateLogIdParam,
-  healthController.updateClassHealthLog
+  healthValidation.validateUpdateBmiLog,
+  healthController.updateBmiLog
 );
 
 router.delete(
   '/classes/:classId/student-health/logs/item/:logId',
   healthValidation.validateClassIdParam,
   healthValidation.validateLogIdParam,
-  healthController.deleteClassHealthLog
+  healthController.deleteBmiLog
 );
 
 // -----------------------------------------------------------------------------
