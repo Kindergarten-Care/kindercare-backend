@@ -638,18 +638,20 @@ export const endAcademicYear = async () => {
   };
 };
 
-export const startAcademicYear = async ({ yearName, startDate, endDate, monthlyTuition, dailyMealFee }) => {
+export const startAcademicYear = async ({ yearName, startDate, endDate, monthlyTuition, dailyMealFee, isActive = true }) => {
   // Check if year already exists
   const [existing] = await pool.query('SELECT YearID FROM AcademicYears WHERE YearName = ?', [yearName]);
   if (existing.length > 0) throw new Error('Năm học này đã tồn tại');
 
-  // Set all years to inactive
-  await pool.query('UPDATE AcademicYears SET IsActive = 0');
+  if (isActive) {
+    // Set all years to inactive
+    await pool.query('UPDATE AcademicYears SET IsActive = 0');
+  }
 
   // Insert new year
   const [insertYear] = await pool.query(
-    'INSERT INTO AcademicYears (YearName, StartDate, EndDate, IsActive) VALUES (?, ?, ?, 1)',
-    [yearName, startDate, endDate]
+    'INSERT INTO AcademicYears (YearName, StartDate, EndDate, IsActive) VALUES (?, ?, ?, ?)',
+    [yearName, startDate, endDate, isActive ? 1 : 0]
   );
   const newYearId = insertYear.insertId;
 
