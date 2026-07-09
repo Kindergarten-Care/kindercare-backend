@@ -179,6 +179,32 @@ const getParentDetail = async (req, res, next) => {
   }
 };
 
+const getStudentDetail = async (req, res, next) => {
+  try {
+    const roleId = req.user.roleId;
+    if (roleId !== 2) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ hiệu trưởng mới có quyền truy cập chi tiết học sinh');
+    }
+
+    const id = parsePositiveIntId(req.params.id);
+    const student = await principalService.getStudentDetail(id);
+
+    if (!student) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy học sinh với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        student,
+        'Lấy thông tin chi tiết học sinh thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 const resetAccountPassword = async (req, res, next) => {
   try {
     const roleId = req.user.roleId;
@@ -331,6 +357,7 @@ export default {
   getAccountsByRole,
   getTeacherDetail,
   getParentDetail,
+  getStudentDetail,
   resetAccountPassword,
   lockAccount,
   unlockAccount,

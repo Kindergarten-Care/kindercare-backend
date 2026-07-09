@@ -482,6 +482,72 @@
 
 /**
  * @swagger
+ * /principal/student/{id}/detail:
+ *   get:
+ *     summary: Lấy thông tin chi tiết học sinh
+ *     description: |
+ *       Trả về thông tin chi tiết của học sinh kèm danh sách phụ huynh.
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền truy cập.
+ *     tags: ["Principal - Student"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: StudentID của học sinh cần lấy thông tin
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Lấy thông tin chi tiết học sinh thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Lấy thông tin chi tiết học sinh thành công }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer, example: 1 }
+ *                     fullName: { type: string, example: "Nguyễn Minh Khang" }
+ *                     dateOfBirth: { type: integer, nullable: true, description: "Unix timestamp (seconds)", example: 1684108800 }
+ *                     gender: { type: string, nullable: true, example: "Nam" }
+ *                     address: { type: string, nullable: true, example: "Quận 1, TP.HCM" }
+ *                     admissionDate: { type: integer, nullable: true, description: "Unix timestamp (seconds)", example: 1693526400 }
+ *                     status: { type: string, nullable: true, example: "Active" }
+ *                     avatarUrl: { type: string, nullable: true, example: null }
+ *                     classId: { type: integer, nullable: true, example: 1 }
+ *                     className: { type: string, nullable: true, example: "Mầm 1" }
+ *                     parents:
+ *                       type: array
+ *                       description: Danh sách phụ huynh của học sinh
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           parentId: { type: integer, example: 4 }
+ *                           fullName: { type: string, example: "Nguyễn Anh Tuấn" }
+ *                           phoneNumber: { type: string, example: "0909090909" }
+ *                           email: { type: string, nullable: true, example: "tuan.nguyen@gmail.com" }
+ *                           relationship: { type: string, example: "Bố" }
+ *                           isPrimary: { type: integer, description: "1 = phụ huynh chính, 0 = phụ huynh phụ", example: 1 }
+ *       400:
+ *         description: Bad Request - id không hợp lệ
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy học sinh
+ */
+
+/**
+ * @swagger
  * /principal/accounts/{id}/reset-password:
  *   patch:
  *     summary: Khôi phục mật khẩu tài khoản về mặc định
