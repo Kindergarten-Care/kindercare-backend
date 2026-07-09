@@ -245,6 +245,49 @@ export const getParentDetail = async (id) => {
 };
 
 /**
+ * Lấy thông tin chi tiết học sinh + danh sách phụ huynh.
+ *
+ * @param {number} id - StudentID
+ * @returns {Promise<object|null>}
+ */
+export const getStudentDetail = async (id) => {
+  const studentQuery = `
+    SELECT
+      s.StudentID      AS id,
+      s.FullName       AS fullName,
+      s.DateOfBirth    AS dateOfBirth,
+      s.Gender         AS gender,
+      s.Address        AS address,
+      s.AdmissionDate  AS admissionDate,
+      s.Status         AS status,
+      s.AvatarURL      AS avatarUrl,
+      s.ClassID        AS classId,
+      c.ClassName      AS className
+    FROM Students s
+    LEFT JOIN Classes c ON s.ClassID = c.ClassID
+    WHERE s.StudentID = ?
+  `;
+  const [rows] = await pool.query(studentQuery, [id]);
+  if (rows.length === 0) return null;
+
+  const parentsQuery = `
+    SELECT
+      p.ParentID       AS parentId,
+      p.FullName       AS fullName,
+      p.PhoneNumber    AS phoneNumber,
+      p.Email          AS email,
+      sp.Relationship  AS relationship,
+      sp.IsPrimary     AS isPrimary
+    FROM StudentParents sp
+    INNER JOIN Parents p ON p.ParentID = sp.ParentID
+    WHERE sp.StudentID = ?
+  `;
+  const [parents] = await pool.query(parentsQuery, [id]);
+
+  return { ...rows[0], parents };
+};
+
+/**
  * Đặt lại mật khẩu của tài khoản về mặc định (123456)
  *
  * @param {number} userId - UserID của tài khoản cần reset
