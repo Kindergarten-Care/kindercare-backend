@@ -257,9 +257,9 @@ export const getStudentDetail = async (id) => {
       s.FullName       AS fullName,
       s.DateOfBirth    AS dateOfBirth,
       s.Gender         AS gender,
-      s.Address        AS address,
+      s.Allergies      AS allergies,
       s.AdmissionDate  AS admissionDate,
-      s.Status         AS status,
+      s.EnrollmentStatus AS status,
       s.AvatarURL      AS avatarUrl,
       s.ClassID        AS classId,
       c.ClassName      AS className
