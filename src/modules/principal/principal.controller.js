@@ -443,11 +443,86 @@ const getAllStudents = async (req, res, next) => {
   }
 };
 
+const searchParentsByPhone = async (req, res, next) => {
+  try {
+    const { phone } = req.query;
+    if (!phone) {
+      return res.status(400).json({ success: false, message: 'Số điện thoại là bắt buộc' });
+    }
+    const parent = await principalService.searchParentsByPhone(phone);
+    res.status(200).json({
+      success: true,
+      data: parent, // null if not found
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getPaymentConfigs = async (req, res, next) => {
+  try {
+    const data = await principalService.getPaymentConfigs();
+    res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const enrollStudent = async (req, res, next) => {
+  try {
+    const result = await principalService.enrollStudent(req.body);
+    res.status(201).json({
+      success: true,
+      data: result,
+      message: 'Đã tạo hồ sơ học sinh thành công'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const addParentToStudent = async (req, res, next) => {
+  try {
+    const { id: studentId } = req.params;
+    const result = await principalService.addParentToStudent(studentId, req.body);
+    res.status(201).json({
+      success: true,
+      data: result,
+      message: 'Đã thêm phụ huynh thành công'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const importStudents = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Vui lòng upload file CSV' });
+    }
+    const count = await principalService.importStudentsFromCSV(req.file.buffer);
+    res.status(201).json({
+      success: true,
+      message: `Đã import thành công ${count} học sinh`
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyProfile,
   getTeachersList,
   getParentsList,
   getAllStudents,
+  searchParentsByPhone,
+  getPaymentConfigs,
+  enrollStudent,
+  addParentToStudent,
+  importStudents,
   getAccountsByRole,
   getTeacherDetail,
   getParentDetail,
