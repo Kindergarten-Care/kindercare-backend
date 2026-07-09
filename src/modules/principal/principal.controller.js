@@ -412,6 +412,25 @@ const getUnassignedStudents = async (req, res, next) => {
   }
 };
 
+const getAcademicYears = async (req, res, next) => {
+  try {
+    const years = await principalService.getAcademicYears();
+    res.status(httpStatus.OK).json(new ApiResponse(httpStatus.OK, years, 'Lấy danh sách năm học thành công'));
+  } catch (error) {
+    next(error);
+  }
+};
+
+const activateAcademicYear = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const result = await principalService.activateAcademicYear(id);
+    res.status(httpStatus.OK).json(new ApiResponse(httpStatus.OK, result, result.message));
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyProfile,
   getTeachersList,
@@ -432,4 +451,6 @@ export default {
   assignStudentsToClass,
   endAcademicYear,
   startAcademicYear,
+  getAcademicYears,
+  activateAcademicYear,
 };
