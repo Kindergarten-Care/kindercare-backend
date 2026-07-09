@@ -643,6 +643,205 @@ export const getAllStudents = async () => {
   return rows;
 };
 
+import bcrypt from 'bcryptjs';
+import csvParser from 'csv-parser';
+import { Readable } from 'stream';
+
+export const searchParentsByPhone = async (phone) => {
+  const [rows] = await pool.query(
+    'SELECT ParentID as id, FullName as fullName, PhoneNumber as phoneNumber, Email as email, Occupation as occupation, Address as address FROM Parents WHERE PhoneNumber = ?',
+    [phone]
+  );
+  return rows[0] || null;
+};
+
+export const getPaymentConfigs = async () => {
+  // Get all packages
+  const [packages] = await pool.query('SELECT PackageID as id, PackageName as name, DurationInMonths as duration, DiscountPercentage as discount FROM PaymentPackages');
+  
+  // Get active year base fees
+  const [fees] = await pool.query(`
+    SELECT bf.MonthlyTuition, bf.DailyMealFee 
+    FROM BaseFees bf
+    JOIN AcademicYears ay ON bf.YearID = ay.YearID
+    WHERE ay.IsActive = 1
+    LIMIT 1
+  `);
+
+  return {
+    packages,
+    baseFee: fees[0] || { MonthlyTuition: 0, DailyMealFee: 0 }
+  };
+};
+
+export const enrollStudent = async ({ student, parent, account, isNewParent, packageId }) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    let parentId = parent.id;
+
+    if (isNewParent) {
+      // 1. Create User
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(account.password, salt);
+      
+      const [userResult] = await connection.query(
+        'INSERT INTO Users (Username, PasswordHash, RoleID, Status) VALUES (?, ?, 4, "Active")',
+        [account.username, hashedPassword]
+      );
+      parentId = userResult.insertId;
+
+      // 2. Create Parent
+      await connection.query(
+        'INSERT INTO Parents (ParentID, FullName, PhoneNumber, Email, Occupation, Address) VALUES (?, ?, ?, ?, ?, ?)',
+        [parentId, parent.fullName, parent.phoneNumber, parent.email, parent.occupation, parent.address]
+      );
+    }
+
+    // 3. Create Student
+    const [studentResult] = await connection.query(
+      'INSERT INTO Students (FullName, DateOfBirth, Gender, Allergies, AdmissionDate, EnrollmentStatus, ClassID) VALUES (?, ?, ?, ?, ?, "Active", NULL)',
+      [student.fullName, student.dateOfBirth, student.gender, student.allergies, student.admissionDate]
+    );
+    const studentId = studentResult.insertId;
+
+    // 4. Link Student and Parent
+    await connection.query(
+      'INSERT INTO StudentParents (StudentID, ParentID, Relationship, IsPrimary) VALUES (?, ?, "Phụ huynh", 1)',
+      [studentId, parentId]
+    );
+
+    // 5. Create StudentTuitionPlan if packageId is provided
+    if (packageId) {
+      // Get base fee for current active year
+      const [fees] = await connection.query(`
+        SELECT bf.MonthlyTuition
+        FROM BaseFees bf
+        JOIN AcademicYears ay ON bf.YearID = ay.YearID
+        WHERE ay.IsActive = 1
+        LIMIT 1
+      `);
+      const monthlyTuitionSnapshot = fees.length > 0 ? fees[0].MonthlyTuition : 0;
+      
+      // Calculate start month from admission date (format YYYY-MM)
+      const admissionDateObj = new Date(student.admissionDate * 1000);
+      const startMonth = `${admissionDateObj.getFullYear()}-${String(admissionDateObj.getMonth() + 1).padStart(2, '0')}`;
+
+      await connection.query(
+        'INSERT INTO StudentTuitionPlans (StudentID, PackageID, StartMonth, MonthlyTuitionSnapshot, Status) VALUES (?, ?, ?, ?, "Active")',
+        [studentId, packageId, startMonth, monthlyTuitionSnapshot]
+      );
+    }
+
+    await connection.commit();
+    return { studentId, parentId };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+export const addParentToStudent = async (studentId, { parentId, isNewParent, parent, account, relationship, isPrimary }) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    let finalParentId = parentId;
+
+    if (isNewParent) {
+      // 1. Create User (if account provided) or just parent
+      let userId = null;
+      if (account) {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(account.password, salt);
+        const [userResult] = await connection.query(
+          'INSERT INTO Users (Username, PasswordHash, RoleID, Status) VALUES (?, ?, 4, "Active")',
+          [account.username, hashedPassword]
+        );
+        userId = userResult.insertId;
+      }
+      
+      // 2. Create Parent
+      const [parentResult] = await connection.query(
+        'INSERT INTO Parents (ParentID, FullName, PhoneNumber, Email, Occupation, Address) VALUES (?, ?, ?, ?, ?, ?)',
+        [userId, parent.fullName, parent.phoneNumber, parent.email, parent.occupation, parent.address]
+      );
+      finalParentId = userId || parentResult.insertId;
+    }
+
+    // 3. Link Student and Parent
+    await connection.query(
+      'INSERT INTO StudentParents (StudentID, ParentID, Relationship, IsPrimary) VALUES (?, ?, ?, ?)',
+      [studentId, finalParentId, relationship, isPrimary ? 1 : 0]
+    );
+
+    await connection.commit();
+    return { studentId, parentId: finalParentId };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+export const importStudentsFromCSV = async (fileBuffer) => {
+  return new Promise((resolve, reject) => {
+    const results = [];
+    const stream = Readable.from(fileBuffer);
+
+    stream
+      .pipe(csvParser())
+      .on('data', (data) => results.push(data))
+      .on('end', async () => {
+        const connection = await pool.getConnection();
+        try {
+          await connection.beginTransaction();
+
+          let count = 0;
+          for (const row of results) {
+            if (!row.FullName) continue;
+            
+            // Format dates from DD/MM/YYYY to timestamp
+            let dateOfBirth = null;
+            if (row.DateOfBirth) {
+              const parts = row.DateOfBirth.split('/');
+              if (parts.length === 3) {
+                dateOfBirth = Math.floor(new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00Z`).getTime() / 1000);
+              }
+            }
+
+            let admissionDate = Math.floor(Date.now() / 1000);
+            if (row.AdmissionDate) {
+               const parts = row.AdmissionDate.split('/');
+               if (parts.length === 3) {
+                 admissionDate = Math.floor(new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00Z`).getTime() / 1000);
+               }
+            }
+
+            await connection.query(
+              'INSERT INTO Students (FullName, DateOfBirth, Gender, Allergies, AdmissionDate, EnrollmentStatus, ClassID) VALUES (?, ?, ?, ?, ?, "Active", NULL)',
+              [row.FullName, dateOfBirth, row.Gender, row.Allergies, admissionDate]
+            );
+            count++;
+          }
+
+          await connection.commit();
+          resolve(count);
+        } catch (error) {
+          await connection.rollback();
+          reject(error);
+        } finally {
+          connection.release();
+        }
+      })
+      .on('error', (error) => reject(error));
+  });
+};
+
 export const assignStudentsToClass = async (studentIds, classId) => {
   if (studentIds.length === 0) return;
   const [classRows] = await pool.query('SELECT ClassID FROM Classes WHERE ClassID = ?', [classId]);
