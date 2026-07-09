@@ -391,11 +391,12 @@ const endAcademicYear = async (req, res, next) => {
       const { yearName, startDate, endDate } = req.body;
       const monthlyTuition = req.body.monthlyTuition || 0;
       const dailyMealFee = req.body.dailyMealFee || 0;
+      const isActive = req.body.isActive !== undefined ? req.body.isActive : true;
       
       if (!yearName || !startDate || !endDate) {
         throw new ApiError(httpStatus.BAD_REQUEST, 'Thiếu thông tin năm học');
       }
-      const result = await principalService.startAcademicYear({ yearName, startDate, endDate, monthlyTuition, dailyMealFee });
+      const result = await principalService.startAcademicYear({ yearName, startDate, endDate, monthlyTuition, dailyMealFee, isActive });
       res.status(httpStatus.OK).json(new ApiResponse(httpStatus.OK, result, 'Bắt đầu năm học mới thành công'));
   } catch (error) {
     next(error);
