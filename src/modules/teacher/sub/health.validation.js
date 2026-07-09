@@ -7,6 +7,36 @@ const LOG_SEVERITY_VALUES = ['Normal', 'Mild', 'Moderate', 'Severe'];
 const LOG_TYPE_VALUES = ['Temperature', 'Incident', 'Observation', 'Mood', 'Meal', 'Nap'];
 const MED_STATUS_VALUES = ['Pending', 'Done', 'Skipped'];
 
+const TERM_PERIOD_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+const bmiMeasurementSchema = Joi.object({
+  studentId: Joi.number().integer().positive().required(),
+  termPeriod: Joi.string().trim().pattern(TERM_PERIOD_REGEX).required()
+    .messages({ 'string.pattern.base': 'termPeriod phải có định dạng YYYY-MM (VD: 2026-07)' }),
+  height: Joi.number().min(50).max(200).required()
+    .messages({ 'number.min': 'height phải ≥ 50cm', 'number.max': 'height phải ≤ 200cm' }),
+  weight: Joi.number().min(3).max(100).required()
+    .messages({ 'number.min': 'weight phải ≥ 3kg', 'number.max': 'weight phải ≤ 100kg' }),
+  notes: Joi.string().trim().max(1000).allow('', null).optional(),
+  measuredAt: Joi.number().integer().positive().optional()
+    .messages({ 'number.integer': 'measuredAt phải là epoch seconds' })
+});
+
+const bmiBatchItemSchema = bmiMeasurementSchema;
+
+const bmiBatchSchema = Joi.object({
+  termPeriod: Joi.string().trim().pattern(TERM_PERIOD_REGEX).required()
+    .messages({ 'string.pattern.base': 'termPeriod phải có định dạng YYYY-MM' }),
+  records: Joi.array().items(bmiBatchItemSchema).min(1).required()
+    .messages({ 'array.min': 'records phải có ít nhất 1 phần tử' })
+});
+
+const bmiUpdateSchema = Joi.object({
+  height: Joi.number().min(50).max(200).optional(),
+  weight: Joi.number().min(3).max(100).optional(),
+  notes: Joi.string().trim().max(1000).allow('', null).optional()
+}).min(1).messages({ 'object.min': 'Cần ít nhất 1 trường để cập nhật' });
+
 const allergyBodySchema = Joi.object({
   allergen: Joi.string().trim().min(1).max(150).required(),
   severity: Joi.string().valid(...SEVERITY_VALUES).default('Mild'),
@@ -153,9 +183,59 @@ export const validateDevelopmentAssessmentBatch = (req, _res, next) => {
   next();
 };
 
+export const validateCreateBmiLog = (req, _res, next) => {
+  const { error, value } = bmiMeasurementSchema.validate(req.body, { abortEarly: false });
+  if (error) {
+    const details = error.details.map((d) => d.message).join('; ');
+    return next(new ApiError(httpStatus.BAD_REQUEST, details));
+  }
+  req.body = value;
+  next();
+};
+
+export const validateBatchUpsertBmi = (req, _res, next) => {
+  const { error, value } = bmiBatchSchema.validate(req.body, { abortEarly: false });
+  if (error) {
+    const details = error.details.map((d) => d.message).join('; ');
+    return next(new ApiError(httpStatus.BAD_REQUEST, details));
+  }
+  req.body = value;
+  next();
+};
+
+export const validateUpdateBmiLog = (req, _res, next) => {
+  const { error, value } = bmiUpdateSchema.validate(req.body, { abortEarly: false });
+  if (error) {
+    const details = error.details.map((d) => d.message).join('; ');
+    return next(new ApiError(httpStatus.BAD_REQUEST, details));
+  }
+  req.body = value;
+  next();
+};
+
+export const validateBmiQuery = (req, _res, next) => {
+  const { termPeriod, studentId, includeOverwritten } = req.query;
+  if (termPeriod !== undefined && !TERM_PERIOD_REGEX.test(String(termPeriod))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'termPeriod phải có định dạng YYYY-MM'));
+  }
+  if (studentId !== undefined && (isNaN(parseInt(studentId)) || parseInt(studentId) <= 0)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'studentId phải là số nguyên dương'));
+  }
+  if (includeOverwritten !== undefined && !['true', 'false', '1', '0'].includes(String(includeOverwritten))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'includeOverwritten chỉ chấp nhận true/false'));
+  }
+  if (includeOverwritten !== undefined) {
+    req.query.includeOverwritten = String(includeOverwritten) === 'true' || String(includeOverwritten) === '1';
+  }
+  next();
+};
+
 export {
   SEVERITY_VALUES,
   LOG_SEVERITY_VALUES,
   LOG_TYPE_VALUES,
-  MED_STATUS_VALUES
+  MED_STATUS_VALUES,
+  bmiMeasurementSchema,
+  bmiBatchSchema,
+  bmiUpdateSchema
 };

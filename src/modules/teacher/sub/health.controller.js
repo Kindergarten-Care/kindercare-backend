@@ -1,4 +1,5 @@
 import * as healthService from './health.service.js';
+import * as bmiService from './health.bmi.service.js';
 import * as teacherService from '../teacher.service.js';
 import ApiError from '../../../utils/ApiError.js';
 import ApiResponse from '../../../utils/ApiResponse.js';
@@ -241,6 +242,109 @@ export const deleteClassHealthLog = async (req, res, next) => {
     await healthService.deleteHealthLog(logId);
     res.status(httpStatus.OK).json(
       new ApiResponse(httpStatus.OK, null, 'Xóa hồ sơ sức khỏe thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+// -----------------------------------------------------------------------------
+// BMI Measurements (Height/Weight → BMI tự động tính ở BE)
+// -----------------------------------------------------------------------------
+
+export const listClassBmiLogs = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const classId = await ensureClassAccess(teacherId, req.params.classId);
+    const termPeriod = req.query.termPeriod
+      ? String(req.query.termPeriod)
+      : new Date().toISOString().slice(0, 7);
+    const studentId = req.query.studentId ? parseInt(req.query.studentId, 10) : null;
+    const includeOverwritten = req.query.includeOverwritten !== 'false' && req.query.includeOverwritten !== '0';
+
+    const logs = await bmiService.getClassBmiLogs({
+      classId,
+      termPeriod,
+      studentId,
+      includeOverwritten,
+    });
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, { logs }, 'Lấy danh sách BMI cả lớp thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createBmiLog = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const classId = await ensureClassAccess(teacherId, req.params.classId);
+    const log = await bmiService.createBmiLog({
+      classId,
+      teacherId,
+      payload: req.body,
+    });
+    res.status(httpStatus.CREATED).json(
+      new ApiResponse(httpStatus.CREATED, { log }, 'Tạo bản ghi BMI thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const batchUpsertBmiLogs = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const classId = await ensureClassAccess(teacherId, req.params.classId);
+    const { termPeriod, records } = req.body;
+    const logs = await bmiService.batchUpsertBmiLogs({
+      classId,
+      teacherId,
+      termPeriod,
+      records,
+    });
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, { logs }, 'Cập nhật BMI hàng loạt thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateBmiLog = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const classId = await ensureClassAccess(teacherId, req.params.classId);
+    const logId = parseInt(req.params.logId, 10);
+    if (isNaN(logId)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'logId không hợp lệ');
+    }
+    const log = await bmiService.updateBmiLog({
+      classId,
+      teacherId,
+      logId,
+      payload: req.body,
+    });
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, { log }, 'Cập nhật BMI thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteBmiLog = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const classId = await ensureClassAccess(teacherId, req.params.classId);
+    const logId = parseInt(req.params.logId, 10);
+    if (isNaN(logId)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'logId không hợp lệ');
+    }
+    await bmiService.deleteBmiLog({ classId, teacherId, logId });
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Xóa bản ghi BMI thành công')
     );
   } catch (error) {
     next(error);
