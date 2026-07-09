@@ -431,10 +431,23 @@ const activateAcademicYear = async (req, res, next) => {
   }
 };
 
+const getAllStudents = async (req, res, next) => {
+  try {
+    const students = await principalService.getAllStudents();
+    res.status(200).json({
+      success: true,
+      data: students,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyProfile,
   getTeachersList,
   getParentsList,
+  getAllStudents,
   getAccountsByRole,
   getTeacherDetail,
   getParentDetail,

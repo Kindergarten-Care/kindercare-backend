@@ -34,6 +34,9 @@ router.get('/parent/:id/detail', authenticate, authorize(2), principalController
 // Lấy thông tin chi tiết học sinh theo id
 router.get('/student/:id/detail', authenticate, authorize(2), principalController.getStudentDetail);
 
+// Lấy danh sách toàn bộ học sinh
+router.get('/students', authenticate, authorize(2), principalController.getAllStudents);
+
 // Lấy danh sách học sinh chưa có lớp
 router.get('/students/unassigned', authenticate, authorize(2), principalController.getUnassignedStudents);
 

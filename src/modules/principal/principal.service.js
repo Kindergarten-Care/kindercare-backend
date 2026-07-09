@@ -626,6 +626,23 @@ export const assignTeacherToClass = async (classId, teacherId, roleInClass, assi
   );
 };
 
+export const getAllStudents = async () => {
+  const query = `
+    SELECT 
+      s.StudentID as id,
+      s.FullName as fullName,
+      s.AvatarURL as avatarUrl,
+      s.DateOfBirth as dateOfBirth,
+      s.Gender as gender,
+      c.ClassName as currentClass
+    FROM Students s
+    LEFT JOIN Classes c ON s.ClassID = c.ClassID
+    ORDER BY s.FullName ASC
+  `;
+  const [rows] = await pool.query(query);
+  return rows;
+};
+
 export const assignStudentsToClass = async (studentIds, classId) => {
   if (studentIds.length === 0) return;
   const [classRows] = await pool.query('SELECT ClassID FROM Classes WHERE ClassID = ?', [classId]);
