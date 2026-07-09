@@ -1,8 +1,10 @@
 import express from 'express';
+import multer from 'multer';
 import principalController from './principal.controller.js';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Lấy thông tin profile của hiệu trưởng đang đăng nhập
 router.get('/profile', authenticate, authorize(2), principalController.getMyProfile);
@@ -33,6 +35,12 @@ router.get('/parent/:id/detail', authenticate, authorize(2), principalController
 
 // Lấy thông tin chi tiết học sinh theo id
 router.get('/student/:id/detail', authenticate, authorize(2), principalController.getStudentDetail);
+
+// Thêm học sinh mới (Wizard Flow)
+router.post('/students/enroll', authenticate, authorize(2), principalController.enrollStudent);
+
+// Import học sinh từ CSV
+router.post('/students/import', authenticate, authorize(2), upload.single('file'), principalController.importStudents);
 
 // Lấy danh sách toàn bộ học sinh
 router.get('/students', authenticate, authorize(2), principalController.getAllStudents);

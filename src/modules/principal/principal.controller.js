@@ -443,11 +443,41 @@ const getAllStudents = async (req, res, next) => {
   }
 };
 
+const enrollStudent = async (req, res, next) => {
+  try {
+    const result = await principalService.enrollStudent(req.body);
+    res.status(201).json({
+      success: true,
+      data: result,
+      message: 'Đã tạo hồ sơ học sinh thành công'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const importStudents = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Vui lòng upload file CSV' });
+    }
+    const count = await principalService.importStudentsFromCSV(req.file.buffer);
+    res.status(201).json({
+      success: true,
+      message: `Đã import thành công ${count} học sinh`
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyProfile,
   getTeachersList,
   getParentsList,
   getAllStudents,
+  enrollStudent,
+  importStudents,
   getAccountsByRole,
   getTeacherDetail,
   getParentDetail,
