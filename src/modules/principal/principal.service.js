@@ -2,6 +2,8 @@ import pool from '../../config/db.js';
 import bcrypt from 'bcryptjs';
 import ApiError from '../../utils/ApiError.js';
 import httpStatus from 'http-status';
+import csvParser from 'csv-parser';
+import { Readable } from 'stream';
 
 /**
  * Lấy thông tin profile của hiệu trưởng theo PrincipalID.
@@ -643,9 +645,6 @@ export const getAllStudents = async () => {
   return rows;
 };
 
-import bcrypt from 'bcryptjs';
-import csvParser from 'csv-parser';
-import { Readable } from 'stream';
 
 export const searchParentsByPhone = async (phone) => {
   const [rows] = await pool.query(
