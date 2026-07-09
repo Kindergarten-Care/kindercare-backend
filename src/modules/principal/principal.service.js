@@ -347,11 +347,13 @@ export const getGradesAndClasses = async () => {
       g.GradeID AS gradeId,
       g.GradeName AS gradeName,
       c.ClassID AS classId,
-      c.ClassName AS className
+      c.ClassName AS className,
+      y.YearName AS yearName
     FROM Grades g
     LEFT JOIN Classes c ON g.GradeID = c.GradeID AND (
       c.YearID = (SELECT YearID FROM AcademicYears WHERE IsActive = 1 LIMIT 1)
     )
+    LEFT JOIN AcademicYears y ON c.YearID = y.YearID
     ORDER BY g.GradeID, c.ClassName
   `;
   const [rows] = await pool.query(query);
@@ -372,7 +374,8 @@ export const getGradesAndClasses = async () => {
     if (row.classId) {
       map.get(row.gradeId).classes.push({
         classId: row.classId,
-        className: row.className
+        className: row.className,
+        yearName: row.yearName
       });
     }
   }
@@ -504,9 +507,10 @@ export const createAccount = async (role, payload) => {
 export const getClassDetail = async (classId) => {
   // 1. Lấy thông tin Khối & Lớp
   const classQuery = `
-    SELECT c.ClassID AS classId, c.ClassName AS className, g.GradeName AS gradeName
+    SELECT c.ClassID AS classId, c.ClassName AS className, g.GradeName AS gradeName, y.YearName AS yearName
     FROM Classes c
     JOIN Grades g ON c.GradeID = g.GradeID
+    LEFT JOIN AcademicYears y ON c.YearID = y.YearID
     WHERE c.ClassID = ?
   `;
   const [classRows] = await pool.query(classQuery, [classId]);
