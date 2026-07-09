@@ -518,7 +518,7 @@
  *                     fullName: { type: string, example: "Nguyễn Minh Khang" }
  *                     dateOfBirth: { type: integer, nullable: true, description: "Unix timestamp (seconds)", example: 1684108800 }
  *                     gender: { type: string, nullable: true, example: "Nam" }
- *                     address: { type: string, nullable: true, example: "Quận 1, TP.HCM" }
+ *                     allergies: { type: string, nullable: true, example: "Dị ứng lạc" }
  *                     admissionDate: { type: integer, nullable: true, description: "Unix timestamp (seconds)", example: 1693526400 }
  *                     status: { type: string, nullable: true, example: "Active" }
  *                     avatarUrl: { type: string, nullable: true, example: null }
