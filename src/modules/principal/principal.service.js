@@ -349,7 +349,9 @@ export const getGradesAndClasses = async () => {
       c.ClassID AS classId,
       c.ClassName AS className
     FROM Grades g
-    LEFT JOIN Classes c ON g.GradeID = c.GradeID
+    LEFT JOIN Classes c ON g.GradeID = c.GradeID AND (
+      c.YearID = (SELECT YearID FROM AcademicYears WHERE IsActive = 1 LIMIT 1)
+    )
     ORDER BY g.GradeID, c.ClassName
   `;
   const [rows] = await pool.query(query);
@@ -401,19 +403,30 @@ export const createGradeAndClasses = async (gradeName, classes) => {
       gradeId = insertGradeResult.insertId;
     }
 
+    // Get active year
+    const [activeYears] = await connection.query('SELECT YearID FROM AcademicYears WHERE IsActive = 1 LIMIT 1');
+    const activeYearId = activeYears.length > 0 ? activeYears[0].YearID : null;
+
     // 2. Create classes if provided
     if (Array.isArray(classes) && classes.length > 0) {
       for (const className of classes) {
-        // Check if class exists in this grade
-        const [existingClasses] = await connection.query(
-          'SELECT ClassID FROM Classes WHERE ClassName = ? AND GradeID = ?',
-          [className, gradeId]
-        );
+        // Check if class exists in this grade for the active year
+        let existingClassesQuery = 'SELECT ClassID FROM Classes WHERE ClassName = ? AND GradeID = ?';
+        let existingClassesParams = [className, gradeId];
+        
+        if (activeYearId) {
+          existingClassesQuery += ' AND YearID = ?';
+          existingClassesParams.push(activeYearId);
+        } else {
+          existingClassesQuery += ' AND YearID IS NULL';
+        }
+
+        const [existingClasses] = await connection.query(existingClassesQuery, existingClassesParams);
 
         if (existingClasses.length === 0) {
           await connection.query(
-            'INSERT INTO Classes (ClassName, GradeID) VALUES (?, ?)',
-            [className, gradeId]
+            'INSERT INTO Classes (ClassName, GradeID, YearID) VALUES (?, ?, ?)',
+            [className, gradeId, activeYearId]
           );
         }
       }
