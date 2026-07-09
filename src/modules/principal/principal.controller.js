@@ -350,6 +350,55 @@ const createAccount = async (req, res, next) => {
   }
 };
 
+
+const assignTeacherToClass = async (req, res, next) => {
+  try {
+    const { classId, teacherId, roleInClass, assignedDate } = req.body;
+    if (!classId || !teacherId) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'classId và teacherId là bắt buộc');
+    }
+    await principalService.assignTeacherToClass(classId, teacherId, roleInClass, assignedDate);
+    res.status(httpStatus.OK).json(new ApiResponse(httpStatus.OK, null, 'Bổ nhiệm giáo viên thành công'));
+  } catch (error) {
+    next(error);
+  }
+};
+
+const assignStudentsToClass = async (req, res, next) => {
+  try {
+    const { studentIds, classId } = req.body;
+    if (!Array.isArray(studentIds) || !classId) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'studentIds (mảng) và classId là bắt buộc');
+    }
+    await principalService.assignStudentsToClass(studentIds, classId);
+    res.status(httpStatus.OK).json(new ApiResponse(httpStatus.OK, null, 'Xếp lớp học sinh thành công'));
+  } catch (error) {
+    next(error);
+  }
+};
+
+const endAcademicYear = async (req, res, next) => {
+  try {
+    const result = await principalService.endAcademicYear();
+    res.status(httpStatus.OK).json(new ApiResponse(httpStatus.OK, result, 'Tổng kết năm học thành công'));
+  } catch (error) {
+    next(error);
+  }
+};
+
+const startAcademicYear = async (req, res, next) => {
+  try {
+    const { yearName, startDate, endDate, monthlyTuition, dailyMealFee } = req.body;
+    if (!yearName || !startDate || !endDate || !monthlyTuition || !dailyMealFee) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Thiếu thông tin năm học hoặc học phí');
+    }
+    const result = await principalService.startAcademicYear({ yearName, startDate, endDate, monthlyTuition, dailyMealFee });
+    res.status(httpStatus.OK).json(new ApiResponse(httpStatus.OK, result, 'Bắt đầu năm học mới thành công'));
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyProfile,
   getTeachersList,
@@ -365,4 +414,8 @@ export default {
   createGradeAndClasses,
   createAccount,
   getClassDetail,
+  assignTeacherToClass,
+  assignStudentsToClass,
+  endAcademicYear,
+  startAcademicYear,
 };

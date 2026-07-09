@@ -578,7 +578,7 @@
  *                   example: 200
  *                 message:
  *                   type: string
- *                   example: Reset mật khẩu thành công (Mặc định: 123456)
+ *                   example: "Reset mật khẩu thành công (Mặc định: 123456)"
  *                 data:
  *                   nullable: true
  *                   example: null
@@ -809,4 +809,121 @@
  *         description: Forbidden - Only Principal can access
  *       404:
  *         description: Not Found - Class with given ID does not exist
+ */
+
+/**
+ * @swagger
+ * /principal/assignments/teacher:
+ *   post:
+ *     summary: Bổ nhiệm Giáo viên vào lớp
+ *     description: Phân công giáo viên chủ nhiệm hoặc giáo viên phụ vào một lớp cụ thể.
+ *     tags: ["Principal - Academic Year"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - classId
+ *               - teacherId
+ *             properties:
+ *               classId:
+ *                 type: integer
+ *               teacherId:
+ *                 type: integer
+ *               roleInClass:
+ *                 type: string
+ *                 example: Giáo viên chủ nhiệm
+ *               assignedDate:
+ *                 type: integer
+ *                 description: Unix timestamp, mặc định là hiện tại
+ *     responses:
+ *       200:
+ *         description: Bổ nhiệm giáo viên thành công
+ *       400:
+ *         description: Thiếu tham số
+ */
+
+/**
+ * @swagger
+ * /principal/assignments/students:
+ *   post:
+ *     summary: Xếp lớp cho học sinh
+ *     description: Di chuyển một danh sách học sinh vào một lớp.
+ *     tags: ["Principal - Academic Year"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - classId
+ *               - studentIds
+ *             properties:
+ *               classId:
+ *                 type: integer
+ *               studentIds:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *     responses:
+ *       200:
+ *         description: Xếp lớp học sinh thành công
+ */
+
+/**
+ * @swagger
+ * /principal/academic-year/end:
+ *   post:
+ *     summary: Tổng kết năm học
+ *     description: Tốt nghiệp khối Lá, gỡ lớp cũ các học sinh khác.
+ *     tags: ["Principal - Academic Year"]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Tổng kết năm học thành công
+ */
+
+/**
+ * @swagger
+ * /principal/academic-year/start:
+ *   post:
+ *     summary: Bắt đầu năm học mới
+ *     description: Tạo năm học mới và nhân bản các lớp cũ sang.
+ *     tags: ["Principal - Academic Year"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - yearName
+ *               - startDate
+ *               - endDate
+ *               - monthlyTuition
+ *               - dailyMealFee
+ *             properties:
+ *               yearName:
+ *                 type: string
+ *               startDate:
+ *                 type: integer
+ *               endDate:
+ *                 type: integer
+ *               monthlyTuition:
+ *                 type: integer
+ *               dailyMealFee:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Bắt đầu năm học mới thành công
  */

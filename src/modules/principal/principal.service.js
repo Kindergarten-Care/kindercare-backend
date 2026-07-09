@@ -550,3 +550,135 @@ export const getClassDetail = async (classId) => {
     students
   };
 };
+
+export const assignTeacherToClass = async (classId, teacherId, roleInClass, assignedDate) => {
+  const [classRows] = await pool.query('SELECT ClassName FROM Classes WHERE ClassID = ?', [classId]);
+  if (classRows.length === 0) throw new Error('Không tìm thấy lớp');
+
+  const [teacherRows] = await pool.query('SELECT FullName FROM Teachers WHERE TeacherID = ?', [teacherId]);
+  if (teacherRows.length === 0) throw new Error('Không tìm thấy giáo viên');
+
+  const assignedTimestamp = assignedDate || Math.floor(Date.now() / 1000);
+
+  // Insert or Update class assignment
+  await pool.query(
+    'INSERT INTO ClassTeachers (ClassID, TeacherID, RoleInClass, AssignedDate) VALUES (?, ?, ?, ?) ' +
+    'ON DUPLICATE KEY UPDATE RoleInClass = VALUES(RoleInClass), AssignedDate = VALUES(AssignedDate)',
+    [classId, teacherId, roleInClass || 'Giáo viên phụ', assignedTimestamp]
+  );
+
+  // Add work history
+  await pool.query(
+    'INSERT INTO TeacherWorkHistories (TeacherID, Title, Tag, Description, Kind, EventDate) VALUES (?, ?, ?, ?, ?, ?)',
+    [
+      teacherId,
+      `Bổ nhiệm làm ${roleInClass || 'Giáo viên phụ'} lớp ${classRows[0].ClassName}`,
+      'Bổ nhiệm',
+      `Phân công giảng dạy tại lớp ${classRows[0].ClassName}`,
+      'Assignment',
+      assignedTimestamp
+    ]
+  );
+};
+
+export const assignStudentsToClass = async (studentIds, classId) => {
+  if (studentIds.length === 0) return;
+  const [classRows] = await pool.query('SELECT ClassID FROM Classes WHERE ClassID = ?', [classId]);
+  if (classRows.length === 0) throw new Error('Không tìm thấy lớp');
+
+  await pool.query('UPDATE Students SET ClassID = ? WHERE StudentID IN (?)', [classId, studentIds]);
+};
+
+export const endAcademicYear = async () => {
+  // Find current active year
+  const [activeYears] = await pool.query('SELECT YearID, YearName FROM AcademicYears WHERE IsActive = 1');
+  if (activeYears.length === 0) throw new Error('Không có năm học nào đang hoạt động');
+  
+  // GradeID = 3 represents "Khối Lá". We need to find students in Khối Lá classes.
+  // Wait, let's find students in Khối Lá:
+  const queryLopLa = `
+    SELECT s.StudentID 
+    FROM Students s
+    JOIN Classes c ON s.ClassID = c.ClassID
+    JOIN Grades g ON c.GradeID = g.GradeID
+    WHERE g.GradeName LIKE '%Lá%' OR g.GradeName LIKE '%5 tuổi%'
+  `;
+  const [laStudents] = await pool.query(queryLopLa);
+  
+  let graduatedCount = 0;
+  if (laStudents.length > 0) {
+    const studentIds = laStudents.map(s => s.StudentID);
+    const updateResult = await pool.query(
+      'UPDATE Students SET EnrollmentStatus = "Graduated", ClassID = NULL WHERE StudentID IN (?)',
+      [studentIds]
+    );
+    graduatedCount = updateResult[0].affectedRows;
+  }
+
+  // Update remaining students to ClassID = NULL so they are waiting for placement in the new year.
+  const [updateRemaining] = await pool.query(
+    'UPDATE Students SET ClassID = NULL WHERE EnrollmentStatus = "Active"'
+  );
+
+  return {
+    message: 'Đã hoàn tất tổng kết năm học',
+    graduatedStudents: graduatedCount,
+    waitingPlacement: updateRemaining.affectedRows
+  };
+};
+
+export const startAcademicYear = async ({ yearName, startDate, endDate, monthlyTuition, dailyMealFee }) => {
+  // Check if year already exists
+  const [existing] = await pool.query('SELECT YearID FROM AcademicYears WHERE YearName = ?', [yearName]);
+  if (existing.length > 0) throw new Error('Năm học này đã tồn tại');
+
+  // Set all years to inactive
+  await pool.query('UPDATE AcademicYears SET IsActive = 0');
+
+  // Insert new year
+  const [insertYear] = await pool.query(
+    'INSERT INTO AcademicYears (YearName, StartDate, EndDate, IsActive) VALUES (?, ?, ?, 1)',
+    [yearName, startDate, endDate]
+  );
+  const newYearId = insertYear.insertId;
+
+  // Clone classes from the most recent inactive year
+  // First find the last year ID
+  const [lastYearRows] = await pool.query('SELECT YearID FROM AcademicYears WHERE YearID != ? ORDER BY YearID DESC LIMIT 1', [newYearId]);
+  
+  let clonedClassesCount = 0;
+  if (lastYearRows.length > 0) {
+    const lastYearId = lastYearRows[0].YearID;
+    
+    // Copy base fees
+    await pool.query(
+      'INSERT INTO BaseFees (YearID, MonthlyTuition, DailyMealFee) VALUES (?, ?, ?)',
+      [newYearId, monthlyTuition, dailyMealFee]
+    );
+
+    // Copy classes
+    const [oldClasses] = await pool.query('SELECT ClassName, GradeID, BuildingID FROM Classes WHERE YearID = ?', [lastYearId]);
+    if (oldClasses.length > 0) {
+      for (const c of oldClasses) {
+        await pool.query(
+          'INSERT INTO Classes (ClassName, GradeID, BuildingID, YearID) VALUES (?, ?, ?, ?)',
+          [c.ClassName, c.GradeID, c.BuildingID, newYearId]
+        );
+      }
+      clonedClassesCount = oldClasses.length;
+    }
+  } else {
+    // Just create base fees
+    await pool.query(
+      'INSERT INTO BaseFees (YearID, MonthlyTuition, DailyMealFee) VALUES (?, ?, ?)',
+      [newYearId, monthlyTuition, dailyMealFee]
+    );
+  }
+
+  return {
+    newYearId,
+    yearName,
+    clonedClassesCount,
+    message: 'Năm học mới đã được bắt đầu'
+  };
+};
