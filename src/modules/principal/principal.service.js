@@ -504,9 +504,10 @@ export const createAccount = async (role, payload) => {
 export const getClassDetail = async (classId) => {
   // 1. Lấy thông tin Khối & Lớp
   const classQuery = `
-    SELECT c.ClassID AS classId, c.ClassName AS className, g.GradeName AS gradeName
+    SELECT c.ClassID AS classId, c.ClassName AS className, g.GradeName AS gradeName, y.YearName AS yearName
     FROM Classes c
     JOIN Grades g ON c.GradeID = g.GradeID
+    LEFT JOIN AcademicYears y ON c.YearID = y.YearID
     WHERE c.ClassID = ?
   `;
   const [classRows] = await pool.query(classQuery, [classId]);
