@@ -977,66 +977,92 @@ export const deleteNewsfeedPost = async (postId, classId) => {
  * Get detailed students for a class
  */
 export const getClassDetailedStudents = async (classId) => {
-  const query = `
-    SELECT 
+  // MariaDB 10.4 không hỗ trợ JSON_OBJECT / JSON_ARRAYAGG ổn định — tách thành
+  // 2 truy vấn con đơn giản rồi ghép nối ở tầng JS.
+  const studentsQuery = `
+    SELECT
       s.StudentID AS studentId,
       s.FullName AS fullName,
       s.DateOfBirth AS dateOfBirth,
       s.Gender AS gender,
       s.Allergies AS allergies,
-      s.AvatarURL AS avatarUrl,
-      (
-        SELECT JSON_OBJECT(
-          'height', hr.Height,
-          'weight', hr.Weight,
-          'bmi', hr.BMI
-        )
-        FROM HealthRecords hr
-        WHERE hr.StudentID = s.StudentID
-        ORDER BY hr.RecordID DESC
-        LIMIT 1
-      ) AS healthRecord,
-      (
-        SELECT JSON_ARRAYAGG(
-          JSON_OBJECT(
-            'parentId', p.ParentID,
-            'fullName', p.FullName,
-            'phone', p.PhoneNumber,
-            'email', p.Email,
-            'relationship', sp.Relationship,
-            'isPrimary', sp.IsPrimary,
-            'avatarUrl', p.AvatarURL
-          )
-        )
-        FROM StudentParents sp
-        JOIN Parents p ON sp.ParentID = p.ParentID
-        WHERE sp.StudentID = s.StudentID
-      ) AS parents
+      s.AvatarURL AS avatarUrl
     FROM Students s
     WHERE s.ClassID = ? AND s.EnrollmentStatus = 'Active'
     ORDER BY s.FullName
   `;
-  const [rows] = await pool.query(query, [classId]);
-  
-  // Post-process to calculate BMI if not present in DB
-  return rows.map(row => {
-    let health = row.healthRecord;
-    if (typeof health === 'string') {
-      health = JSON.parse(health);
-    }
-    
-    let parents = row.parents;
-    if (typeof parents === 'string') {
-      parents = JSON.parse(parents);
-    }
+  const [students] = await pool.query(studentsQuery, [classId]);
 
-    if (health && health.height && health.weight && !health.bmi) {
-      // Height might be in cm or meters. Usually height in health records is in cm. Let's assume cm.
-      const heightInMeters = Number(health.height) / 100;
-      const weight = Number(health.weight);
-      if (heightInMeters > 0) {
-        health.bmi = parseFloat((weight / (heightInMeters * heightInMeters)).toFixed(2));
+  if (students.length === 0) {
+    return [];
+  }
+
+  const studentIds = students.map((s) => s.studentId);
+
+  // Build dynamic IN clause (?, ?, ...) once
+  const placeholders = studentIds.map(() => '?').join(',');
+
+  // Latest health record per student (chỉ lấy 1 record mới nhất)
+  const healthQuery = `
+    SELECT hr.StudentID AS studentId,
+           hr.Height AS height, hr.Weight AS weight, hr.BMI AS bmi
+      FROM HealthRecords hr
+     INNER JOIN (
+        SELECT StudentID, MAX(RecordID) AS maxRecordId
+          FROM HealthRecords
+         WHERE StudentID IN (${placeholders})
+         GROUP BY StudentID
+     ) latest ON latest.StudentID = hr.StudentID AND latest.maxRecordId = hr.RecordID
+  `;
+  const [healthRows] = await pool.query(healthQuery, studentIds);
+  const healthByStudent = new Map(healthRows.map((h) => [h.studentId, h]));
+
+  // All parents of all students in one query
+  const parentsQuery = `
+    SELECT sp.StudentID AS studentId,
+           p.ParentID AS parentId,
+           p.FullName AS fullName,
+           p.PhoneNumber AS phone,
+           p.Email AS email,
+           sp.Relationship AS relationship,
+           sp.IsPrimary AS isPrimary,
+           p.AvatarURL AS avatarUrl
+      FROM StudentParents sp
+      JOIN Parents p ON sp.ParentID = p.ParentID
+     WHERE sp.StudentID IN (${placeholders})
+     ORDER BY sp.StudentID, sp.IsPrimary DESC, p.ParentID
+  `;
+  const [parentRows] = await pool.query(parentsQuery, studentIds);
+  const parentsByStudent = new Map();
+  for (const pr of parentRows) {
+    if (!parentsByStudent.has(pr.studentId)) {
+      parentsByStudent.set(pr.studentId, []);
+    }
+    parentsByStudent.get(pr.studentId).push({
+      parentId: pr.parentId,
+      fullName: pr.fullName,
+      phone: pr.phone,
+      email: pr.email,
+      relationship: pr.relationship,
+      isPrimary: !!pr.isPrimary,
+      avatarUrl: pr.avatarUrl,
+    });
+  }
+
+  return students.map((row) => {
+    const health = healthByStudent.get(row.studentId);
+    let healthObj = null;
+    if (health) {
+      let { height, weight, bmi } = health;
+      if (height != null) height = Number(height);
+      if (weight != null) weight = Number(weight);
+      if (bmi == null && height && weight && height > 0) {
+        const heightInMeters = height / 100;
+        bmi = parseFloat((weight / (heightInMeters * heightInMeters)).toFixed(2));
+      } else if (bmi != null) {
+        bmi = Number(bmi);
       }
+      healthObj = { height, weight, bmi };
     }
 
     return {
@@ -1046,8 +1072,8 @@ export const getClassDetailedStudents = async (classId) => {
       gender: row.gender,
       allergies: row.allergies,
       avatarUrl: row.avatarUrl,
-      health: health || null,
-      parents: parents || []
+      health: healthObj,
+      parents: parentsByStudent.get(row.studentId) || [],
     };
   });
 };
