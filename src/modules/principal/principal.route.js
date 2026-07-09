@@ -43,4 +43,16 @@ router.patch('/accounts/:id/lock', authenticate, authorize(2), principalControll
 // Mở khóa tài khoản
 router.patch('/accounts/:id/unlock', authenticate, authorize(2), principalController.unlockAccount);
 
+// Bổ nhiệm Giáo viên (GVCN hoặc GV Phụ)
+router.post('/assignments/teacher', authenticate, authorize(2), principalController.assignTeacherToClass);
+
+// Xếp lớp cho học sinh
+router.post('/assignments/students', authenticate, authorize(2), principalController.assignStudentsToClass);
+
+// Tổng kết năm học
+router.post('/academic-year/end', authenticate, authorize(2), principalController.endAcademicYear);
+
+// Bắt đầu năm học mới
+router.post('/academic-year/start', authenticate, authorize(2), principalController.startAcademicYear);
+
 export default router;

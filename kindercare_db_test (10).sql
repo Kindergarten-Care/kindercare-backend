@@ -2,10 +2,10 @@
 -- version 5.2.3
 -- https://www.phpmyadmin.net/
 --
--- Máy chủ: kindercare-mysql:3306
--- Thời gian đã tạo: Th7 08, 2026 lúc 12:55 PM
--- Phiên bản máy phục vụ: 8.0.45
--- Phiên bản PHP: 8.3.30
+-- Host: kindercare-mysql:3306
+-- Generation Time: Jul 09, 2026 at 02:22 PM
+-- Server version: 8.0.45
+-- PHP Version: 8.3.30
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -18,13 +18,13 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Cơ sở dữ liệu: `kindercare_db_test`
+-- Database: `kindercare_db_test`
 --
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `AcademicYears`
+-- Table structure for table `AcademicYears`
 --
 
 CREATE TABLE `AcademicYears` (
@@ -36,7 +36,7 @@ CREATE TABLE `AcademicYears` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `AcademicYears`
+-- Dumping data for table `AcademicYears`
 --
 
 INSERT INTO `AcademicYears` (`YearID`, `YearName`, `StartDate`, `EndDate`, `IsActive`) VALUES
@@ -45,7 +45,7 @@ INSERT INTO `AcademicYears` (`YearID`, `YearName`, `StartDate`, `EndDate`, `IsAc
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Admins`
+-- Table structure for table `Admins`
 --
 
 CREATE TABLE `Admins` (
@@ -55,10 +55,54 @@ CREATE TABLE `Admins` (
   `Email` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+--
+-- Dumping data for table `Admins`
+--
+
+INSERT INTO `Admins` (`AdminID`, `FullName`, `PhoneNumber`, `Email`) VALUES
+(1, 'Admin Hệ Thống', '0909000111', 'admin@kindercare.app');
+
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Attendances`
+-- Table structure for table `Allergies`
+--
+
+CREATE TABLE `Allergies` (
+  `AllergyID` int NOT NULL COMMENT 'PK',
+  `StudentID` int NOT NULL COMMENT 'FK -> Students.StudentID',
+  `Allergen` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Tên chất gây dị ứng (VD: Đậu phộng, Trứng, Sữa bò)',
+  `Severity` enum('Mild','Moderate','Severe') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Mild' COMMENT 'Mức độ',
+  `Reaction` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Triệu chứng phản ứng (phát ban, ngứa, ...)',
+  `Notes` text COLLATE utf8mb4_unicode_ci COMMENT 'Ghi chú thêm của giáo viên / phụ huynh',
+  `IsActive` tinyint(1) NOT NULL DEFAULT '1' COMMENT '1 = còn hiệu lực, 0 = đã hết',
+  `CreatedAt` bigint NOT NULL DEFAULT (unix_timestamp()) COMMENT 'Thời điểm tạo',
+  `UpdatedAt` bigint NOT NULL DEFAULT (unix_timestamp()) COMMENT 'Thời điểm cập nhật'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Danh sách dị ứng của học sinh (chuẩn hoá)';
+
+--
+-- Dumping data for table `Allergies`
+--
+
+INSERT INTO `Allergies` (`AllergyID`, `StudentID`, `Allergen`, `Severity`, `Reaction`, `Notes`, `IsActive`, `CreatedAt`, `UpdatedAt`) VALUES
+(1, 19, 'Đậu phộng', 'Severe', 'Phát ban, khó thở', NULL, 1, 1783559299, 1783559299),
+(2, 117, 'Đậu phộng (lạc)', 'Severe', 'Sốc phản vệ, khó thở', 'Bố mẹ đã thông báo, cần tránh hoàn toàn', 1, 1783560392, 1783560392),
+(3, 109, 'Sữa bò', 'Moderate', 'Phát ban đỏ, ngứa', NULL, 1, 1783560392, 1783560392),
+(4, 107, 'Trứng', 'Mild', 'Nổi mề đay nhẹ', 'Theo dõi khi ăn trứng', 1, 1783560392, 1783560392),
+(5, 116, 'Hải sản có vỏ (tôm, cua)', 'Moderate', 'Đau bụng, buồn nôn', 'Tránh cho bé ăn hải sản', 1, 1783560392, 1783560392),
+(6, 120, 'Bụi phấn hoa', 'Mild', 'Hắt hơi, sổ mũi', 'Mùa xuân cần chú ý', 1, 1783560392, 1783560392),
+(7, 115, 'Sô cô la', 'Moderate', 'Nổi mẩn đỏ quanh miệng', 'Chỉ ăn một lượng nhỏ', 1, 1783560392, 1783560392),
+(8, 117, 'Đậu phộng (lạc)', 'Severe', 'Sốc phản vệ, khó thở', 'Bố mẹ đã thông báo, cần tránh hoàn toàn', 1, 1783560469, 1783560469),
+(9, 109, 'Sữa bò', 'Moderate', 'Phát ban đỏ, ngứa', NULL, 1, 1783560469, 1783560469),
+(10, 107, 'Trứng', 'Mild', 'Nổi mề đay nhẹ', 'Theo dõi khi ăn trứng', 1, 1783560469, 1783560469),
+(11, 116, 'Hải sản có vỏ (tôm, cua)', 'Moderate', 'Đau bụng, buồn nôn', 'Tránh cho bé ăn hải sản', 1, 1783560469, 1783560469),
+(12, 120, 'Bụi phấn hoa', 'Mild', 'Hắt hơi, sổ mũi', 'Mùa xuân cần chú ý', 1, 1783560469, 1783560469),
+(13, 115, 'Sô cô la', 'Moderate', 'Nổi mẩn đỏ quanh miệng', 'Chỉ ăn một lượng nhỏ', 1, 1783560469, 1783560469);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `Attendances`
 --
 
 CREATE TABLE `Attendances` (
@@ -76,75 +120,35 @@ CREATE TABLE `Attendances` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `Attendances`
+-- Dumping data for table `Attendances`
 --
 
 INSERT INTO `Attendances` (`AttendanceID`, `StudentID`, `AttendanceDate`, `Status`, `CheckInTime`, `CheckOutTime`, `CheckedInByTeacherID`, `CheckedOutByTeacherID`, `ProxyAuthorizationID`, `DroppedOffByParentID`, `PickedUpByParentID`) VALUES
-(1, 19, 1783296000, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(2, 1, 1783296000, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(68, 105, 1783296000, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(69, 106, 1783296000, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(70, 107, 1783296000, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(71, 108, 1783296000, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(72, 109, 1783296000, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(73, 110, 1783296000, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(74, 111, 1783296000, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(75, 112, 1783296000, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(76, 113, 1783296000, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(77, 114, 1783296000, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(78, 115, 1783296000, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(79, 116, 1783296000, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(80, 117, 1783296000, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(81, 118, 1783296000, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(82, 119, 1783296000, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(83, 120, 1783296000, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(84, 121, 1783296000, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(85, 122, 1783296000, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(129, 1, 1783382400, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(130, 19, 1783382400, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(196, 105, 1783382400, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(197, 106, 1783382400, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(198, 107, 1783382400, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(199, 108, 1783382400, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(200, 109, 1783382400, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(201, 110, 1783382400, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(202, 111, 1783382400, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(203, 112, 1783382400, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(204, 113, 1783382400, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(205, 114, 1783382400, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(206, 115, 1783382400, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(207, 116, 1783382400, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(208, 117, 1783382400, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(209, 118, 1783382400, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(210, 119, 1783382400, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(211, 120, 1783382400, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(212, 121, 1783382400, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(213, 122, 1783382400, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(256, 1, 1783468800, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(257, 19, 1783468800, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(258, 105, 1783468800, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(259, 106, 1783468800, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(260, 107, 1783468800, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(261, 108, 1783468800, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(262, 109, 1783468800, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(263, 110, 1783468800, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(264, 111, 1783468800, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(265, 112, 1783468800, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(266, 113, 1783468800, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(267, 114, 1783468800, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(268, 115, 1783468800, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(269, 116, 1783468800, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(270, 117, 1783468800, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(271, 118, 1783468800, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(272, 119, 1783468800, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(273, 120, 1783468800, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(274, 121, 1783468800, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(275, 122, 1783468800, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+(296, 19, 1783555200, 'Present', 1783565580, NULL, NULL, NULL, NULL, NULL, NULL),
+(297, 1, 1783555200, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(298, 105, 1783555200, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(299, 106, 1783555200, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(300, 107, 1783555200, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(301, 108, 1783555200, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(302, 109, 1783555200, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(303, 110, 1783555200, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(304, 111, 1783555200, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(305, 112, 1783555200, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(306, 113, 1783555200, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(307, 114, 1783555200, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(308, 115, 1783555200, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(309, 116, 1783555200, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(310, 117, 1783555200, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(311, 118, 1783555200, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(312, 119, 1783555200, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(313, 120, 1783555200, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(314, 121, 1783555200, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(315, 122, 1783555200, 'Absent', NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `BaseFees`
+-- Table structure for table `BaseFees`
 --
 
 CREATE TABLE `BaseFees` (
@@ -154,10 +158,17 @@ CREATE TABLE `BaseFees` (
   `DailyMealFee` decimal(15,2) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+--
+-- Dumping data for table `BaseFees`
+--
+
+INSERT INTO `BaseFees` (`FeeID`, `YearID`, `MonthlyTuition`, `DailyMealFee`) VALUES
+(1, 1, 4000000.00, 50000.00);
+
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Buildings`
+-- Table structure for table `Buildings`
 --
 
 CREATE TABLE `Buildings` (
@@ -167,7 +178,7 @@ CREATE TABLE `Buildings` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `Buildings`
+-- Dumping data for table `Buildings`
 --
 
 INSERT INTO `Buildings` (`BuildingID`, `BuildingName`, `CampusID`) VALUES
@@ -176,7 +187,7 @@ INSERT INTO `Buildings` (`BuildingID`, `BuildingName`, `CampusID`) VALUES
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Campuses`
+-- Table structure for table `Campuses`
 --
 
 CREATE TABLE `Campuses` (
@@ -186,7 +197,7 @@ CREATE TABLE `Campuses` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `Campuses`
+-- Dumping data for table `Campuses`
 --
 
 INSERT INTO `Campuses` (`CampusID`, `CampusName`, `Address`) VALUES
@@ -195,7 +206,7 @@ INSERT INTO `Campuses` (`CampusID`, `CampusName`, `Address`) VALUES
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Classes`
+-- Table structure for table `Classes`
 --
 
 CREATE TABLE `Classes` (
@@ -207,7 +218,7 @@ CREATE TABLE `Classes` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `Classes`
+-- Dumping data for table `Classes`
 --
 
 INSERT INTO `Classes` (`ClassID`, `ClassName`, `GradeID`, `BuildingID`, `YearID`) VALUES
@@ -216,7 +227,7 @@ INSERT INTO `Classes` (`ClassID`, `ClassName`, `GradeID`, `BuildingID`, `YearID`
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `ClassTeachers`
+-- Table structure for table `ClassTeachers`
 --
 
 CREATE TABLE `ClassTeachers` (
@@ -227,7 +238,7 @@ CREATE TABLE `ClassTeachers` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `ClassTeachers`
+-- Dumping data for table `ClassTeachers`
 --
 
 INSERT INTO `ClassTeachers` (`ClassID`, `TeacherID`, `RoleInClass`, `AssignedDate`) VALUES
@@ -236,7 +247,7 @@ INSERT INTO `ClassTeachers` (`ClassID`, `TeacherID`, `RoleInClass`, `AssignedDat
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `DailyActivities`
+-- Table structure for table `DailyActivities`
 --
 
 CREATE TABLE `DailyActivities` (
@@ -254,10 +265,17 @@ CREATE TABLE `DailyActivities` (
   `UpdatedAt` bigint NOT NULL COMMENT 'Lưu thời gian cập nhật cuối cùng (UNIX)'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+--
+-- Dumping data for table `DailyActivities`
+--
+
+INSERT INTO `DailyActivities` (`ActivityID`, `StudentID`, `LogDate`, `BreakfastStatus`, `LunchStatus`, `NapStatus`, `SnackStatus`, `HygieneStatus`, `TeacherNote`, `ActivityStatus`, `RecordedBy`, `UpdatedAt`) VALUES
+(1, 19, '2026-07-09', 'Ăn hết', 'Ăn hết', 'Ngủ ngoan', NULL, 'Tốt', 'Bé hôm nay rất ngoan và tích cực tham gia hoạt động.', NULL, 5, 1783559299);
+
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `DailyAlbumPhotos`
+-- Table structure for table `DailyAlbumPhotos`
 --
 
 CREATE TABLE `DailyAlbumPhotos` (
@@ -269,7 +287,7 @@ CREATE TABLE `DailyAlbumPhotos` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `DailyAlbumPhotos`
+-- Dumping data for table `DailyAlbumPhotos`
 --
 
 INSERT INTO `DailyAlbumPhotos` (`PhotoID`, `AlbumID`, `PhotoURL`, `Description`, `CreatedAt`) VALUES
@@ -297,7 +315,7 @@ INSERT INTO `DailyAlbumPhotos` (`PhotoID`, `AlbumID`, `PhotoURL`, `Description`,
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `DailyAlbums`
+-- Table structure for table `DailyAlbums`
 --
 
 CREATE TABLE `DailyAlbums` (
@@ -311,7 +329,7 @@ CREATE TABLE `DailyAlbums` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `DailyAlbums`
+-- Dumping data for table `DailyAlbums`
 --
 
 INSERT INTO `DailyAlbums` (`AlbumID`, `ClassID`, `TeacherID`, `AlbumDate`, `Caption`, `CreatedAt`, `UpdatedAt`) VALUES
@@ -320,7 +338,7 @@ INSERT INTO `DailyAlbums` (`AlbumID`, `ClassID`, `TeacherID`, `AlbumDate`, `Capt
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `DailyLessons`
+-- Table structure for table `DailyLessons`
 --
 
 CREATE TABLE `DailyLessons` (
@@ -336,7 +354,7 @@ CREATE TABLE `DailyLessons` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `DailyLessons`
+-- Dumping data for table `DailyLessons`
 --
 
 INSERT INTO `DailyLessons` (`LessonLogID`, `ClassID`, `LessonDate`, `SubjectName`, `LessonTitle`, `Details`, `IconType`, `CreatedAt`, `UpdatedAt`) VALUES
@@ -346,7 +364,7 @@ INSERT INTO `DailyLessons` (`LessonLogID`, `ClassID`, `LessonDate`, `SubjectName
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `DailySchedules`
+-- Table structure for table `DailySchedules`
 --
 
 CREATE TABLE `DailySchedules` (
@@ -365,7 +383,7 @@ CREATE TABLE `DailySchedules` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `DailySchedules`
+-- Dumping data for table `DailySchedules`
 --
 
 INSERT INTO `DailySchedules` (`DailyScheduleID`, `ClassID`, `ScheduleDate`, `StartTime`, `EndTime`, `ActivityName`, `Details`, `Location`, `ActivityType`, `Status`, `CreatedAt`, `UpdatedAt`) VALUES
@@ -446,7 +464,38 @@ INSERT INTO `DailySchedules` (`DailyScheduleID`, `ClassID`, `ScheduleDate`, `Sta
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `EventClasses`
+-- Table structure for table `DevelopmentAssessments`
+--
+
+CREATE TABLE `DevelopmentAssessments` (
+  `AssessmentID` int NOT NULL,
+  `StudentID` int NOT NULL,
+  `TermPeriod` varchar(7) NOT NULL,
+  `PhysicalScore` tinyint DEFAULT NULL,
+  `EmotionalScore` tinyint DEFAULT NULL,
+  `SocialScore` tinyint DEFAULT NULL,
+  `LanguageScore` tinyint DEFAULT NULL,
+  `CognitiveScore` tinyint DEFAULT NULL,
+  `OverallNote` text,
+  `AssessedBy` int DEFAULT NULL,
+  `CreatedAt` bigint DEFAULT NULL,
+  `UpdatedAt` bigint DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `DevelopmentAssessments`
+--
+
+INSERT INTO `DevelopmentAssessments` (`AssessmentID`, `StudentID`, `TermPeriod`, `PhysicalScore`, `EmotionalScore`, `SocialScore`, `LanguageScore`, `CognitiveScore`, `OverallNote`, `AssessedBy`, `CreatedAt`, `UpdatedAt`) VALUES
+(1, 117, '2026-07', 4, 5, 4, 5, 4, 'Bé phát triển tốt, tích cực tham gia hoạt động nhóm', 5, 1783560469, 1783560469),
+(2, 109, '2026-07', 3, 4, 5, 4, 3, 'Bé hoà đồng, cần cải thiện vận động tinh', 5, 1783560469, 1783560469),
+(3, 107, '2026-07', 5, 4, 4, 4, 5, 'Bé năng động, học hỏi nhanh', 5, 1783560469, 1783560469),
+(4, 116, '2026-07', 4, 3, 4, 4, 4, 'Bé cần chú ý hơn về kiểm soát cảm xúc', 5, 1783560469, 1783560469);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `EventClasses`
 --
 
 CREATE TABLE `EventClasses` (
@@ -457,7 +506,7 @@ CREATE TABLE `EventClasses` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Events`
+-- Table structure for table `Events`
 --
 
 CREATE TABLE `Events` (
@@ -473,10 +522,17 @@ CREATE TABLE `Events` (
   `CreatedAt` bigint DEFAULT (unix_timestamp())
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+--
+-- Dumping data for table `Events`
+--
+
+INSERT INTO `Events` (`EventID`, `Title`, `Description`, `StartTime`, `EndTime`, `Location`, `Status`, `EventType`, `CreatedBy`, `CreatedAt`) VALUES
+(1, 'Lễ hội Trung Thu', 'Vui hội trăng rằm cho bé', 1785552000, 1785566400, 'Sân trường', 'Upcoming', 'School', 1, 1783559266);
+
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `EventStudents`
+-- Table structure for table `EventStudents`
 --
 
 CREATE TABLE `EventStudents` (
@@ -487,7 +543,7 @@ CREATE TABLE `EventStudents` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Extracurriculars`
+-- Table structure for table `Extracurriculars`
 --
 
 CREATE TABLE `Extracurriculars` (
@@ -497,10 +553,18 @@ CREATE TABLE `Extracurriculars` (
   `Description` text
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+--
+-- Dumping data for table `Extracurriculars`
+--
+
+INSERT INTO `Extracurriculars` (`ActivityID`, `ActivityName`, `MonthlyFee`, `Description`) VALUES
+(1, 'Tiếng Anh Tăng Cường', 500000.00, 'Học với giáo viên bản ngữ'),
+(2, 'Vẽ Sáng Tạo', 300000.00, 'Khám phá hội họa');
+
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `fcm_tokens`
+-- Table structure for table `fcm_tokens`
 --
 
 CREATE TABLE `fcm_tokens` (
@@ -513,21 +577,22 @@ CREATE TABLE `fcm_tokens` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `fcm_tokens`
+-- Dumping data for table `fcm_tokens`
 --
 
 INSERT INTO `fcm_tokens` (`TokenID`, `UserID`, `DeviceToken`, `DeviceType`, `CreatedAt`, `UpdatedAt`) VALUES
 (1, 6, 'cc28eRpmqSXvexnAh_w8tr:APA91bGDp2k7M_uhPfptytaTjD5d6fctyyp23mjxJz9n_5xJ7pZYdOPExhwSYuJQwBLEMkVTNcKN92uc28ehICnK98s6eq6QVUCfTO0aZR7ofacJbSRH3oU', 'web', 1782661552, 1783219675),
 (4, 6, 'fjfqe9lYvVEYK63i_q1T2h:APA91bEBiGzPZmOHvDzyqR5yfoRwmcuiJGvk-YkW5jDlB1MJfpOklV4V2eARND7q2qJAu_i06RBzoQC7cVeQdb-8cLkY64P1GgoFGoOCEaHoO2N9LfnMW3Y', 'web', 1782739894, 1783431182),
-(8, 5, 'dNx6fnzETaW0fsvLqoKCaZ:APA91bFxqNsWygsfV-xM49tJURpwExl5ATx0ahRfg5sUHGUi9yMMJaiMy0g0aN1rZGP87nEVzClBN6ZY4QpPC4bXWwxxa0nFXm9lCNR5UdaV20-UmrJ4pOY', 'android', 1782796885, 1783511644),
-(26, 17, 'dNx6fnzETaW0fsvLqoKCaZ:APA91bFxqNsWygsfV-xM49tJURpwExl5ATx0ahRfg5sUHGUi9yMMJaiMy0g0aN1rZGP87nEVzClBN6ZY4QpPC4bXWwxxa0nFXm9lCNR5UdaV20-UmrJ4pOY', 'android', 1782870465, 1783484280),
+(8, 5, 'dNx6fnzETaW0fsvLqoKCaZ:APA91bFxqNsWygsfV-xM49tJURpwExl5ATx0ahRfg5sUHGUi9yMMJaiMy0g0aN1rZGP87nEVzClBN6ZY4QpPC4bXWwxxa0nFXm9lCNR5UdaV20-UmrJ4pOY', 'android', 1782796885, 1783564811),
+(26, 17, 'dNx6fnzETaW0fsvLqoKCaZ:APA91bFxqNsWygsfV-xM49tJURpwExl5ATx0ahRfg5sUHGUi9yMMJaiMy0g0aN1rZGP87nEVzClBN6ZY4QpPC4bXWwxxa0nFXm9lCNR5UdaV20-UmrJ4pOY', 'android', 1782870465, 1783433783),
 (247, 6, 'd32sIG1Vw97mALTebrTRkg:APA91bEnMwvcPtytV7tjEYRU1N_BE5bfijqd5nfTC3dG_6aM61x7xLLaj2lXdBJrk4PNZD96LttUWZuluadjocxSDdVsRs3GYlWhP0xlvkf_ARfmT8UKg5w', 'web', 1783260054, 1783260054),
-(327, 6, 'dNx6fnzETaW0fsvLqoKCaZ:APA91bFxqNsWygsfV-xM49tJURpwExl5ATx0ahRfg5sUHGUi9yMMJaiMy0g0aN1rZGP87nEVzClBN6ZY4QpPC4bXWwxxa0nFXm9lCNR5UdaV20-UmrJ4pOY', 'android', 1783484789, 1783484789);
+(323, 6, 'dNx6fnzETaW0fsvLqoKCaZ:APA91bFxqNsWygsfV-xM49tJURpwExl5ATx0ahRfg5sUHGUi9yMMJaiMy0g0aN1rZGP87nEVzClBN6ZY4QpPC4bXWwxxa0nFXm9lCNR5UdaV20-UmrJ4pOY', 'android', 1783527833, 1783527833),
+(325, 6, 'eH9SQcNvR8GVXqRBfFcBy_:APA91bFZcIac3h9GnXzcpDqYFHbYV6_Lzu-TO85Y3euhl5txDktkGZ9dcEGsQeW3Bi4Z7DwSK_qTtT_s_VzPFPeYTdsgzcwRTUmmvHVMr4rYdbAKS3Q39tE', 'android', 1783595223, 1783595398);
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Feedbacks`
+-- Table structure for table `Feedbacks`
 --
 
 CREATE TABLE `Feedbacks` (
@@ -541,10 +606,17 @@ CREATE TABLE `Feedbacks` (
   `RespondedByID` int DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+--
+-- Dumping data for table `Feedbacks`
+--
+
+INSERT INTO `Feedbacks` (`FeedbackID`, `ParentID`, `Type`, `Content`, `Rating`, `Status`, `ResponseContent`, `RespondedByID`) VALUES
+(1, 4, 'Suggestion', 'Nhà trường nên lắp thêm quạt ở sân chơi', 4, 'Resolved', 'Cảm ơn phụ huynh, chúng tôi đã ghi nhận.', 1);
+
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Grades`
+-- Table structure for table `Grades`
 --
 
 CREATE TABLE `Grades` (
@@ -553,7 +625,7 @@ CREATE TABLE `Grades` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `Grades`
+-- Dumping data for table `Grades`
 --
 
 INSERT INTO `Grades` (`GradeID`, `GradeName`) VALUES
@@ -564,7 +636,7 @@ INSERT INTO `Grades` (`GradeID`, `GradeName`) VALUES
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `HealthRecords`
+-- Table structure for table `HealthRecords`
 --
 
 CREATE TABLE `HealthRecords` (
@@ -573,28 +645,31 @@ CREATE TABLE `HealthRecords` (
   `TermPeriod` varchar(50) NOT NULL,
   `Height` decimal(5,2) DEFAULT NULL,
   `Weight` decimal(5,2) DEFAULT NULL,
-  `BMI` decimal(5,2) DEFAULT NULL
+  `BMI` decimal(5,2) DEFAULT NULL,
+  `Notes` text COMMENT 'Ghi chú của giáo viên'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `HealthRecords`
+-- Dumping data for table `HealthRecords`
 --
 
-INSERT INTO `HealthRecords` (`RecordID`, `StudentID`, `TermPeriod`, `Height`, `Weight`, `BMI`) VALUES
-(1, 19, '2026-04', 130.00, 28.00, 16.60),
-(2, 19, '2026-05', 131.00, 29.00, 16.90),
-(3, 19, '2026-06', 132.00, 30.00, 17.20),
-(4, 19, '2026-01', 127.00, 26.00, 16.10),
-(5, 19, '2026-02', 128.00, 27.00, 16.50),
-(6, 19, '2026-03', 129.00, 28.00, 16.80),
-(9, 1, '2026-06', 120.00, 22.00, 15.28),
-(10, 1, '2026-07', 115.00, 21.50, 16.26),
-(11, 1, '2026-07', 116.00, 22.00, 16.35);
+INSERT INTO `HealthRecords` (`RecordID`, `StudentID`, `TermPeriod`, `Height`, `Weight`, `BMI`, `Notes`) VALUES
+(1, 19, '2026-04', 130.00, 28.00, 16.60, NULL),
+(2, 19, '2026-05', 131.00, 29.00, 16.90, NULL),
+(3, 19, '2026-06', 132.00, 30.00, 17.20, NULL),
+(4, 19, '2026-01', 127.00, 26.00, 16.10, NULL),
+(5, 19, '2026-02', 128.00, 27.00, 16.50, NULL),
+(6, 19, '2026-03', 129.00, 28.00, 16.80, NULL),
+(9, 1, '2026-06', 120.00, 22.00, 15.28, NULL),
+(10, 1, '2026-07', 115.00, 21.50, 16.26, NULL),
+(11, 1, '2026-07', 116.00, 22.00, 16.35, NULL),
+(12, 19, '2026-07', 132.50, 30.50, 17.30, 'Sức khỏe tốt, phát triển bình thường.'),
+(13, 117, '2026-07', NULL, NULL, NULL, 'Sáng: nhiệt độ 38.2°C, uống hạ sốt. Chiều: 37.5°C.');
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Holidays`
+-- Table structure for table `Holidays`
 --
 
 CREATE TABLE `Holidays` (
@@ -604,10 +679,17 @@ CREATE TABLE `Holidays` (
   `YearID` int DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+--
+-- Dumping data for table `Holidays`
+--
+
+INSERT INTO `Holidays` (`HolidayID`, `HolidayDate`, `HolidayName`, `YearID`) VALUES
+(1, 1787884800, 'Quốc khánh 2/9', 1);
+
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Invoices`
+-- Table structure for table `Invoices`
 --
 
 CREATE TABLE `Invoices` (
@@ -631,10 +713,17 @@ CREATE TABLE `Invoices` (
   `OverdueReminderSentAt` bigint DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+--
+-- Dumping data for table `Invoices`
+--
+
+INSERT INTO `Invoices` (`InvoiceID`, `StudentID`, `PackageID`, `PeriodRange`, `BillingMonth`, `TuitionFee`, `ExpectedMealFee`, `ExtracurricularFee`, `Surcharge`, `RefundAmount`, `DiscountAmount`, `PaymentStatus`, `CreatedAt`, `InvoiceType`, `DueDate`, `ReminderSentAt`, `OverdueReminderSentAt`) VALUES
+(51, 19, NULL, NULL, '07-2026', 0.00, 0.00, 500000.00, 0.00, 0.00, 0.00, 'Unpaid', 1783564680, 'EXTRACURRICULAR', 1783616400, NULL, NULL);
+
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `LeaveRequests`
+-- Table structure for table `LeaveRequests`
 --
 
 CREATE TABLE `LeaveRequests` (
@@ -654,7 +743,7 @@ CREATE TABLE `LeaveRequests` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Bẫy `LeaveRequests`
+-- Triggers `LeaveRequests`
 --
 DELIMITER $$
 CREATE TRIGGER `LeaveRequests_before_insert` BEFORE INSERT ON `LeaveRequests` FOR EACH ROW BEGIN
@@ -674,7 +763,7 @@ DELIMITER ;
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `MedicationRequests`
+-- Table structure for table `MedicationRequests`
 --
 
 CREATE TABLE `MedicationRequests` (
@@ -682,6 +771,7 @@ CREATE TABLE `MedicationRequests` (
   `StudentID` int DEFAULT NULL,
   `ParentID` int DEFAULT NULL,
   `RequestDate` bigint NOT NULL,
+  `ScheduledDate` bigint DEFAULT NULL COMMENT 'Ngày dự kiến cho uống (Unix timestamp)',
   `MedicineDetails` text NOT NULL,
   `Dosage` text NOT NULL,
   `Frequency` varchar(100) DEFAULT NULL,
@@ -690,22 +780,34 @@ CREATE TABLE `MedicationRequests` (
   `MedicineImageURL` varchar(500) DEFAULT NULL,
   `Status` varchar(50) DEFAULT 'Pending',
   `TeacherNote` text,
+  `AdministeredAt` bigint DEFAULT NULL COMMENT 'Thời điểm giáo viên xác nhận cho uống',
+  `AdministeredBy` int DEFAULT NULL COMMENT 'FK -> Teachers.TeacherID, người xác nhận cho uống',
   `UpdatedTime` bigint DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `MedicationRequests`
+-- Dumping data for table `MedicationRequests`
 --
 
-INSERT INTO `MedicationRequests` (`MedRequestID`, `StudentID`, `ParentID`, `RequestDate`, `MedicineDetails`, `Dosage`, `Frequency`, `TimeToTake`, `ParentNote`, `MedicineImageURL`, `Status`, `TeacherNote`, `UpdatedTime`) VALUES
-(1, 1, 17, 1783403271, 'jdhd', 'bsns', 'bsbs', 'bsbs', 'bshsj', NULL, 'Pending', NULL, 1783403352),
-(2, 1, 17, 1783477162, 'siroho', '4ml', '2 lần', 'sau ăn trưa 11:30', NULL, 'https://media.kindercare.app/parents/student-medication-requests/1783477216340-860289272.jpg', 'Pending', NULL, 1783477216),
-(3, 1, 17, 1783477162, 'xin', 'hdhd', 'jshs', 'bsbs', NULL, 'https://media.kindercare.app/parents/student-medication-requests/1783477283033-443014311.jpg', 'Pending', NULL, 1783477283),
-(4, 1, 17, 1783484300, 'siro', '5ml', '3', 'ndn', NULL, 'https://media.kindercare.app/parents/student-medication-requests/1783484327229-346666864.jpg', 'Pending', NULL, 1783484327),
-(5, 121, 6, 1783484815, 'siro', '4 ml', '2 lần', 'trưa', NULL, 'https://media.kindercare.app/parents/student-medication-requests/1783484852269-511512512.jpg', 'Pending', NULL, 1783484852);
+INSERT INTO `MedicationRequests` (`MedRequestID`, `StudentID`, `ParentID`, `RequestDate`, `ScheduledDate`, `MedicineDetails`, `Dosage`, `Frequency`, `TimeToTake`, `ParentNote`, `MedicineImageURL`, `Status`, `TeacherNote`, `AdministeredAt`, `AdministeredBy`, `UpdatedTime`) VALUES
+(1, 1, 17, 1783403271, NULL, 'jdhd', 'bsns', 'bsbs', 'bsbs', 'bshsj', NULL, 'Pending', 'string', NULL, NULL, 1783403352),
+(2, 109, 4, 1783568824, 1783568824, 'Amoxicillin 250mg', '5ml', '3 lần/ngày', 'Sáng, trưa, chiều', 'Uống sau ăn 30 phút', NULL, 'Pending', NULL, NULL, NULL, 1783568824),
+(3, 107, 4, 1783568824, 1783568824, 'Vitamin C 100mg', '1 viên', '1 lần/ngày', 'Sáng', 'Bổ sung vitamin mùa đông', NULL, 'Done', 'Đã cho bé uống 9h sáng', 1783568824, 5, 1783568824),
+(4, 116, 4, 1783568824, 1783568824, 'Siro ho Prospan', '5ml', '2 lần/ngày', 'Sáng, tối', 'Bé ho nhiều về đêm', NULL, 'Pending', NULL, NULL, NULL, 1783568824),
+(5, 1, 4, 1783568824, 1783568824, 'Ibuprofen 100mg', '5ml', 'Khi sốt >38.5', 'Bất kỳ', 'Sốt về chiều', NULL, 'Skipped', 'Bé không sốt trong ngày', NULL, NULL, 1783568824),
+(6, 119, 4, 1783565224, 1783565224, 'Cetirizine 5mg', '1 viên', '1 lần/ngày', 'Tối', 'Bé dị ứng thời tiết', NULL, 'Pending', NULL, NULL, NULL, 1783568824),
+(7, 117, 4, 1783560469, 1783560469, 'Paracetamol 250mg', '1 gói', '2 lần/ngày', 'Sáng, chiều', 'Bé sốt 38.5 độ từ sáng nay', NULL, 'Pending', 'string', NULL, NULL, 1783560469),
+(8, 109, 4, 1783560469, 1783560469, 'Amoxicillin 250mg', '5ml', '3 lần/ngày', 'Sáng, trưa, chiều', 'Uống sau ăn 30 phút', NULL, 'Pending', NULL, NULL, NULL, 1783560469),
+(9, 107, 4, 1783560469, 1783560469, 'Vitamin C 100mg', '1 viên', '1 lần/ngày', 'Sáng', 'Bổ sung vitamin mùa đông', NULL, 'Done', 'Đã cho bé uống 9h sáng', 1783560469, 5, 1783560469),
+(10, 116, 4, 1783560469, 1783560469, 'Siro ho Prospan', '5ml', '2 lần/ngày', 'Sáng, tối', 'Bé ho nhiều về đêm', NULL, 'Pending', NULL, NULL, NULL, 1783560469),
+(11, 1, 4, 1783560469, 1783560469, 'Ibuprofen 100mg', '5ml', 'Khi sốt >38.5', 'Bất kỳ', 'Sốt về chiều', NULL, 'Skipped', 'Bé không sốt trong ngày', NULL, NULL, 1783560469),
+(12, 119, 4, 1783556869, 1783556869, 'Cetirizine 5mg', '1 viên', '1 lần/ngày', 'Tối', 'Bé dị ứng thời tiết', NULL, 'Pending', NULL, NULL, NULL, 1783560469),
+(13, 118, 4, 1783553269, 1783553269, 'Berberin', '2 viên', '2 lần/ngày', 'Sáng, tối', 'Bé bị tiêu chảy nhẹ', NULL, 'Pending', NULL, NULL, NULL, 1783560469),
+(14, 19, 6, 1783560518, NULL, 'sg bac', '2', '2', 'Sau ăn trưa', NULL, NULL, 'Pending', NULL, NULL, NULL, 1783560567),
+(15, 19, 6, 1783562386, NULL, 'gg', 'gg', 'gg', 'Sau ăn trưa', 'gg', NULL, 'Completed', NULL, NULL, NULL, 1783565667);
 
 --
--- Bẫy `MedicationRequests`
+-- Triggers `MedicationRequests`
 --
 DELIMITER $$
 CREATE TRIGGER `MedicationRequests_before_insert` BEFORE INSERT ON `MedicationRequests` FOR EACH ROW BEGIN
@@ -725,7 +827,7 @@ DELIMITER ;
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `MenuDetails`
+-- Table structure for table `MenuDetails`
 --
 
 CREATE TABLE `MenuDetails` (
@@ -739,7 +841,7 @@ CREATE TABLE `MenuDetails` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `MenuDetails`
+-- Dumping data for table `MenuDetails`
 --
 
 INSERT INTO `MenuDetails` (`MenuDetailID`, `MenuID`, `DayOfWeek`, `MealType`, `DishName`, `Calories`, `NutritionalDetails`) VALUES
@@ -775,7 +877,7 @@ INSERT INTO `MenuDetails` (`MenuDetailID`, `MenuID`, `DayOfWeek`, `MealType`, `D
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Menus`
+-- Table structure for table `Menus`
 --
 
 CREATE TABLE `Menus` (
@@ -789,7 +891,7 @@ CREATE TABLE `Menus` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `Menus`
+-- Dumping data for table `Menus`
 --
 
 INSERT INTO `Menus` (`MenuID`, `ClassID`, `WeekNumber`, `Year`, `MenuName`, `CreatedAt`, `UpdatedAt`) VALUES
@@ -801,7 +903,7 @@ INSERT INTO `Menus` (`MenuID`, `ClassID`, `WeekNumber`, `Year`, `MenuName`, `Cre
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `MonthlySchedules`
+-- Table structure for table `MonthlySchedules`
 --
 
 CREATE TABLE `MonthlySchedules` (
@@ -817,17 +919,16 @@ CREATE TABLE `MonthlySchedules` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `MonthlySchedules`
+-- Dumping data for table `MonthlySchedules`
 --
 
 INSERT INTO `MonthlySchedules` (`MonthlyScheduleID`, `ClassID`, `Month`, `Year`, `MonthTheme`, `ApprovedStatus`, `IsActive`, `CreatedAt`, `UpdatedAt`) VALUES
-(1, 1, 7, 2026, 'MHX', 1, 1, 1783012593, 1783500460),
-(2, 1, 8, 2026, 'Thu về', 0, 0, 1783471600, 1783471600);
+(1, 1, 7, 2026, 'Đà lạt mộng mơ', 1, 1, 1783012593, 1783565772);
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Newsfeeds`
+-- Table structure for table `Newsfeeds`
 --
 
 CREATE TABLE `Newsfeeds` (
@@ -842,7 +943,7 @@ CREATE TABLE `Newsfeeds` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `NewsfeedTags`
+-- Table structure for table `NewsfeedTags`
 --
 
 CREATE TABLE `NewsfeedTags` (
@@ -853,7 +954,7 @@ CREATE TABLE `NewsfeedTags` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Notifications`
+-- Table structure for table `Notifications`
 --
 
 CREATE TABLE `Notifications` (
@@ -870,7 +971,7 @@ CREATE TABLE `Notifications` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `Notifications`
+-- Dumping data for table `Notifications`
 --
 
 INSERT INTO `Notifications` (`NotifID`, `UserID`, `Title`, `Message`, `Type`, `IsRead`, `IsCritical`, `DataPayload`, `CreatedAt`, `UpdatedAt`) VALUES
@@ -944,71 +1045,54 @@ INSERT INTO `Notifications` (`NotifID`, `UserID`, `Title`, `Message`, `Type`, `I
 (187, 18, 'Bé đã được đón về', 'Bé Nguyễn Minh Chánh đã được đón về lúc 20:25.', 'CHECKOUT', 0, 0, '{\"type\": \"CHECKOUT\", \"studentId\": \"19\"}', 1783344334, 1783344334),
 (189, 18, 'Cập nhật Đơn xin phép', 'Đơn xin phép nghỉ học của bé Nguyễn Minh Chánh đã được duyệt.', 'LEAVE_REQUEST', 0, 0, '{\"type\": \"LEAVE_REQUEST\", \"requestId\": \"1\"}', 1783344654, 1783344654),
 (191, 5, 'Đơn xin nghỉ học mới', 'Bé Nguyễn Minh Chánh (Mầm 1) có đơn xin nghỉ học từ phụ huynh. Vui lòng kiểm tra và phê duyệt.', 'LEAVE_REQUEST', 0, 0, '{\"type\": \"LEAVE_REQUEST\", \"requestId\": \"2\", \"studentId\": \"19\"}', 1783346264, 1783346264),
-(192, 6, 'Sắp đến hạn đóng học phí', 'Hóa đơn tháng 07-2026 của học sinh ID 19 (400.000đ) sắp đến hạn đóng. Vui lòng thanh toán sớm.', 'INVOICE_REMINDER', 1, 0, '{\"kind\": \"upcoming\", \"type\": \"INVOICE_REMINDER\", \"invoiceId\": \"50\", \"studentId\": \"19\"}', 1783386000, 1783431869),
 (193, 18, 'Sắp đến hạn đóng học phí', 'Hóa đơn tháng 07-2026 của học sinh ID 19 (400.000đ) sắp đến hạn đóng. Vui lòng thanh toán sớm.', 'INVOICE_REMINDER', 0, 0, '{\"kind\": \"upcoming\", \"type\": \"INVOICE_REMINDER\", \"invoiceId\": \"50\", \"studentId\": \"19\"}', 1783386000, 1783386000),
 (194, 5, 'Dặn dò thuốc mới', 'Bé Nguyễn Minh Khang (Mầm 1) có dặn dò thuốc mới từ phụ huynh. Vui lòng kiểm tra.', 'MEDICATION_REQUEST', 0, 0, '{\"type\": \"MEDICATION_REQUEST\", \"studentId\": \"1\", \"medRequestId\": \"1\"}', 1783403352, 1783403352),
 (196, 5, 'Đơn xin nghỉ học mới', 'Bé Nguyễn Minh Khang (Mầm 1) có đơn xin nghỉ học từ phụ huynh. Vui lòng kiểm tra và phê duyệt.', 'LEAVE_REQUEST', 0, 0, '{\"type\": \"LEAVE_REQUEST\", \"requestId\": \"3\", \"studentId\": \"1\"}', 1783403399, 1783403399),
-(198, 6, 'Thông báo Điểm danh', 'Bé Bùi Khánh Linh vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430442, 1783430442),
 (199, 4, 'Thông báo Điểm danh', 'Bé Bùi Minh Quang vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430443, 1783430443),
 (200, 4, 'Thông báo Điểm danh', 'Bé Đặng Anh Khoa vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430443, 1783430443),
 (201, 4, 'Thông báo Điểm danh', 'Bé Đặng Quang Minh vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430443, 1783430443),
 (202, 4, 'Thông báo Điểm danh', 'Bé Đỗ Minh Khang vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430443, 1783430443),
-(203, 6, 'Thông báo Điểm danh', 'Bé Hoàng Thu Thủy vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430443, 1783430443),
-(204, 6, 'Thông báo Điểm danh', 'Bé Bùi Khánh Linh vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430443, 1783430443),
 (205, 4, 'Thông báo Điểm danh', 'Bé Lê Hải Đăng vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430443, 1783430443),
-(207, 6, 'Thông báo Điểm danh', 'Bé Lý Nhã Phương vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430443, 1783430443),
 (208, 4, 'Thông báo Điểm danh', 'Bé Bùi Minh Quang vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430444, 1783430444),
 (209, 4, 'Thông báo Điểm danh', 'Bé Đặng Anh Khoa vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430444, 1783430444),
 (210, 4, 'Thông báo Điểm danh', 'Bé Đặng Quang Minh vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430444, 1783430444),
-(211, 6, 'Thông báo Điểm danh', 'Bé Lý Thảo Nguyên vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430444, 1783430444),
 (212, 4, 'Thông báo Điểm danh', 'Bé Đỗ Minh Khang vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430444, 1783430444),
-(213, 6, 'Thông báo Điểm danh', 'Bé Hoàng Thu Thủy vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430444, 1783430444),
 (214, 4, 'Thông báo Điểm danh', 'Bé Lê Hải Đăng vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430444, 1783430444),
-(216, 6, 'Thông báo Điểm danh', 'Bé Lý Nhã Phương vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430444, 1783430444),
-(217, 6, 'Thông báo Điểm danh', 'Bé Lý Thảo Nguyên vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430445, 1783430445),
 (218, 4, 'Thông báo Điểm danh', 'Bé Ngô Gia Khiêm vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430445, 1783430445),
 (219, 4, 'Thông báo Điểm danh', 'Bé Nguyễn Gia Bảo vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430445, 1783430445),
-(220, 6, 'Thông báo Điểm danh', 'Bé Nguyễn Minh Chánh vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430445, 1783430445),
 (221, 4, 'Thông báo Điểm danh', 'Bé Ngô Gia Khiêm vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430445, 1783430445),
 (222, 4, 'Thông báo Điểm danh', 'Bé Nguyễn Gia Bảo vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430445, 1783430445),
 (223, 18, 'Thông báo Điểm danh', 'Bé Nguyễn Minh Chánh vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430445, 1783430445),
-(224, 6, 'Thông báo Điểm danh', 'Bé Nguyễn Minh Chánh vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430445, 1783430445),
 (225, 4, 'Thông báo Điểm danh', 'Bé Nguyễn Minh Khang vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430445, 1783430445),
 (226, 17, 'Thông báo Điểm danh', 'Bé Nguyễn Minh Khang vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430445, 1783430445),
-(227, 6, 'Thông báo Điểm danh', 'Bé Phạm Ngọc Diệp vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430446, 1783430446),
 (228, 18, 'Thông báo Điểm danh', 'Bé Nguyễn Minh Chánh vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430446, 1783430446),
 (229, 4, 'Thông báo Điểm danh', 'Bé Nguyễn Minh Khang vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430446, 1783430446),
 (230, 17, 'Thông báo Điểm danh', 'Bé Nguyễn Minh Khang vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430446, 1783430446),
-(231, 6, 'Thông báo Điểm danh', 'Bé Phạm Ngọc Diệp vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430446, 1783430446),
-(232, 6, 'Thông báo Điểm danh', 'Bé Phạm Tường Vy vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430446, 1783430446),
 (233, 4, 'Thông báo Điểm danh', 'Bé Phan Anh Tuấn vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430446, 1783430446),
-(234, 6, 'Thông báo Điểm danh', 'Bé Phạm Tường Vy vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430446, 1783430446),
-(235, 6, 'Thông báo Điểm danh', 'Bé Trần Minh Anh vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430447, 1783430447),
 (236, 4, 'Thông báo Điểm danh', 'Bé Phan Anh Tuấn vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430447, 1783430447),
-(237, 6, 'Thông báo Điểm danh', 'Bé Trần Minh Anh vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430447, 1783430447),
-(238, 6, 'Thông báo Điểm danh', 'Bé Trương Mỹ Tâm vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430447, 1783430447),
-(239, 6, 'Thông báo Điểm danh', 'Bé Trương Mỹ Tâm vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430448, 1783430448),
 (240, 4, 'Thông báo Điểm danh', 'Bé Vũ Hoàng Long vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430448, 1783430448),
 (241, 4, 'Thông báo Điểm danh', 'Bé Vũ Trường Giang vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430448, 1783430448),
 (242, 4, 'Thông báo Điểm danh', 'Bé Vũ Hoàng Long vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430453, 1783430453),
 (243, 4, 'Thông báo Điểm danh', 'Bé Vũ Trường Giang vắng mặt ngày hôm nay (Vắng mặt không phép). Vui lòng kiểm tra và liên hệ giáo viên nếu cần thiết.', 'ATTENDANCE', 0, 0, '{\"date\": \"1783296000\", \"type\": \"ATTENDANCE\"}', 1783430453, 1783430453),
 (244, 4, 'Cập nhật Đơn xin phép', 'Đơn xin phép nghỉ học của bé Nguyễn Minh Khang đã được duyệt.', 'LEAVE_REQUEST', 0, 0, '{\"type\": \"LEAVE_REQUEST\", \"requestId\": \"3\"}', 1783430495, 1783430495),
 (245, 17, 'Cập nhật Đơn xin phép', 'Đơn xin phép nghỉ học của bé Nguyễn Minh Khang đã được duyệt.', 'LEAVE_REQUEST', 1, 0, '{\"type\": \"LEAVE_REQUEST\", \"requestId\": \"3\"}', 1783430495, 1783434126),
-(246, 6, 'Cập nhật Đơn xin phép', 'Đơn xin phép nghỉ học của bé Nguyễn Minh Chánh đã được duyệt.', 'LEAVE_REQUEST', 1, 0, '{\"type\": \"LEAVE_REQUEST\", \"requestId\": \"2\"}', 1783431121, 1783431843),
 (247, 18, 'Cập nhật Đơn xin phép', 'Đơn xin phép nghỉ học của bé Nguyễn Minh Chánh đã được duyệt.', 'LEAVE_REQUEST', 0, 0, '{\"type\": \"LEAVE_REQUEST\", \"requestId\": \"2\"}', 1783431122, 1783431122),
 (248, 5, 'Đơn xin nghỉ học mới', 'Bé Nguyễn Minh Khang (Mầm 1) có đơn xin nghỉ học từ phụ huynh. Vui lòng kiểm tra và phê duyệt.', 'LEAVE_REQUEST', 0, 0, '{\"type\": \"LEAVE_REQUEST\", \"requestId\": \"4\", \"studentId\": \"1\"}', 1783433378, 1783433378),
 (250, 5, 'Đơn xin nghỉ học mới', 'Bé Nguyễn Minh Khang (Mầm 1) có đơn xin nghỉ học từ phụ huynh. Vui lòng kiểm tra và phê duyệt.', 'LEAVE_REQUEST', 0, 0, '{\"type\": \"LEAVE_REQUEST\", \"requestId\": \"5\", \"studentId\": \"1\"}', 1783433667, 1783433667),
 (252, 4, 'Cập nhật Đơn xin phép', 'Đơn xin phép nghỉ học của bé Nguyễn Minh Khang đã được duyệt.', 'LEAVE_REQUEST', 0, 0, '{\"type\": \"LEAVE_REQUEST\", \"requestId\": \"5\"}', 1783433764, 1783433764),
 (253, 17, 'Cập nhật Đơn xin phép', 'Đơn xin phép nghỉ học của bé Nguyễn Minh Khang đã được duyệt.', 'LEAVE_REQUEST', 1, 0, '{\"type\": \"LEAVE_REQUEST\", \"requestId\": \"5\"}', 1783433764, 1783433922),
-(254, 5, 'Dặn dò thuốc mới', 'Bé Nguyễn Minh Khang (Mầm 1) có dặn dò thuốc mới từ phụ huynh. Vui lòng kiểm tra.', 'MEDICATION_REQUEST', 0, 0, '{\"type\": \"MEDICATION_REQUEST\", \"studentId\": \"1\", \"medRequestId\": \"2\"}', 1783477216, 1783477216),
-(255, 5, 'Dặn dò thuốc mới', 'Bé Nguyễn Minh Khang (Mầm 1) có dặn dò thuốc mới từ phụ huynh. Vui lòng kiểm tra.', 'MEDICATION_REQUEST', 0, 0, '{\"type\": \"MEDICATION_REQUEST\", \"studentId\": \"1\", \"medRequestId\": \"3\"}', 1783477283, 1783477283),
-(256, 5, 'Dặn dò thuốc mới', 'Bé Nguyễn Minh Khang (Mầm 1) có dặn dò thuốc mới từ phụ huynh. Vui lòng kiểm tra.', 'MEDICATION_REQUEST', 0, 0, '{\"type\": \"MEDICATION_REQUEST\", \"studentId\": \"1\", \"medRequestId\": \"4\"}', 1783484327, 1783484327),
-(257, 5, 'Dặn dò thuốc mới', 'Bé Trương Mỹ Tâm (Mầm 1) có dặn dò thuốc mới từ phụ huynh. Vui lòng kiểm tra.', 'MEDICATION_REQUEST', 0, 0, '{\"type\": \"MEDICATION_REQUEST\", \"studentId\": \"121\", \"medRequestId\": \"5\"}', 1783484852, 1783484852);
+(254, 5, 'Dặn dò thuốc mới', 'Bé Nguyễn Minh Chánh (Mầm 1) có dặn dò thuốc mới từ phụ huynh. Vui lòng kiểm tra.', 'MEDICATION_REQUEST', 0, 0, '{\"type\": \"MEDICATION_REQUEST\", \"studentId\": \"19\", \"medRequestId\": \"14\"}', 1783560567, 1783560567),
+(255, 5, 'Dặn dò thuốc mới', 'Bé Nguyễn Minh Chánh (Mầm 1) có dặn dò thuốc mới từ phụ huynh. Vui lòng kiểm tra.', 'MEDICATION_REQUEST', 0, 0, '{\"type\": \"MEDICATION_REQUEST\", \"studentId\": \"19\", \"medRequestId\": \"15\"}', 1783562435, 1783562435),
+(256, 4, 'Cập nhật Dặn dò y tế', 'Giáo viên đã cập nhật trạng thái dặn dò y tế của bé Nguyễn Minh Khang thành: Pending. Ghi chú: string', 'MEDICAL_REQUEST', 0, 0, '{\"type\": \"MEDICAL_REQUEST\", \"requestId\": \"1\"}', 1783563150, 1783563150),
+(257, 17, 'Cập nhật Dặn dò y tế', 'Giáo viên đã cập nhật trạng thái dặn dò y tế của bé Nguyễn Minh Khang thành: Pending. Ghi chú: string', 'MEDICAL_REQUEST', 0, 0, '{\"type\": \"MEDICAL_REQUEST\", \"requestId\": \"1\"}', 1783563150, 1783563150),
+(258, 4, 'Cập nhật Dặn dò y tế', 'Giáo viên đã cập nhật trạng thái dặn dò y tế của bé Nguyễn Minh Khang thành: Pending. Ghi chú: string', 'MEDICAL_REQUEST', 0, 0, '{\"type\": \"MEDICAL_REQUEST\", \"requestId\": \"01\"}', 1783563170, 1783563170),
+(259, 17, 'Cập nhật Dặn dò y tế', 'Giáo viên đã cập nhật trạng thái dặn dò y tế của bé Nguyễn Minh Khang thành: Pending. Ghi chú: string', 'MEDICAL_REQUEST', 0, 0, '{\"type\": \"MEDICAL_REQUEST\", \"requestId\": \"01\"}', 1783563170, 1783563170),
+(262, 18, 'Cập nhật Dặn dò y tế', 'Giáo viên đã cập nhật trạng thái dặn dò y tế của bé Nguyễn Minh Chánh thành: Completed. Ghi chú: ', 'MEDICAL_REQUEST', 0, 0, '{\"type\": \"MEDICAL_REQUEST\", \"requestId\": \"15\"}', 1783565668, 1783565668);
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `NotificationSettings`
+-- Table structure for table `NotificationSettings`
 --
 
 CREATE TABLE `NotificationSettings` (
@@ -1019,7 +1103,7 @@ CREATE TABLE `NotificationSettings` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `NotificationSettings`
+-- Dumping data for table `NotificationSettings`
 --
 
 INSERT INTO `NotificationSettings` (`UserID`, `EmailEnabled`, `PushEnabled`, `WeeklyReportEnabled`) VALUES
@@ -1028,7 +1112,7 @@ INSERT INTO `NotificationSettings` (`UserID`, `EmailEnabled`, `PushEnabled`, `We
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Parents`
+-- Table structure for table `Parents`
 --
 
 CREATE TABLE `Parents` (
@@ -1044,7 +1128,7 @@ CREATE TABLE `Parents` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `Parents`
+-- Dumping data for table `Parents`
 --
 
 INSERT INTO `Parents` (`ParentID`, `FullName`, `DateOfBirth`, `PhoneNumber`, `Email`, `IDCard`, `Job`, `Address`, `AvatarURL`) VALUES
@@ -1056,7 +1140,7 @@ INSERT INTO `Parents` (`ParentID`, `FullName`, `DateOfBirth`, `PhoneNumber`, `Em
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `PaymentPackages`
+-- Table structure for table `PaymentPackages`
 --
 
 CREATE TABLE `PaymentPackages` (
@@ -1066,10 +1150,19 @@ CREATE TABLE `PaymentPackages` (
   `DiscountPercentage` decimal(5,2) DEFAULT '0.00'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+--
+-- Dumping data for table `PaymentPackages`
+--
+
+INSERT INTO `PaymentPackages` (`PackageID`, `PackageName`, `DurationInMonths`, `DiscountPercentage`) VALUES
+(1, 'Gói Tháng', 1, 0.00),
+(2, 'Gói Học Kỳ', 6, 5.00),
+(3, 'Gói Cả Năm', 12, 10.00);
+
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Principals`
+-- Table structure for table `Principals`
 --
 
 CREATE TABLE `Principals` (
@@ -1080,7 +1173,7 @@ CREATE TABLE `Principals` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `Principals`
+-- Dumping data for table `Principals`
 --
 
 INSERT INTO `Principals` (`PrincipalID`, `FullName`, `PhoneNumber`, `Email`) VALUES
@@ -1089,7 +1182,7 @@ INSERT INTO `Principals` (`PrincipalID`, `FullName`, `PhoneNumber`, `Email`) VAL
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `ProxyAuthorizations`
+-- Table structure for table `ProxyAuthorizations`
 --
 
 CREATE TABLE `ProxyAuthorizations` (
@@ -1110,7 +1203,7 @@ CREATE TABLE `ProxyAuthorizations` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `RewardBadges`
+-- Table structure for table `RewardBadges`
 --
 
 CREATE TABLE `RewardBadges` (
@@ -1121,7 +1214,7 @@ CREATE TABLE `RewardBadges` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `RewardBadges`
+-- Dumping data for table `RewardBadges`
 --
 
 INSERT INTO `RewardBadges` (`BadgeID`, `BadgeName`, `BadgeImageURL`, `CriteriaType`) VALUES
@@ -1132,7 +1225,7 @@ INSERT INTO `RewardBadges` (`BadgeID`, `BadgeName`, `BadgeImageURL`, `CriteriaTy
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Roles`
+-- Table structure for table `Roles`
 --
 
 CREATE TABLE `Roles` (
@@ -1141,7 +1234,7 @@ CREATE TABLE `Roles` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `Roles`
+-- Dumping data for table `Roles`
 --
 
 INSERT INTO `Roles` (`RoleID`, `RoleName`) VALUES
@@ -1154,7 +1247,7 @@ INSERT INTO `Roles` (`RoleID`, `RoleName`) VALUES
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `StudentAssessments`
+-- Table structure for table `StudentAssessments`
 --
 
 CREATE TABLE `StudentAssessments` (
@@ -1171,7 +1264,7 @@ CREATE TABLE `StudentAssessments` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `StudentAssessments`
+-- Dumping data for table `StudentAssessments`
 --
 
 INSERT INTO `StudentAssessments` (`AssessmentID`, `StudentID`, `AssessmentMonth`, `PhysicalScore`, `CognitiveScore`, `LanguageScore`, `SocioEmotionalScore`, `AestheticScore`, `TeacherComment`, `CreatedAt`) VALUES
@@ -1199,7 +1292,7 @@ INSERT INTO `StudentAssessments` (`AssessmentID`, `StudentID`, `AssessmentMonth`
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `StudentBadges`
+-- Table structure for table `StudentBadges`
 --
 
 CREATE TABLE `StudentBadges` (
@@ -1209,10 +1302,18 @@ CREATE TABLE `StudentBadges` (
   `DateEarned` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+--
+-- Dumping data for table `StudentBadges`
+--
+
+INSERT INTO `StudentBadges` (`StudentBadgeID`, `StudentID`, `BadgeID`, `DateEarned`) VALUES
+(1, 19, 1, '2026-07-09 01:08:19'),
+(2, 19, 2, '2026-07-09 01:08:19');
+
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `StudentExtracurriculars`
+-- Table structure for table `StudentExtracurriculars`
 --
 
 CREATE TABLE `StudentExtracurriculars` (
@@ -1227,10 +1328,17 @@ CREATE TABLE `StudentExtracurriculars` (
   `FeeRefunded` tinyint(1) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+--
+-- Dumping data for table `StudentExtracurriculars`
+--
+
+INSERT INTO `StudentExtracurriculars` (`EnrollmentID`, `StudentID`, `ActivityID`, `RegisteredMonth`, `Status`, `CreatedAt`, `InvoiceID`, `ActivatedAt`, `FeeRefunded`) VALUES
+(11, 19, 1, '07-2026', 'Pending', 1783564680, 51, NULL, 0);
+
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `StudentParents`
+-- Table structure for table `StudentParents`
 --
 
 CREATE TABLE `StudentParents` (
@@ -1241,7 +1349,7 @@ CREATE TABLE `StudentParents` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `StudentParents`
+-- Dumping data for table `StudentParents`
 --
 
 INSERT INTO `StudentParents` (`StudentID`, `ParentID`, `Relationship`, `IsPrimary`) VALUES
@@ -1271,7 +1379,7 @@ INSERT INTO `StudentParents` (`StudentID`, `ParentID`, `Relationship`, `IsPrimar
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Students`
+-- Table structure for table `Students`
 --
 
 CREATE TABLE `Students` (
@@ -1287,7 +1395,7 @@ CREATE TABLE `Students` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `Students`
+-- Dumping data for table `Students`
 --
 
 INSERT INTO `Students` (`StudentID`, `FullName`, `DateOfBirth`, `Gender`, `Allergies`, `AdmissionDate`, `EnrollmentStatus`, `AvatarURL`, `ClassID`) VALUES
@@ -1315,7 +1423,7 @@ INSERT INTO `Students` (`StudentID`, `FullName`, `DateOfBirth`, `Gender`, `Aller
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `StudentTuitionPlans`
+-- Table structure for table `StudentTuitionPlans`
 --
 
 CREATE TABLE `StudentTuitionPlans` (
@@ -1331,7 +1439,7 @@ CREATE TABLE `StudentTuitionPlans` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Teachers`
+-- Table structure for table `Teachers`
 --
 
 CREATE TABLE `Teachers` (
@@ -1348,16 +1456,17 @@ CREATE TABLE `Teachers` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `Teachers`
+-- Dumping data for table `Teachers`
 --
 
 INSERT INTO `Teachers` (`TeacherID`, `FullName`, `PhoneNumber`, `Email`, `DateOfBirth`, `Gender`, `IDCard`, `Address`, `ProfessionalRank`, `WorkStatus`) VALUES
-(5, 'Lê Quang Huy', NULL, NULL, NULL, NULL, NULL, NULL, 'Hạng II', 'Active');
+(5, 'Lê Quang Huy', '12312412', 'ok', NULL, 'Nam', NULL, NULL, 'Hạng II', 'Active'),
+(20, 'Nguyễn Minh Chánh', '0866551849', NULL, NULL, NULL, NULL, NULL, NULL, 'Active');
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `TeacherWorkHistories`
+-- Table structure for table `TeacherWorkHistories`
 --
 
 CREATE TABLE `TeacherWorkHistories` (
@@ -1371,7 +1480,7 @@ CREATE TABLE `TeacherWorkHistories` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `TeacherWorkHistories`
+-- Dumping data for table `TeacherWorkHistories`
 --
 
 INSERT INTO `TeacherWorkHistories` (`HistoryID`, `TeacherID`, `Title`, `Tag`, `Description`, `Kind`, `EventDate`) VALUES
@@ -1383,7 +1492,7 @@ INSERT INTO `TeacherWorkHistories` (`HistoryID`, `TeacherID`, `Title`, `Tag`, `D
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Transactions`
+-- Table structure for table `Transactions`
 --
 
 CREATE TABLE `Transactions` (
@@ -1399,7 +1508,7 @@ CREATE TABLE `Transactions` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `Users`
+-- Table structure for table `Users`
 --
 
 CREATE TABLE `Users` (
@@ -1416,23 +1525,24 @@ CREATE TABLE `Users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `Users`
+-- Dumping data for table `Users`
 --
 
 INSERT INTO `Users` (`UserID`, `Username`, `PasswordHash`, `RoleID`, `Status`, `AvatarURL`, `ResetPasswordToken`, `TokenExpiry`, `ReceiveEmailNotif`, `ReceivePushNotif`) VALUES
 (1, 'admin_it', 'hash_pass', 1, 'Active', NULL, NULL, NULL, 1, 1),
 (2, 'hieutruong_mai', 'hash_pass', 2, 'Active', NULL, NULL, NULL, 1, 1),
 (4, 'ph_tuan', '$2a$12$iWf2E00ASg54.I3mqkNCgOAGwuNK38VGkW3y.5wxCad2GopnYTjr6', 4, 'Active', NULL, NULL, NULL, 1, 1),
-(5, 'gv_quanghuy', '$2a$12$5BtJO/BxEiWdpbaqpCzrUOlLqWbQUhQcrmkq.bjBSARw87d1LH5W.', 3, 'Active', 'https://media.kindercare.app/daily-albums/album-2026-07-08/1783470006392-96394052.jpg', NULL, NULL, 1, 1),
-(6, 'hcngdanh', '$2a$12$epWjmzy4HcLKv/Nx51.d4egjrBbKKg6ArRh36fJrgzNz5FkQrsajG', 4, 'Active', NULL, NULL, NULL, 1, 1),
-(16, 'hcdanh', '$2a$12$hdu8JdRaTJnMqNH9ZMqWh.YoEZu4LvYVtaO3Mgm/CFyIOJcGZ8dfC', 2, 'Active', NULL, NULL, NULL, 1, 1),
+(5, 'gv_quanghuy', '$2a$12$5BtJO/BxEiWdpbaqpCzrUOlLqWbQUhQcrmkq.bjBSARw87d1LH5W.', 3, 'Active', 'https://media.kindercare.app/daily-albums/album-2026-07-05/1783272950703-559253111.png', NULL, NULL, 1, 1),
+(6, 'hcngdanh', '$2b$10$LdywhgIa8k1eQ4E/hG/Pkugoryt.alpqaRngCmMNN.lw98UU0Mbba', 4, 'Active', NULL, NULL, NULL, 1, 1),
+(16, 'hcdanh', '$2a$12$VRQAN4p.qiD1ug0vXHtgJuTTDGXsTbif5ToMRGTmoUknnMMGPCexu', 2, 'Active', NULL, NULL, NULL, 1, 1),
 (17, 'ph_minhtuan', '$2b$12$ocdnHByhLtdQVbU/YeI7K.wvAR26SUPY5SM2Vv0ayPZDtoXtDKtrO', 4, 'Active', NULL, NULL, NULL, 1, 1),
-(18, 'messi', '$2a$12$l53LrmB.CSzxq//px5RQGu3nmHGEXJfDFOSsj1Sn85JsEhLJ0zFIy', 4, 'Active', 'https://media.kindercare.app/parents/parents-profile-avatar/images.jpg', NULL, NULL, 1, 1);
+(18, 'messi', '$2a$12$l53LrmB.CSzxq//px5RQGu3nmHGEXJfDFOSsj1Sn85JsEhLJ0zFIy', 4, 'Active', 'https://media.kindercare.app/parents/parents-profile-avatar/images.jpg', NULL, NULL, 1, 1),
+(20, 'nmchanh', '$2b$10$m/3l9GNlj0Faxy8nocA/veJzpX5sqPvGqzunJ/btfpGsFyG0Uw9QC', 3, 'Inactive', NULL, NULL, NULL, 1, 1);
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `WeeklyRewards`
+-- Table structure for table `WeeklyRewards`
 --
 
 CREATE TABLE `WeeklyRewards` (
@@ -1447,7 +1557,7 @@ CREATE TABLE `WeeklyRewards` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `WeeklyScheduleDetails`
+-- Table structure for table `WeeklyScheduleDetails`
 --
 
 CREATE TABLE `WeeklyScheduleDetails` (
@@ -1459,360 +1569,179 @@ CREATE TABLE `WeeklyScheduleDetails` (
   `ActivityName` varchar(150) NOT NULL,
   `Details` text,
   `Location` varchar(100) DEFAULT NULL,
-  `ActivityType` enum('pickup','meal','study','nap','play','dropoff','other') DEFAULT 'study',
-  `OrderIndex` int DEFAULT '0'
+  `ActivityType` enum('pickup','meal','study','nap','play','dropoff','other') DEFAULT 'study'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `WeeklyScheduleDetails`
+-- Dumping data for table `WeeklyScheduleDetails`
 --
 
-INSERT INTO `WeeklyScheduleDetails` (`ScheduleDetailID`, `WeeklyScheduleID`, `DayOfWeek`, `StartTime`, `EndTime`, `ActivityName`, `Details`, `Location`, `ActivityType`, `OrderIndex`) VALUES
-(161, 5, 'Monday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Cô đón bé tại cổng trường và tập thể dục sáng khởi động ngày mới', 'Sân trường', 'pickup', 0),
-(162, 5, 'Monday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng bổ dưỡng theo thực đơn', 'Phòng ăn', 'meal', 1),
-(163, 5, 'Monday', '09:00:00', '10:15:00', 'Học tập tạo hình', 'Vẽ tranh chân dung tự họa của bé', 'Lớp học', 'study', 2),
-(164, 5, 'Monday', '10:15:00', '11:15:00', 'Vui chơi tự do', 'Vui chơi vận động ngoài trời với bóng', 'Sân trường', 'play', 3),
-(165, 5, 'Monday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa bổ dưỡng và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap', 4),
-(166, 5, 'Monday', '14:00:00', '14:30:00', 'Ăn xế', 'Bánh ngọt sữa tươi hoặc trái cây theo ngày', 'Phòng ăn', 'meal', 5),
-(167, 5, 'Monday', '14:30:00', '16:00:00', 'Hoạt động chiều', 'Đọc truyện tranh và học các bài thơ thiếu nhi', 'Lớp học', 'study', 6),
-(168, 5, 'Monday', '16:00:00', '17:00:00', 'Trả trẻ', 'Chuẩn bị quần áo và trả trẻ cho phụ huynh', 'Cổng A', 'dropoff', 7),
-(169, 5, 'Tuesday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Cô đón bé tại cổng trường và tập thể dục sáng khởi động ngày mới', 'Sân trường', 'pickup', 8),
-(170, 5, 'Tuesday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng bổ dưỡng theo thực đơn', 'Phòng ăn', 'meal', 9),
-(171, 5, 'Tuesday', '09:00:00', '10:15:00', 'Học nhận biết chữ cái', 'Bé làm quen và tô màu chữ cái A - B - C', 'Lớp học', 'study', 10),
-(172, 5, 'Tuesday', '10:15:00', '11:15:00', 'Chơi trò chơi dân gian', 'Chơi trò chơi kéo co và bịt mắt bắt dê', 'Sân trường', 'play', 11),
-(173, 5, 'Tuesday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa bổ dưỡng và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap', 12),
-(174, 5, 'Tuesday', '14:00:00', '14:30:00', 'Ăn xế', 'Bánh ngọt sữa tươi hoặc trái cây theo ngày', 'Phòng ăn', 'meal', 13),
-(175, 5, 'Tuesday', '14:30:00', '16:00:00', 'Kỹ năng sống', 'Cô hướng dẫn bé cách tự sắp xếp balo và xếp quần áo', 'Lớp học', 'study', 14),
-(176, 5, 'Tuesday', '16:00:00', '17:00:00', 'Trả trẻ', 'Chuẩn bị quần áo và trả trẻ cho phụ huynh', 'Cổng A', 'dropoff', 15),
-(177, 5, 'Wednesday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Cô đón bé tại cổng trường và tập thể dục sáng khởi động ngày mới', 'Sân trường', 'pickup', 16),
-(178, 5, 'Wednesday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng bổ dưỡng theo thực đơn', 'Phòng ăn', 'meal', 17),
-(179, 5, 'Wednesday', '09:00:00', '10:15:00', 'Tiếng Anh vui vẻ', 'Làm quen từ vựng chủ đề các bộ phận cơ thể bằng Tiếng Anh', 'Lớp học', 'study', 18),
-(180, 5, 'Wednesday', '10:15:00', '11:15:00', 'Trải nghiệm khoa học', 'Quan sát thí nghiệm sự chìm nổi của vật thể', 'Sân trường', 'play', 19),
-(181, 5, 'Wednesday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa bổ dưỡng và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap', 20),
-(182, 5, 'Wednesday', '14:00:00', '14:30:00', 'Ăn xế', 'Bánh ngọt sữa tươi hoặc trái cây theo ngày', 'Phòng ăn', 'meal', 21),
-(183, 5, 'Wednesday', '14:30:00', '16:00:00', 'Kể chuyện bé nghe', 'Cô kể chuyện ngụ ngôn Rùa và Thỏ rút ra bài học', 'Lớp học', 'study', 22),
-(184, 5, 'Wednesday', '16:00:00', '17:00:00', 'Trả trẻ', 'Chuẩn bị quần áo và trả trẻ cho phụ huynh', 'Cổng A', 'dropoff', 23),
-(185, 5, 'Thursday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Cô đón bé tại cổng trường và tập thể dục sáng khởi động ngày mới', 'Sân trường', 'pickup', 24),
-(186, 5, 'Thursday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng bổ dưỡng theo thực đơn', 'Phòng ăn', 'meal', 25),
-(187, 5, 'Thursday', '09:00:00', '10:15:00', 'Làm quen toán học', 'Nhận biết hình dáng và tập đếm số từ 1 đến 10', 'Lớp học', 'study', 26),
-(188, 5, 'Thursday', '10:15:00', '11:15:00', 'Vẽ tranh tự do', 'Bé tô màu tranh vẽ phong cảnh thiên nhiên mùa hè', 'Sân trường', 'play', 27),
-(189, 5, 'Thursday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa bổ dưỡng và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap', 28),
-(190, 5, 'Thursday', '14:00:00', '14:30:00', 'Ăn xế', 'Bánh ngọt sữa tươi hoặc trái cây theo ngày', 'Phòng ăn', 'meal', 29),
-(191, 5, 'Thursday', '14:30:00', '16:00:00', 'Âm nhạc rộn ràng', 'Tập múa hát bài Cháu yêu bà đầy vui nhộn', 'Lớp học', 'study', 30),
-(192, 5, 'Thursday', '16:00:00', '17:00:00', 'Trả trẻ', 'Chuẩn bị quần áo và trả trẻ cho phụ huynh', 'Cổng A', 'dropoff', 31),
-(193, 5, 'Friday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Cô đón bé tại cổng trường và tập thể dục sáng khởi động ngày mới', 'Sân trường', 'pickup', 32),
-(194, 5, 'Friday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng bổ dưỡng theo thực đơn', 'Phòng ăn', 'meal', 33),
-(195, 5, 'Friday', '09:00:00', '10:15:00', 'Khám phá thiên nhiên', 'Đi dạo sân trường nhặt và nhận biết các loại lá cây', 'Sân trường', 'study', 34),
-(196, 5, 'Friday', '10:15:00', '11:15:00', 'Hoạt động góc', 'Tự do chơi lắp ghép và đóng vai bác sĩ đầu bếp', 'Lớp học', 'play', 35),
-(197, 5, 'Friday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa bổ dưỡng và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap', 36),
-(198, 5, 'Friday', '14:00:00', '14:30:00', 'Ăn xế', 'Bánh ngọt sữa tươi hoặc trái cây theo ngày', 'Phòng ăn', 'meal', 37),
-(199, 5, 'Friday', '14:30:00', '16:00:00', 'Bé ngoan cuối tuần', 'Tổng kết tuần trao cờ bé ngoan và phát quà bánh', 'Lớp học', 'other', 38),
-(200, 5, 'Friday', '16:00:00', '17:00:00', 'Trả trẻ', 'Chuẩn bị quần áo và trả trẻ cho phụ huynh', 'Cổng A', 'dropoff', 39),
-(201, 6, 'Monday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Cô đón bé tại cổng trường và tập thể dục sáng khởi động ngày mới', 'Sân trường', 'pickup', 0),
-(202, 6, 'Monday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng bổ dưỡng theo thực đơn', 'Phòng ăn', 'meal', 1),
-(203, 6, 'Monday', '09:00:00', '10:15:00', 'Học tập tạo hình', 'Vẽ tranh chân dung gia đình em', 'Lớp học', 'study', 2),
-(204, 6, 'Monday', '10:15:00', '11:15:00', 'Vui chơi tự do', 'Vui chơi vận động ngoài trời với bóng', 'Sân trường', 'play', 3),
-(205, 6, 'Monday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa bổ dưỡng và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap', 4),
-(206, 6, 'Monday', '14:00:00', '14:30:00', 'Ăn xế', 'Bánh ngọt sữa tươi hoặc trái cây theo ngày', 'Phòng ăn', 'meal', 5),
-(207, 6, 'Monday', '14:30:00', '16:00:00', 'Hoạt động chiều', 'Đọc truyện tranh và học các bài thơ thiếu nhi', 'Lớp học', 'study', 6),
-(208, 6, 'Monday', '16:00:00', '17:00:00', 'Trả trẻ', 'Chuẩn bị quần áo và trả trẻ cho phụ huynh', 'Cổng A', 'dropoff', 7),
-(209, 6, 'Tuesday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Cô đón bé tại cổng trường và tập thể dục sáng khởi động ngày mới', 'Sân trường', 'pickup', 8),
-(210, 6, 'Tuesday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng bổ dưỡng theo thực đơn', 'Phòng ăn', 'meal', 9),
-(211, 6, 'Tuesday', '09:00:00', '10:15:00', 'Học nhận biết chữ cái', 'Bé làm quen và tô màu chữ cái D - Đ - E', 'Lớp học', 'study', 10),
-(212, 6, 'Tuesday', '10:15:00', '11:15:00', 'Chơi trò chơi dân gian', 'Chơi trò chơi nhảy bao bố và rồng rắn lên mây', 'Sân trường', 'play', 11),
-(213, 6, 'Tuesday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa bổ dưỡng và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap', 12),
-(214, 6, 'Tuesday', '14:00:00', '14:30:00', 'Ăn xế', 'Bánh ngọt sữa tươi hoặc trái cây theo ngày', 'Phòng ăn', 'meal', 13),
-(215, 6, 'Tuesday', '14:30:00', '16:00:00', 'Kỹ năng sống', 'Cô hướng dẫn bé cách thu dọn đồ chơi sau khi chơi xong', 'Lớp học', 'study', 14),
-(216, 6, 'Tuesday', '16:00:00', '17:00:00', 'Trả trẻ', 'Chuẩn bị quần áo và trả trẻ cho phụ huynh', 'Cổng A', 'dropoff', 15),
-(217, 6, 'Wednesday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Cô đón bé tại cổng trường và tập thể dục sáng khởi động ngày mới', 'Sân trường', 'pickup', 16),
-(218, 6, 'Wednesday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng bổ dưỡng theo thực đơn', 'Phòng ăn', 'meal', 17),
-(219, 6, 'Wednesday', '09:00:00', '10:15:00', 'Tiếng Anh vui vẻ', 'Làm quen từ vựng chủ đề các thành viên trong gia đình bằng Tiếng Anh', 'Lớp học', 'study', 18),
-(220, 6, 'Wednesday', '10:15:00', '11:15:00', 'Trải nghiệm khoa học', 'Quan sát thí nghiệm sự đổi màu của nước cải tím', 'Sân trường', 'play', 19),
-(221, 6, 'Wednesday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa bổ dưỡng và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap', 20),
-(222, 6, 'Wednesday', '14:00:00', '14:30:00', 'Ăn xế', 'Bánh ngọt sữa tươi hoặc trái cây theo ngày', 'Phòng ăn', 'meal', 21),
-(223, 6, 'Wednesday', '14:30:00', '16:00:00', 'Kể chuyện bé nghe', 'Cô kể chuyện Ba chú heo con rút ra bài học', 'Lớp học', 'study', 22),
-(224, 6, 'Wednesday', '16:00:00', '17:00:00', 'Trả trẻ', 'Chuẩn bị quần áo và trả trẻ cho phụ huynh', 'Cổng A', 'dropoff', 23),
-(225, 6, 'Thursday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Cô đón bé tại cổng trường và tập thể dục sáng khởi động ngày mới', 'Sân trường', 'pickup', 24),
-(226, 6, 'Thursday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng bổ dưỡng theo thực đơn', 'Phòng ăn', 'meal', 25),
-(227, 6, 'Thursday', '09:00:00', '10:15:00', 'Làm quen toán học', 'Nhận biết to nhỏ cao thấp và tập đếm số từ 11 đến 20', 'Lớp học', 'study', 26),
-(228, 6, 'Thursday', '10:15:00', '11:15:00', 'Vẽ tranh tự do', 'Bé vẽ tranh tặng mẹ nhân ngày kỷ niệm', 'Sân trường', 'play', 27),
-(229, 6, 'Thursday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa bổ dưỡng và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap', 28),
-(230, 6, 'Thursday', '14:00:00', '14:30:00', 'Ăn xế', 'Bánh ngọt sữa tươi hoặc trái cây theo ngày', 'Phòng ăn', 'meal', 29),
-(231, 6, 'Thursday', '14:30:00', '16:00:00', 'Âm nhạc rộn ràng', 'Tập múa hát bài Cả nhà thương nhau đầy vui nhộn', 'Lớp học', 'study', 30),
-(232, 6, 'Thursday', '16:00:00', '17:00:00', 'Trả trẻ', 'Chuẩn bị quần áo và trả trẻ cho phụ huynh', 'Cổng A', 'dropoff', 31),
-(233, 6, 'Friday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Cô đón bé tại cổng trường và tập thể dục sáng khởi động ngày mới', 'Sân trường', 'pickup', 32),
-(234, 6, 'Friday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng bổ dưỡng theo thực đơn', 'Phòng ăn', 'meal', 33),
-(235, 6, 'Friday', '09:00:00', '10:15:00', 'Khám phá thiên nhiên', 'Khám phá khu vườn trường và tưới cây xanh', 'Sân trường', 'study', 34),
-(236, 6, 'Friday', '10:15:00', '11:15:00', 'Hoạt động góc', 'Tự do chơi lắp ghép và đóng vai bác sĩ đầu bếp', 'Lớp học', 'play', 35),
-(237, 6, 'Friday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa bổ dưỡng và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap', 36),
-(238, 6, 'Friday', '14:00:00', '14:30:00', 'Ăn xế', 'Bánh ngọt sữa tươi hoặc trái cây theo ngày', 'Phòng ăn', 'meal', 37),
-(239, 6, 'Friday', '14:30:00', '16:00:00', 'Bé ngoan cuối tuần', 'Tổng kết tuần trao cờ bé ngoan và phát quà bánh', 'Lớp học', 'other', 38),
-(240, 6, 'Friday', '16:00:00', '17:00:00', 'Trả trẻ', 'Chuẩn bị quần áo và trả trẻ cho phụ huynh', 'Cổng A', 'dropoff', 39),
-(241, 7, 'Monday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Cô đón bé tại cổng trường và tập thể dục sáng khởi động ngày mới', 'Sân trường', 'pickup', 0),
-(242, 7, 'Monday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng bổ dưỡng theo thực đơn', 'Phòng ăn', 'meal', 1),
-(243, 7, 'Monday', '09:00:00', '10:15:00', 'Học tập tạo hình', 'Cắt dán và xếp hình ngôi nhà mơ ước', 'Lớp học', 'study', 2),
-(244, 7, 'Monday', '10:15:00', '11:15:00', 'Vui chơi tự do', 'Vui chơi vận động ngoài trời với bóng', 'Sân trường', 'play', 3),
-(245, 7, 'Monday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa bổ dưỡng và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap', 4),
-(246, 7, 'Monday', '14:00:00', '14:30:00', 'Ăn xế', 'Bánh ngọt sữa tươi hoặc trái cây theo ngày', 'Phòng ăn', 'meal', 5),
-(247, 7, 'Monday', '14:30:00', '16:00:00', 'Hoạt động chiều', 'Đọc truyện tranh và học các bài thơ thiếu nhi', 'Lớp học', 'study', 6),
-(248, 7, 'Monday', '16:00:00', '17:00:00', 'Trả trẻ', 'Chuẩn bị quần áo và trả trẻ cho phụ huynh', 'Cổng A', 'dropoff', 7),
-(249, 7, 'Tuesday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng bổ dưỡng theo thực đơn', 'Phòng ăn', 'meal', 9),
-(250, 7, 'Tuesday', '09:00:00', '10:15:00', 'Học nhận biết chữ cái', 'Bé làm quen và tô màu chữ cái G - H - I', 'Lớp học', 'study', 10),
-(251, 7, 'Tuesday', '10:15:00', '11:15:00', 'Chơi trò chơi dân gian', 'Chơi trò chơi nhảy lò cò và chi chi chành chành', 'Sân trường', 'play', 11),
-(252, 7, 'Tuesday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa bổ dưỡng và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap', 12),
-(253, 7, 'Tuesday', '14:00:00', '14:30:00', 'Ăn xế', 'Bánh ngọt sữa tươi hoặc trái cây theo ngày', 'Phòng ăn', 'meal', 13),
-(254, 7, 'Tuesday', '14:30:00', '16:00:00', 'Kỹ năng sống', 'Cô hướng dẫn bé cách tự mang giày và dép quai hậu', 'Lớp học', 'study', 14),
-(255, 7, 'Tuesday', '16:00:00', '17:00:00', 'Trả trẻ', 'Chuẩn bị quần áo và trả trẻ cho phụ huynh', 'Cổng A', 'dropoff', 15),
-(256, 7, 'Wednesday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Cô đón bé tại cổng trường và tập thể dục sáng khởi động ngày mới', 'Sân trường', 'pickup', 16),
-(257, 7, 'Wednesday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng bổ dưỡng theo thực đơn', 'Phòng ăn', 'meal', 17),
-(258, 7, 'Wednesday', '09:00:00', '10:15:00', 'Tiếng Anh vui vẻ', 'Làm quen từ vựng chủ đề các vật dụng trong nhà bằng Tiếng Anh', 'Lớp học', 'study', 18),
-(259, 7, 'Wednesday', '10:15:00', '11:15:00', 'Trải nghiệm khoa học', 'Quan sát thí nghiệm sự hòa tan của đường muối trong nước', 'Sân trường', 'play', 19),
-(260, 7, 'Wednesday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa bổ dưỡng và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap', 20),
-(261, 7, 'Wednesday', '14:00:00', '14:30:00', 'Ăn xế', 'Bánh ngọt sữa tươi hoặc trái cây theo ngày', 'Phòng ăn', 'meal', 21),
-(262, 7, 'Wednesday', '14:30:00', '16:00:00', 'Kể chuyện bé nghe', 'Cô kể chuyện Cô bé bán diêm rút ra bài học nhân văn', 'Lớp học', 'study', 22),
-(263, 7, 'Wednesday', '16:00:00', '17:00:00', 'Trả trẻ', 'Chuẩn bị quần áo và trả trẻ cho phụ huynh', 'Cổng A', 'dropoff', 23),
-(264, 7, 'Thursday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Cô đón bé tại cổng trường và tập thể dục sáng khởi động ngày mới', 'Sân trường', 'pickup', 24),
-(265, 7, 'Thursday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng bổ dưỡng theo thực đơn', 'Phòng ăn', 'meal', 25),
-(266, 7, 'Thursday', '09:00:00', '10:15:00', 'Làm quen toán học', 'Nhận biết các hình khối cơ bản: tròn', 'vuông', 'study', 26),
-(267, 7, 'Thursday', '10:15:00', '11:15:00', 'Vẽ tranh tự do', 'Bé tô màu tranh vẽ ngôi nhà ấm áp của bé', 'Sân trường', 'play', 27),
-(268, 7, 'Thursday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa bổ dưỡng và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap', 28),
-(269, 7, 'Thursday', '14:00:00', '14:30:00', 'Ăn xế', 'Bánh ngọt sữa tươi hoặc trái cây theo ngày', 'Phòng ăn', 'meal', 29),
-(270, 7, 'Thursday', '14:30:00', '16:00:00', 'Âm nhạc rộn ràng', 'Tập múa hát bài Tổ ấm gia đình đầy vui nhộn', 'Lớp học', 'study', 30),
-(271, 7, 'Thursday', '16:00:00', '17:00:00', 'Trả trẻ', 'Chuẩn bị quần áo và trả trẻ cho phụ huynh', 'Cổng A', 'dropoff', 31),
-(272, 7, 'Friday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Cô đón bé tại cổng trường và tập thể dục sáng khởi động ngày mới', 'Sân trường', 'pickup', 32),
-(273, 7, 'Friday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng bổ dưỡng theo thực đơn', 'Phòng ăn', 'meal', 33),
-(274, 7, 'Friday', '09:00:00', '10:15:00', 'Khám phá thiên nhiên', 'Đi dạo tìm hiểu các loài hoa trong khuôn viên trường', 'Sân trường', 'study', 34),
-(275, 7, 'Friday', '10:15:00', '11:15:00', 'Hoạt động góc', 'Tự do chơi lắp ghép và đóng vai bác sĩ đầu bếp', 'Lớp học', 'play', 35),
-(276, 7, 'Friday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa bổ dưỡng và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap', 36),
-(277, 7, 'Friday', '14:00:00', '14:30:00', 'Ăn xế', 'Bánh ngọt sữa tươi hoặc trái cây theo ngày', 'Phòng ăn', 'meal', 37),
-(278, 7, 'Friday', '14:30:00', '16:00:00', 'Bé ngoan cuối tuần', 'Tổng kết tuần trao cờ bé ngoan và phát quà bánh', 'Lớp học', 'other', 38),
-(279, 7, 'Friday', '16:00:00', '17:00:00', 'Trả trẻ', 'Chuẩn bị quần áo và trả trẻ cho phụ huynh', 'Cổng A', 'dropoff', 39),
-(280, 7, 'Tuesday', '07:30:00', '08:20:00', 'Đón bé & Thể dục sáng sớm', 'Cô đón bé tại cổng trường và tập thể dục sáng khởi động ngày mới', 'Sân trường', 'pickup', 8),
-(321, 1, 'Monday', '07:30:00', '08:00:00', 'Đón trẻ', 'Đón trẻ tại cổng trường', 'Cổng trường', 'pickup', 0),
-(322, 1, 'Monday', '08:00:00', '08:30:00', 'Ăn sáng', 'Bữa sáng nhẹ', 'Nhà ăn', 'meal', 0),
-(323, 1, 'Monday', '08:30:00', '09:00:00', 'Chơi tự do', 'Hoạt động vui chơi tự do', 'Sân chơi', 'play', 0),
-(324, 1, 'Monday', '09:00:00', '10:00:00', 'Học chữ', 'Bé học nhận biết chữ cái A', 'BPhòng học A', 'study', 0),
-(325, 1, 'Monday', '10:00:00', '10:30:00', 'Ăn trưa nhẹ', 'Bữa ăn phụ giữa buổi', 'Nhà ăn', 'meal', 0),
-(326, 1, 'Monday', '10:30:00', '11:30:00', 'Vẽ tranh', 'Bé tô màu theo chủ đề', 'BPhòng học A', 'study', 0),
-(327, 1, 'Monday', '11:30:00', '13:00:00', 'Ngủ trưa', 'Ngủ trưa tại lớp', 'Phòng ngủ', 'nap', 0),
-(328, 1, 'Monday', '13:00:00', '13:30:00', 'Ăn chiều', 'Bữa ăn chiều', 'Nhà ăn', 'meal', 0),
-(329, 1, 'Monday', '13:30:00', '14:30:00', 'Hoạt động ngoài trời', 'Chơi ngoài sân vườn', 'Sân trường', 'play', 0),
-(330, 1, 'Monday', '14:30:00', '15:00:00', 'Học nhảy', 'Nhảy theo nhạc', 'BPhòng học A', 'study', 0),
-(331, 1, 'Monday', '15:00:00', '16:00:00', 'Trả trẻ', 'Đưa trẻ ra cổng', 'Cổng trường', 'dropoff', 0),
-(332, 1, 'Tuesday', '07:30:00', '08:00:00', 'Đón trẻ', 'Đón trẻ tại cổng trường', 'Cổng trường', 'pickup', 0),
-(333, 1, 'Tuesday', '08:00:00', '08:30:00', 'Ăn sáng', 'Bữa sáng nhẹ', 'Nhà ăn', 'meal', 0),
-(334, 1, 'Tuesday', '08:30:00', '09:00:00', 'Chơi tự do', 'Hoạt động vui chơi tự do', 'Sân chơi', 'play', 0),
-(335, 1, 'Tuesday', '09:00:00', '10:00:00', 'Học số', 'Bé học đếm số từ 1-10', 'BPhòng học A', 'study', 0),
-(336, 1, 'Tuesday', '10:00:00', '10:30:00', 'Ăn trưa nhẹ', 'Bữa ăn phụ giữa buổi', 'Nhà ăn', 'meal', 0),
-(337, 1, 'Tuesday', '10:30:00', '11:30:00', 'Âm nhạc', 'Nghe nhạc và hát theo', 'BPhòng học A', 'study', 0),
-(338, 1, 'Tuesday', '11:30:00', '13:00:00', 'Ngủ trưa', 'Ngủ trưa tại lớp', 'Phòng ngủ', 'nap', 0),
-(339, 1, 'Tuesday', '13:00:00', '13:30:00', 'Ăn chiều', 'Bữa ăn chiều', 'Nhà ăn', 'meal', 0),
-(340, 1, 'Tuesday', '13:30:00', '14:30:00', 'Xếp hình', 'Luyện tập xếp hình Block', 'BPhòng học A', 'study', 0),
-(341, 1, 'Tuesday', '14:30:00', '15:00:00', 'Kể chuyện', 'Giáo viên kể truyện', 'BPhòng học A', 'study', 0),
-(342, 1, 'Tuesday', '15:00:00', '16:00:00', 'Trả trẻ', 'Đưa trẻ ra cổng', 'Cổng trường', 'dropoff', 0),
-(343, 1, 'Wednesday', '07:30:00', '08:00:00', 'Đón trẻ', 'Đón trẻ tại cổng trường', 'Cổng trường', 'pickup', 0),
-(344, 1, 'Wednesday', '08:00:00', '08:30:00', 'Ăn sáng', 'Bữa sáng nhẹ', 'Nhà ăn', 'meal', 0),
-(345, 1, 'Wednesday', '08:30:00', '09:00:00', 'Chơi tự do', 'Hoạt động vui chơi tự do', 'Sân chơi', 'play', 0),
-(346, 1, 'Wednesday', '09:00:00', '10:00:00', 'Thể dục', 'Bài tập thể dục buổi sáng', 'Sân trường', 'study', 0),
-(347, 1, 'Wednesday', '10:00:00', '10:30:00', 'Ăn trưa nhẹ', 'Bữa ăn phụ giữa buổi', 'Nhà ăn', 'meal', 0),
-(348, 1, 'Wednesday', '10:30:00', '11:30:00', 'Tạo hình', 'Nặn đất sét theo ý thích', 'BPhòng học A', 'study', 0),
-(349, 1, 'Wednesday', '11:30:00', '13:00:00', 'Ngủ trưa', 'Ngủ trưa tại lớp', 'Phòng ngủ', 'nap', 0),
-(350, 1, 'Wednesday', '13:00:00', '13:30:00', 'Ăn chiều', 'Bữa ăn chiều', 'Nhà ăn', 'meal', 0),
-(351, 1, 'Wednesday', '13:30:00', '14:30:00', 'Sinh hoạt cùng cô', 'Thảo luận chủ đề tuần', 'BPhòng học A', 'study', 0),
-(352, 1, 'Wednesday', '14:30:00', '15:00:00', 'Hoạt động ngoài trời', 'Chơi ngoài sân vườn', 'Sân trường', 'play', 0),
-(353, 1, 'Wednesday', '15:00:00', '16:00:00', 'Trả trẻ', 'Đưa trẻ ra cổng', 'Cổng trường', 'dropoff', 0),
-(354, 1, 'Thursday', '07:30:00', '08:00:00', 'Đón trẻ', 'Đón trẻ tại cổng trường', 'Cổng trường', 'pickup', 0),
-(355, 1, 'Thursday', '08:00:00', '08:30:00', 'Ăn sáng', 'Bữa sáng nhẹ', 'Nhà ăn', 'meal', 0),
-(356, 1, 'Thursday', '08:30:00', '09:00:00', 'Chơi tự do', 'Hoạt động vui chơi tự do', 'Sân chơi', 'play', 0),
-(357, 1, 'Thursday', '09:00:00', '10:00:00', 'Học tiếng Anh', 'Từ vựng cơ bản cho bé', 'BPhòng học A', 'study', 0),
-(358, 1, 'Thursday', '10:00:00', '10:30:00', 'Ăn trưa nhẹ', 'Bữa ăn phụ giữa buổi', 'Nhà ăn', 'meal', 0),
-(359, 1, 'Thursday', '10:30:00', '11:30:00', 'Trò chơi vận động', 'Chạy nhảy theo nhạc', 'Sân trường', 'play', 0),
-(360, 1, 'Thursday', '11:30:00', '13:00:00', 'Ngủ trưa', 'Ngủ trưa tại lớp', 'Phòng ngủ', 'nap', 0),
-(361, 1, 'Thursday', '13:00:00', '13:30:00', 'Ăn chiều', 'Bữa ăn chiều', 'Nhà ăn', 'meal', 0),
-(362, 1, 'Thursday', '13:30:00', '14:30:00', 'Vẽ tranh', 'Tô màu theo chủ đề mùa hè', 'BPhòng học A', 'study', 0),
-(363, 1, 'Thursday', '14:30:00', '15:00:00', 'Xếp hình', 'Luyện tập xếp hình Block', 'BPhòng học A', 'study', 0),
-(364, 1, 'Thursday', '15:00:00', '16:00:00', 'Trả trẻ', 'Đưa trẻ ra cổng', 'Cổng trường', 'dropoff', 0),
-(365, 1, 'Friday', '07:30:00', '08:00:00', 'Đón trẻ', 'Đón trẻ tại cổng trường', 'Cổng trường', 'pickup', 0),
-(366, 1, 'Friday', '08:00:00', '08:30:00', 'Ăn sáng', 'Bữa sáng nhẹ', 'Nhà ăn', 'meal', 0),
-(367, 1, 'Friday', '08:30:00', '09:00:00', 'Chơi tự do', 'Hoạt động vui chơi tự do', 'Sân chơi', 'play', 0),
-(368, 1, 'Friday', '09:00:00', '10:00:00', 'Sinh hoạt tập thể', 'Thảo luận và chia sẻ cùng nhau', 'BPhòng học A', 'study', 0),
-(369, 1, 'Friday', '10:00:00', '10:30:00', 'Ăn trưa nhẹ', 'Bữa ăn phụ giữa buổi', 'Nhà ăn', 'meal', 0),
-(370, 1, 'Friday', '10:30:00', '11:30:00', 'Kiểm tra cuối tuần', 'Ôn tập và trò chơi tổng kết', 'BPhòng học A', 'study', 0),
-(371, 1, 'Friday', '11:30:00', '13:00:00', 'Ngủ trưa', 'Ngủ trưa tại lớp', 'Phòng ngủ', 'nap', 0),
-(372, 1, 'Friday', '13:00:00', '13:30:00', 'Ăn chiều', 'Bữa ăn chiều', 'Nhà ăn', 'meal', 0),
-(373, 1, 'Friday', '13:30:00', '14:30:00', 'Biểu diễn văn nghệ', 'Trình diễn bài hát múa', 'Sân trường', 'play', 0),
-(374, 1, 'Friday', '14:30:00', '15:00:00', 'Trao đổi với phụ huynh', 'Gửi nhận trẻ và trao đổi tình hình', 'Cổng trường', 'other', 0),
-(375, 1, 'Friday', '15:00:00', '16:00:00', 'Trả trẻ', 'Đưa trẻ ra cổng', 'Cổng trường', 'dropoff', 0),
-(376, 2, 'Monday', '07:30:00', '08:00:00', 'Đón trẻ', 'Đón trẻ tại cổng trường', 'Cổng trường', 'pickup', 0),
-(377, 2, 'Monday', '08:00:00', '08:30:00', 'Ăn sáng', 'Bữa sáng nhẹ', 'Nhà ăn', 'meal', 0),
-(378, 2, 'Monday', '08:30:00', '09:00:00', 'Chơi tự do', 'Hoạt động vui chơi tự do', 'Sân chơi', 'play', 0),
-(379, 2, 'Monday', '09:00:00', '10:00:00', 'Học chữ', 'Bé học nhận biết chữ cái B', 'BPhòng học A', 'study', 0),
-(380, 2, 'Monday', '10:00:00', '10:30:00', 'Ăn trưa nhẹ', 'Bữa ăn phụ giữa buổi', 'Nhà ăn', 'meal', 0),
-(381, 2, 'Monday', '10:30:00', '11:30:00', 'Vẽ tranh', 'Bé tô màu theo chủ đề', 'BPhòng học A', 'study', 0),
-(382, 2, 'Monday', '11:30:00', '13:00:00', 'Ngủ trưa', 'Ngủ trưa tại lớp', 'Phòng ngủ', 'nap', 0),
-(383, 2, 'Monday', '13:00:00', '13:30:00', 'Ăn chiều', 'Bữa ăn chiều', 'Nhà ăn', 'meal', 0),
-(384, 2, 'Monday', '13:30:00', '14:30:00', 'Hoạt động ngoài trời', 'Chơi ngoài sân vườn', 'Sân trường', 'play', 0),
-(385, 2, 'Monday', '14:30:00', '15:00:00', 'Học nhảy', 'Nhảy theo nhạc', 'BPhòng học A', 'study', 0),
-(386, 2, 'Monday', '15:00:00', '16:00:00', 'Trả trẻ', 'Đưa trẻ ra cổng', 'Cổng trường', 'dropoff', 0),
-(387, 2, 'Tuesday', '07:30:00', '08:00:00', 'Đón trẻ', 'Đón trẻ tại cổng trường', 'Cổng trường', 'pickup', 0),
-(388, 2, 'Tuesday', '08:00:00', '08:30:00', 'Ăn sáng', 'Bữa sáng nhẹ', 'Nhà ăn', 'meal', 0),
-(389, 2, 'Tuesday', '08:30:00', '09:00:00', 'Chơi tự do', 'Hoạt động vui chơi tự do', 'Sân chơi', 'play', 0),
-(390, 2, 'Tuesday', '09:00:00', '10:00:00', 'Học số', 'Bé học đếm số từ 11-20', 'BPhòng học A', 'study', 0),
-(391, 2, 'Tuesday', '10:00:00', '10:30:00', 'Ăn trưa nhẹ', 'Bữa ăn phụ giữa buổi', 'Nhà ăn', 'meal', 0),
-(392, 2, 'Tuesday', '10:30:00', '11:30:00', 'Âm nhạc', 'Nghe nhạc và hát theo', 'BPhòng học A', 'study', 0),
-(393, 2, 'Tuesday', '11:30:00', '13:00:00', 'Ngủ trưa', 'Ngủ trưa tại lớp', 'Phòng ngủ', 'nap', 0),
-(394, 2, 'Tuesday', '13:00:00', '13:30:00', 'Ăn chiều', 'Bữa ăn chiều', 'Nhà ăn', 'meal', 0),
-(395, 2, 'Tuesday', '13:30:00', '14:30:00', 'Xếp hình', 'Luyện tập xếp hình Block', 'BPhòng học A', 'study', 0),
-(396, 2, 'Tuesday', '14:30:00', '15:00:00', 'Kể chuyện', 'Giáo viên kể truyện', 'BPhòng học A', 'study', 0),
-(397, 2, 'Tuesday', '15:00:00', '16:00:00', 'Trả trẻ', 'Đưa trẻ ra cổng', 'Cổng trường', 'dropoff', 0),
-(398, 2, 'Wednesday', '07:30:00', '08:00:00', 'Đón trẻ', 'Đón trẻ tại cổng trường', 'Cổng trường', 'pickup', 0),
-(399, 2, 'Wednesday', '08:00:00', '08:30:00', 'Ăn sáng', 'Bữa sáng nhẹ', 'Nhà ăn', 'meal', 0),
-(400, 2, 'Wednesday', '08:30:00', '09:00:00', 'Chơi tự do', 'Hoạt động vui chơi tự do', 'Sân chơi', 'play', 0),
-(401, 2, 'Wednesday', '09:00:00', '10:00:00', 'Thể dục', 'Bài tập thể dục buổi sáng', 'Sân trường', 'study', 0),
-(402, 2, 'Wednesday', '10:00:00', '10:30:00', 'Ăn trưa nhẹ', 'Bữa ăn phụ giữa buổi', 'Nhà ăn', 'meal', 0),
-(403, 2, 'Wednesday', '10:30:00', '11:30:00', 'Tạo hình', 'Nặn đất sét theo ý thích', 'BPhòng học A', 'study', 0),
-(404, 2, 'Wednesday', '11:30:00', '13:00:00', 'Ngủ trưa', 'Ngủ trưa tại lớp', 'Phòng ngủ', 'nap', 0),
-(405, 2, 'Wednesday', '13:00:00', '13:30:00', 'Ăn chiều', 'Bữa ăn chiều', 'Nhà ăn', 'meal', 0),
-(406, 2, 'Wednesday', '13:30:00', '14:30:00', 'Sinh hoạt cùng cô', 'Thảo luận chủ đề tuần', 'BPhòng học A', 'study', 0),
-(407, 2, 'Wednesday', '14:30:00', '15:00:00', 'Hoạt động ngoài trời', 'Chơi ngoài sân vườn', 'Sân trường', 'play', 0),
-(408, 2, 'Wednesday', '15:00:00', '16:00:00', 'Trả trẻ', 'Đưa trẻ ra cổng', 'Cổng trường', 'dropoff', 0),
-(409, 2, 'Thursday', '07:30:00', '08:00:00', 'Đón trẻ', 'Đón trẻ tại cổng trường', 'Cổng trường', 'pickup', 0),
-(410, 2, 'Thursday', '08:00:00', '08:30:00', 'Ăn sáng', 'Bữa sáng nhẹ', 'Nhà ăn', 'meal', 0),
-(411, 2, 'Thursday', '08:30:00', '09:00:00', 'Chơi tự do', 'Hoạt động vui chơi tự do', 'Sân chơi', 'play', 0),
-(412, 2, 'Thursday', '09:00:00', '10:00:00', 'Học tiếng Anh', 'Từ vựng cơ bản cho bé', 'BPhòng học A', 'study', 0),
-(413, 2, 'Thursday', '10:00:00', '10:30:00', 'Ăn trưa nhẹ', 'Bữa ăn phụ giữa buổi', 'Nhà ăn', 'meal', 0),
-(414, 2, 'Thursday', '10:30:00', '11:30:00', 'Trò chơi vận động', 'Chạy nhảy theo nhạc', 'Sân trường', 'play', 0),
-(415, 2, 'Thursday', '11:30:00', '13:00:00', 'Ngủ trưa', 'Ngủ trưa tại lớp', 'Phòng ngủ', 'nap', 0),
-(416, 2, 'Thursday', '13:00:00', '13:30:00', 'Ăn chiều', 'Bữa ăn chiều', 'Nhà ăn', 'meal', 0),
-(417, 2, 'Thursday', '13:30:00', '14:30:00', 'Vẽ tranh', 'Tô màu theo chủ đề mùa hè', 'BPhòng học A', 'study', 0),
-(418, 2, 'Thursday', '14:30:00', '15:00:00', 'Xếp hình', 'Luyện tập xếp hình Block', 'BPhòng học A', 'study', 0),
-(419, 2, 'Thursday', '15:00:00', '16:00:00', 'Trả trẻ', 'Đưa trẻ ra cổng', 'Cổng trường', 'dropoff', 0),
-(420, 2, 'Friday', '07:30:00', '08:00:00', 'Đón trẻ', 'Đón trẻ tại cổng trường', 'Cổng trường', 'pickup', 0),
-(421, 2, 'Friday', '08:00:00', '08:30:00', 'Ăn sáng', 'Bữa sáng nhẹ', 'Nhà ăn', 'meal', 0),
-(422, 2, 'Friday', '08:30:00', '09:00:00', 'Chơi tự do', 'Hoạt động vui chơi tự do', 'Sân chơi', 'play', 0),
-(423, 2, 'Friday', '09:00:00', '10:00:00', 'Sinh hoạt tập thể', 'Thảo luận và chia sẻ cùng nhau', 'BPhòng học A', 'study', 0),
-(424, 2, 'Friday', '10:00:00', '10:30:00', 'Ăn trưa nhẹ', 'Bữa ăn phụ giữa buổi', 'Nhà ăn', 'meal', 0),
-(425, 2, 'Friday', '10:30:00', '11:30:00', 'Kiểm tra cuối tuần', 'Ôn tập và trò chơi tổng kết', 'BPhòng học A', 'study', 0),
-(426, 2, 'Friday', '11:30:00', '13:00:00', 'Ngủ trưa', 'Ngủ trưa tại lớp', 'Phòng ngủ', 'nap', 0),
-(427, 2, 'Friday', '13:00:00', '13:30:00', 'Ăn chiều', 'Bữa ăn chiều', 'Nhà ăn', 'meal', 0),
-(428, 2, 'Friday', '13:30:00', '14:30:00', 'Biểu diễn văn nghệ', 'Trình diễn bài hát múa', 'Sân trường', 'play', 0),
-(429, 2, 'Friday', '14:30:00', '15:00:00', 'Trao đổi với phụ huynh', 'Gửi nhận trẻ và trao đổi tình hình', 'Cổng trường', 'other', 0),
-(430, 2, 'Friday', '15:00:00', '16:00:00', 'Trả trẻ', 'Đưa trẻ ra cổng', 'Cổng trường', 'dropoff', 0),
-(431, 3, 'Monday', '07:30:00', '08:00:00', 'Đón trẻ', 'Đón trẻ tại cổng trường', 'Cổng trường', 'pickup', 0),
-(432, 3, 'Monday', '08:00:00', '08:30:00', 'Ăn sáng', 'Bữa sáng nhẹ', 'Nhà ăn', 'meal', 0),
-(433, 3, 'Monday', '08:30:00', '09:00:00', 'Chơi tự do', 'Hoạt động vui chơi tự do', 'Sân chơi', 'play', 0),
-(434, 3, 'Monday', '09:00:00', '10:00:00', 'Học chữ', 'Bé học nhận biết chữ cái C', 'BPhòng học A', 'study', 0),
-(435, 3, 'Monday', '10:00:00', '10:30:00', 'Ăn trưa nhẹ', 'Bữa ăn phụ giữa buổi', 'Nhà ăn', 'meal', 0),
-(436, 3, 'Monday', '10:30:00', '11:30:00', 'Vẽ tranh', 'Bé tô màu theo chủ đề', 'BPhòng học A', 'study', 0),
-(437, 3, 'Monday', '11:30:00', '13:00:00', 'Ngủ trưa', 'Ngủ trưa tại lớp', 'Phòng ngủ', 'nap', 0),
-(438, 3, 'Monday', '13:00:00', '13:30:00', 'Ăn chiều', 'Bữa ăn chiều', 'Nhà ăn', 'meal', 0),
-(439, 3, 'Monday', '13:30:00', '14:30:00', 'Hoạt động ngoài trời', 'Chơi ngoài sân vườn', 'Sân trường', 'play', 0),
-(440, 3, 'Monday', '14:30:00', '15:00:00', 'Học nhảy', 'Nhảy theo nhạc', 'BPhòng học A', 'study', 0),
-(441, 3, 'Monday', '15:00:00', '16:00:00', 'Trả trẻ', 'Đưa trẻ ra cổng', 'Cổng trường', 'dropoff', 0),
-(442, 3, 'Tuesday', '07:30:00', '08:00:00', 'Đón trẻ', 'Đón trẻ tại cổng trường', 'Cổng trường', 'pickup', 0),
-(443, 3, 'Tuesday', '08:00:00', '08:30:00', 'Ăn sáng', 'Bữa sáng nhẹ', 'Nhà ăn', 'meal', 0),
-(444, 3, 'Tuesday', '08:30:00', '09:00:00', 'Chơi tự do', 'Hoạt động vui chơi tự do', 'Sân chơi', 'play', 0),
-(445, 3, 'Tuesday', '09:00:00', '10:00:00', 'Học số', 'Bé học đếm số từ 21-30', 'BPhòng học A', 'study', 0),
-(446, 3, 'Tuesday', '10:00:00', '10:30:00', 'Ăn trưa nhẹ', 'Bữa ăn phụ giữa buổi', 'Nhà ăn', 'meal', 0),
-(447, 3, 'Tuesday', '10:30:00', '11:30:00', 'Âm nhạc', 'Nghe nhạc và hát theo', 'BPhòng học A', 'study', 0),
-(448, 3, 'Tuesday', '11:30:00', '13:00:00', 'Ngủ trưa', 'Ngủ trưa tại lớp', 'Phòng ngủ', 'nap', 0),
-(449, 3, 'Tuesday', '13:00:00', '13:30:00', 'Ăn chiều', 'Bữa ăn chiều', 'Nhà ăn', 'meal', 0),
-(450, 3, 'Tuesday', '13:30:00', '14:30:00', 'Xếp hình', 'Luyện tập xếp hình Block', 'BPhòng học A', 'study', 0),
-(451, 3, 'Tuesday', '14:30:00', '15:00:00', 'Kể chuyện', 'Giáo viên kể truyện', 'BPhòng học A', 'study', 0),
-(452, 3, 'Tuesday', '15:00:00', '16:00:00', 'Trả trẻ', 'Đưa trẻ ra cổng', 'Cổng trường', 'dropoff', 0),
-(453, 3, 'Wednesday', '07:30:00', '08:00:00', 'Đón trẻ', 'Đón trẻ tại cổng trường', 'Cổng trường', 'pickup', 0),
-(454, 3, 'Wednesday', '08:00:00', '08:30:00', 'Ăn sáng', 'Bữa sáng nhẹ', 'Nhà ăn', 'meal', 0),
-(455, 3, 'Wednesday', '08:30:00', '09:00:00', 'Chơi tự do', 'Hoạt động vui chơi tự do', 'Sân chơi', 'play', 0),
-(456, 3, 'Wednesday', '09:00:00', '10:00:00', 'Thể dục', 'Bài tập thể dục buổi sáng', 'Sân trường', 'study', 0),
-(457, 3, 'Wednesday', '10:00:00', '10:30:00', 'Ăn trưa nhẹ', 'Bữa ăn phụ giữa buổi', 'Nhà ăn', 'meal', 0),
-(458, 3, 'Wednesday', '10:30:00', '11:30:00', 'Tạo hình', 'Nặn đất sét theo ý thích', 'BPhòng học A', 'study', 0),
-(459, 3, 'Wednesday', '11:30:00', '13:00:00', 'Ngủ trưa', 'Ngủ trưa tại lớp', 'Phòng ngủ', 'nap', 0),
-(460, 3, 'Wednesday', '13:00:00', '13:30:00', 'Ăn chiều', 'Bữa ăn chiều', 'Nhà ăn', 'meal', 0),
-(461, 3, 'Wednesday', '13:30:00', '14:30:00', 'Sinh hoạt cùng cô', 'Thảo luận chủ đề tuần', 'BPhòng học A', 'study', 0),
-(462, 3, 'Wednesday', '14:30:00', '15:00:00', 'Hoạt động ngoài trời', 'Chơi ngoài sân vườn', 'Sân trường', 'play', 0),
-(463, 3, 'Wednesday', '15:00:00', '16:00:00', 'Trả trẻ', 'Đưa trẻ ra cổng', 'Cổng trường', 'dropoff', 0),
-(464, 3, 'Thursday', '07:30:00', '08:00:00', 'Đón trẻ', 'Đón trẻ tại cổng trường', 'Cổng trường', 'pickup', 0),
-(465, 3, 'Thursday', '08:00:00', '08:30:00', 'Ăn sáng', 'Bữa sáng nhẹ', 'Nhà ăn', 'meal', 0),
-(466, 3, 'Thursday', '08:30:00', '09:00:00', 'Chơi tự do', 'Hoạt động vui chơi tự do', 'Sân chơi', 'play', 0),
-(467, 3, 'Thursday', '09:00:00', '10:00:00', 'Học tiếng Anh', 'Từ vựng cơ bản cho bé', 'BPhòng học A', 'study', 0),
-(468, 3, 'Thursday', '10:00:00', '10:30:00', 'Ăn trưa nhẹ', 'Bữa ăn phụ giữa buổi', 'Nhà ăn', 'meal', 0),
-(469, 3, 'Thursday', '10:30:00', '11:30:00', 'Trò chơi vận động', 'Chạy nhảy theo nhạc', 'Sân trường', 'play', 0),
-(470, 3, 'Thursday', '11:30:00', '13:00:00', 'Ngủ trưa', 'Ngủ trưa tại lớp', 'Phòng ngủ', 'nap', 0),
-(471, 3, 'Thursday', '13:00:00', '13:30:00', 'Ăn chiều', 'Bữa ăn chiều', 'Nhà ăn', 'meal', 0),
-(472, 3, 'Thursday', '13:30:00', '14:30:00', 'Vẽ tranh', 'Tô màu theo chủ đề mùa hè', 'BPhòng học A', 'study', 0),
-(473, 3, 'Thursday', '14:30:00', '15:00:00', 'Xếp hình', 'Luyện tập xếp hình Block', 'BPhòng học A', 'study', 0),
-(474, 3, 'Thursday', '15:00:00', '16:00:00', 'Trả trẻ', 'Đưa trẻ ra cổng', 'Cổng trường', 'dropoff', 0),
-(475, 3, 'Friday', '07:30:00', '08:00:00', 'Đón trẻ', 'Đón trẻ tại cổng trường', 'Cổng trường', 'pickup', 0),
-(476, 3, 'Friday', '08:00:00', '08:30:00', 'Ăn sáng', 'Bữa sáng nhẹ', 'Nhà ăn', 'meal', 0),
-(477, 3, 'Friday', '08:30:00', '09:00:00', 'Chơi tự do', 'Hoạt động vui chơi tự do', 'Sân chơi', 'play', 0),
-(478, 3, 'Friday', '09:00:00', '10:00:00', 'Sinh hoạt tập thể', 'Thảo luận và chia sẻ cùng nhau', 'BPhòng học A', 'study', 0),
-(479, 3, 'Friday', '10:00:00', '10:30:00', 'Ăn trưa nhẹ', 'Bữa ăn phụ giữa buổi', 'Nhà ăn', 'meal', 0),
-(480, 3, 'Friday', '10:30:00', '11:30:00', 'Kiểm tra cuối tuần', 'Ôn tập và trò chơi tổng kết', 'BPhòng học A', 'study', 0),
-(481, 3, 'Friday', '11:30:00', '13:00:00', 'Ngủ trưa', 'Ngủ trưa tại lớp', 'Phòng ngủ', 'nap', 0),
-(482, 3, 'Friday', '13:00:00', '13:30:00', 'Ăn chiều', 'Bữa ăn chiều', 'Nhà ăn', 'meal', 0),
-(483, 3, 'Friday', '13:30:00', '14:30:00', 'Biểu diễn văn nghệ', 'Trình diễn bài hát múa', 'Sân trường', 'play', 0),
-(484, 3, 'Friday', '14:30:00', '15:00:00', 'Trao đổi với phụ huynh', 'Gửi nhận trẻ và trao đổi tình hình', 'Cổng trường', 'other', 0),
-(485, 3, 'Friday', '15:00:00', '16:00:00', 'Trả trẻ', 'Đưa trẻ ra cổng', 'Cổng trường', 'dropoff', 0),
-(486, 4, 'Monday', '07:30:00', '08:00:00', 'Đón trẻ', 'Đón trẻ tại cổng trường', 'Cổng trường', 'pickup', 0),
-(487, 4, 'Monday', '08:00:00', '08:30:00', 'Ăn sáng', 'Bữa sáng nhẹ', 'Nhà ăn', 'meal', 0),
-(488, 4, 'Monday', '08:30:00', '09:00:00', 'Chơi tự do', 'Hoạt động vui chơi tự do', 'Sân chơi', 'play', 0),
-(489, 4, 'Monday', '09:00:00', '10:00:00', 'Học chữ', 'Bé học nhận biết chữ cái D', 'BPhòng học A', 'study', 0),
-(490, 4, 'Monday', '10:00:00', '10:30:00', 'Ăn trưa nhẹ', 'Bữa ăn phụ giữa buổi', 'Nhà ăn', 'meal', 0),
-(491, 4, 'Monday', '10:30:00', '11:30:00', 'Vẽ tranh', 'Bé tô màu theo chủ đề', 'BPhòng học A', 'study', 0),
-(492, 4, 'Monday', '11:30:00', '13:00:00', 'Ngủ trưa', 'Ngủ trưa tại lớp', 'Phòng ngủ', 'nap', 0),
-(493, 4, 'Monday', '13:00:00', '13:30:00', 'Ăn chiều', 'Bữa ăn chiều', 'Nhà ăn', 'meal', 0),
-(494, 4, 'Monday', '13:30:00', '14:30:00', 'Hoạt động ngoài trời', 'Chơi ngoài sân vườn', 'Sân trường', 'play', 0),
-(495, 4, 'Monday', '14:30:00', '15:00:00', 'Học nhảy', 'Nhảy theo nhạc', 'BPhòng học A', 'study', 0),
-(496, 4, 'Monday', '15:00:00', '16:00:00', 'Trả trẻ', 'Đưa trẻ ra cổng', 'Cổng trường', 'dropoff', 0),
-(497, 4, 'Tuesday', '07:30:00', '08:00:00', 'Đón trẻ', 'Đón trẻ tại cổng trường', 'Cổng trường', 'pickup', 0),
-(498, 4, 'Tuesday', '08:00:00', '08:30:00', 'Ăn sáng', 'Bữa sáng nhẹ', 'Nhà ăn', 'meal', 0),
-(499, 4, 'Tuesday', '08:30:00', '09:00:00', 'Chơi tự do', 'Hoạt động vui chơi tự do', 'Sân chơi', 'play', 0),
-(500, 4, 'Tuesday', '09:00:00', '10:00:00', 'Học số', 'Bé học đếm số từ 31-40', 'BPhòng học A', 'study', 0),
-(501, 4, 'Tuesday', '10:00:00', '10:30:00', 'Ăn trưa nhẹ', 'Bữa ăn phụ giữa buổi', 'Nhà ăn', 'meal', 0),
-(502, 4, 'Tuesday', '10:30:00', '11:30:00', 'Âm nhạc', 'Nghe nhạc và hát theo', 'BPhòng học A', 'study', 0),
-(503, 4, 'Tuesday', '11:30:00', '13:00:00', 'Ngủ trưa', 'Ngủ trưa tại lớp', 'Phòng ngủ', 'nap', 0),
-(504, 4, 'Tuesday', '13:00:00', '13:30:00', 'Ăn chiều', 'Bữa ăn chiều', 'Nhà ăn', 'meal', 0),
-(505, 4, 'Tuesday', '13:30:00', '14:30:00', 'Xếp hình', 'Luyện tập xếp hình Block', 'BPhòng học A', 'study', 0),
-(506, 4, 'Tuesday', '14:30:00', '15:00:00', 'Kể chuyện', 'Giáo viên kể truyện', 'BPhòng học A', 'study', 0),
-(507, 4, 'Tuesday', '15:00:00', '16:00:00', 'Trả trẻ', 'Đưa trẻ ra cổng', 'Cổng trường', 'dropoff', 0),
-(508, 4, 'Wednesday', '07:30:00', '08:00:00', 'Đón trẻ', 'Đón trẻ tại cổng trường', 'Cổng trường', 'pickup', 0),
-(509, 4, 'Wednesday', '08:00:00', '08:30:00', 'Ăn sáng', 'Bữa sáng nhẹ', 'Nhà ăn', 'meal', 0),
-(510, 4, 'Wednesday', '08:30:00', '09:00:00', 'Chơi tự do', 'Hoạt động vui chơi tự do', 'Sân chơi', 'play', 0),
-(511, 4, 'Wednesday', '09:00:00', '10:00:00', 'Thể dục', 'Bài tập thể dục buổi sáng', 'Sân trường', 'study', 0),
-(512, 4, 'Wednesday', '10:00:00', '10:30:00', 'Ăn trưa nhẹ', 'Bữa ăn phụ giữa buổi', 'Nhà ăn', 'meal', 0),
-(513, 4, 'Wednesday', '10:30:00', '11:30:00', 'Tạo hình', 'Nặn đất sét theo ý thích', 'BPhòng học A', 'study', 0),
-(514, 4, 'Wednesday', '11:30:00', '13:00:00', 'Ngủ trưa', 'Ngủ trưa tại lớp', 'Phòng ngủ', 'nap', 0),
-(515, 4, 'Wednesday', '13:00:00', '13:30:00', 'Ăn chiều', 'Bữa ăn chiều', 'Nhà ăn', 'meal', 0),
-(516, 4, 'Wednesday', '13:30:00', '14:30:00', 'Sinh hoạt cùng cô', 'Thảo luận chủ đề tuần', 'BPhòng học A', 'study', 0),
-(517, 4, 'Wednesday', '14:30:00', '15:00:00', 'Hoạt động ngoài trời', 'Chơi ngoài sân vườn', 'Sân trường', 'play', 0),
-(518, 4, 'Wednesday', '15:00:00', '16:00:00', 'Trả trẻ', 'Đưa trẻ ra cổng', 'Cổng trường', 'dropoff', 0),
-(519, 4, 'Thursday', '07:30:00', '08:00:00', 'Đón trẻ', 'Đón trẻ tại cổng trường', 'Cổng trường', 'pickup', 0),
-(520, 4, 'Thursday', '08:00:00', '08:30:00', 'Ăn sáng', 'Bữa sáng nhẹ', 'Nhà ăn', 'meal', 0),
-(521, 4, 'Thursday', '08:30:00', '09:00:00', 'Chơi tự do', 'Hoạt động vui chơi tự do', 'Sân chơi', 'play', 0),
-(522, 4, 'Thursday', '09:00:00', '10:00:00', 'Học tiếng Anh', 'Từ vựng cơ bản cho bé', 'BPhòng học A', 'study', 0),
-(523, 4, 'Thursday', '10:00:00', '10:30:00', 'Ăn trưa nhẹ', 'Bữa ăn phụ giữa buổi', 'Nhà ăn', 'meal', 0),
-(524, 4, 'Thursday', '10:30:00', '11:30:00', 'Trò chơi vận động', 'Chạy nhảy theo nhạc', 'Sân trường', 'play', 0),
-(525, 4, 'Thursday', '11:30:00', '13:00:00', 'Ngủ trưa', 'Ngủ trưa tại lớp', 'Phòng ngủ', 'nap', 0),
-(526, 4, 'Thursday', '13:00:00', '13:30:00', 'Ăn chiều', 'Bữa ăn chiều', 'Nhà ăn', 'meal', 0),
-(527, 4, 'Thursday', '13:30:00', '14:30:00', 'Vẽ tranh', 'Tô màu theo chủ đề mùa hè', 'BPhòng học A', 'study', 0),
-(528, 4, 'Thursday', '14:30:00', '15:00:00', 'Xếp hình', 'Luyện tập xếp hình Block', 'BPhòng học A', 'study', 0),
-(529, 4, 'Thursday', '15:00:00', '16:00:00', 'Trả trẻ', 'Đưa trẻ ra cổng', 'Cổng trường', 'dropoff', 0),
-(530, 4, 'Friday', '07:30:00', '08:00:00', 'Đón trẻ', 'Đón trẻ tại cổng trường', 'Cổng trường', 'pickup', 0),
-(531, 4, 'Friday', '08:00:00', '08:30:00', 'Ăn sáng', 'Bữa sáng nhẹ', 'Nhà ăn', 'meal', 0),
-(532, 4, 'Friday', '08:30:00', '09:00:00', 'Chơi tự do', 'Hoạt động vui chơi tự do', 'Sân chơi', 'play', 0),
-(533, 4, 'Friday', '09:00:00', '10:00:00', 'Sinh hoạt tập thể', 'Thảo luận và chia sẻ cùng nhau', 'BPhòng học A', 'study', 0),
-(534, 4, 'Friday', '10:00:00', '10:30:00', 'Ăn trưa nhẹ', 'Bữa ăn phụ giữa buổi', 'Nhà ăn', 'meal', 0),
-(535, 4, 'Friday', '10:30:00', '11:30:00', 'Kiểm tra cuối tuần', 'Ôn tập và trò chơi tổng kết', 'BPhòng học A', 'study', 0),
-(536, 4, 'Friday', '11:30:00', '13:00:00', 'Ngủ trưa', 'Ngủ trưa tại lớp', 'Phòng ngủ', 'nap', 0),
-(537, 4, 'Friday', '13:00:00', '13:30:00', 'Ăn chiều', 'Bữa ăn chiều', 'Nhà ăn', 'meal', 0),
-(538, 4, 'Friday', '13:30:00', '14:30:00', 'Biểu diễn văn nghệ', 'Trình diễn bài hát múa', 'Sân trường', 'play', 0),
-(539, 4, 'Friday', '14:30:00', '15:00:00', 'Trao đổi với phụ huynh', 'Gửi nhận trẻ và trao đổi tình hình', 'Cổng trường', 'other', 0),
-(540, 4, 'Friday', '15:00:00', '16:00:00', 'Trả trẻ', 'Đưa trẻ ra cổng', 'Cổng trường', 'dropoff', 0);
+INSERT INTO `WeeklyScheduleDetails` (`ScheduleDetailID`, `WeeklyScheduleID`, `DayOfWeek`, `StartTime`, `EndTime`, `ActivityName`, `Details`, `Location`, `ActivityType`) VALUES
+(1, 1, 'Monday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Tập bài dân vũ Cá Vàng Bơi', 'Sân trường', 'pickup'),
+(2, 1, 'Monday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng theo thực đơn', 'Phòng ăn', 'meal'),
+(3, 1, 'Monday', '09:00:00', '10:15:00', 'Học tập tạo hình', 'Bé vẽ và tô màu chú cá voi xanh', 'Lớp học', 'study'),
+(4, 1, 'Monday', '10:15:00', '11:15:00', 'Vui chơi tự do', 'Xem tranh ảnh về các loài cá dưới biển', 'Lớp học', 'play'),
+(5, 1, 'Monday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap'),
+(6, 1, 'Monday', '14:00:00', '14:30:00', 'Ăn xế chiều', 'Suất nhẹ xế chiều', 'Phòng ăn', 'meal'),
+(7, 1, 'Monday', '14:30:00', '16:00:00', 'Kể chuyện cổ tích', 'Cô kể chuyện Nàng Tiên Cá nhỏ', 'Lớp học', 'study'),
+(8, 1, 'Monday', '16:00:00', '17:00:00', 'Vệ sinh & Trả trẻ', 'Chuẩn bị đồ dùng và đợi ba mẹ', 'Cổng A', 'dropoff'),
+(9, 1, 'Tuesday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Tập bài dân vũ Cá Vàng Bơi', 'Sân trường', 'pickup'),
+(10, 1, 'Tuesday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng theo thực đơn', 'Phòng ăn', 'meal'),
+(11, 1, 'Tuesday', '09:00:00', '10:15:00', 'Tiếng Anh Phonics', 'Học từ vựng về biển: Fish, Shark, Ocean', 'Lớp học', 'study'),
+(12, 1, 'Tuesday', '10:15:00', '11:15:00', 'Vận động ngoài trời', 'Trò chơi vận động: Cá mập bắt cá con', 'Sân vườn', 'play'),
+(13, 1, 'Tuesday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap'),
+(14, 1, 'Tuesday', '14:00:00', '14:30:00', 'Ăn xế chiều', 'Suất nhẹ xế chiều', 'Phòng ăn', 'meal'),
+(15, 1, 'Tuesday', '14:30:00', '16:00:00', 'Trò chơi trong lớp', 'Tập làm lồng đèn hình con sứa biển', 'Lớp học', 'play'),
+(16, 1, 'Tuesday', '16:00:00', '17:00:00', 'Vệ sinh & Trả trẻ', 'Chuẩn bị đồ dùng và đợi ba mẹ', 'Cổng A', 'dropoff'),
+(17, 1, 'Wednesday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Tập bài dân vũ Cá Vàng Bơi', 'Sân trường', 'pickup'),
+(18, 1, 'Wednesday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng theo thực đơn', 'Phòng ăn', 'meal'),
+(19, 1, 'Wednesday', '09:00:00', '10:15:00', 'Khám phá khoa học', 'Tìm hiểu đời sống và sự sinh sản của Rùa biển', 'Lớp học', 'study'),
+(20, 1, 'Wednesday', '10:15:00', '11:15:00', 'Trò chơi lắp ráp', 'Xếp hình các loài sinh vật đại dương bằng lego', 'Lớp học', 'play'),
+(21, 1, 'Wednesday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap'),
+(22, 1, 'Wednesday', '14:00:00', '14:30:00', 'Ăn xế chiều', 'Suất nhẹ xế chiều', 'Phòng ăn', 'meal'),
+(23, 1, 'Wednesday', '14:30:00', '16:00:00', 'Xem phim tư liệu', 'Xem video ngắn về rặng san hô dưới đáy biển', 'Lớp học', 'study'),
+(24, 1, 'Wednesday', '16:00:00', '17:00:00', 'Vệ sinh & Trả trẻ', 'Chuẩn bị đồ dùng và đợi ba mẹ', 'Cổng A', 'dropoff'),
+(25, 1, 'Thursday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Tập bài dân vũ Cá Vàng Bơi', 'Sân trường', 'pickup'),
+(26, 1, 'Thursday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng theo thực đơn', 'Phòng ăn', 'meal'),
+(27, 1, 'Thursday', '09:00:00', '10:15:00', 'Làm quen Toán học', 'Tập đếm số lượng sao biển từ 1 đến 5', 'Lớp học', 'study'),
+(28, 1, 'Thursday', '10:15:00', '11:15:00', 'Trải nghiệm thực tế', 'Hoạt động xúc cát và chơi với nước ngoài sân', 'Sân vườn', 'play'),
+(29, 1, 'Thursday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap'),
+(30, 1, 'Thursday', '14:00:00', '14:30:00', 'Ăn xế chiều', 'Suất nhẹ xế chiều', 'Phòng ăn', 'meal'),
+(31, 1, 'Thursday', '14:30:00', '16:00:00', 'Học hát tiếng Anh', 'Tập hát bài Baby Shark vui nhộn', 'Lớp học', 'study'),
+(32, 1, 'Thursday', '16:00:00', '17:00:00', 'Vệ sinh & Trả trẻ', 'Chuẩn bị đồ dùng và đợi ba mẹ', 'Cổng A', 'dropoff'),
+(33, 1, 'Friday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Tập bài dân vũ Cá Vàng Bơi', 'Sân trường', 'pickup'),
+(34, 1, 'Friday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng theo thực đơn', 'Phòng ăn', 'meal'),
+(35, 1, 'Friday', '09:00:00', '10:15:00', 'Âm nhạc tổng kết', 'Hát múa ôn tập chủ đề biển cả', 'Lớp học', 'study'),
+(36, 1, 'Friday', '10:15:00', '11:15:00', 'Liên hoan cuối tuần', 'Vui chơi tự do và ăn bánh kẹo liên hoan nhẹ', 'Lớp học', 'play'),
+(37, 1, 'Friday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap'),
+(38, 1, 'Friday', '14:00:00', '14:30:00', 'Ăn xế chiều', 'Suất nhẹ xế chiều', 'Phòng ăn', 'meal'),
+(39, 1, 'Friday', '14:30:00', '16:00:00', 'Bé ngoan cuối tuần', 'Nhận xét ưu điểm trong tuần và phát cờ bé ngoan', 'Lớp học', 'other'),
+(40, 1, 'Friday', '16:00:00', '17:00:00', 'Vệ sinh & Trả trẻ', 'Dọn dẹp balo và trả trẻ cho phụ huynh', 'Cổng A', 'dropoff'),
+(41, 2, 'Monday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Tập bài dân vũ Kìa Con Bướm Vàng', 'Sân trường', 'pickup'),
+(42, 2, 'Monday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng theo thực đơn', 'Phòng ăn', 'meal'),
+(43, 2, 'Monday', '09:00:00', '10:15:00', 'Học tập tạo hình', 'Sáng tạo nặn đất sét hình chú kiến tinh nghịch', 'Lớp học', 'study'),
+(44, 2, 'Monday', '10:15:00', '11:15:00', 'Vui chơi tự do', 'Chơi đồ chơi xếp hình gỗ ở góc học tập', 'Lớp học', 'play'),
+(45, 2, 'Monday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap'),
+(46, 2, 'Monday', '14:00:00', '14:30:00', 'Ăn xế chiều', 'Suất nhẹ xế chiều', 'Phòng ăn', 'meal'),
+(47, 2, 'Monday', '14:30:00', '16:00:00', 'Kể chuyện cổ tích', 'Cô kể chuyện ngụ ngôn Kiến và Châu Chấu', 'Lớp học', 'study'),
+(48, 2, 'Monday', '16:00:00', '17:00:00', 'Vệ sinh & Trả trẻ', 'Chuẩn bị đồ dùng và đợi ba mẹ', 'Cổng A', 'dropoff'),
+(49, 2, 'Tuesday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Tập bài dân vũ Kìa Con Bướm Vàng', 'Sân trường', 'pickup'),
+(50, 2, 'Tuesday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng theo thực đơn', 'Phòng ăn', 'meal'),
+(51, 2, 'Tuesday', '09:00:00', '10:15:00', 'Tiếng Anh Phonics', 'Học từ vựng côn trùng: Ant, Bee, Butterfly', 'Lớp học', 'study'),
+(52, 2, 'Tuesday', '10:15:00', '11:15:00', 'Vận động ngoài trời', 'Trò chơi dân gian: Ong vàng tìm mật', 'Sân vườn', 'play'),
+(53, 2, 'Tuesday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap'),
+(54, 2, 'Tuesday', '14:00:00', '14:30:00', 'Ăn xế chiều', 'Suất nhẹ xế chiều', 'Phòng ăn', 'meal'),
+(55, 2, 'Tuesday', '14:30:00', '16:00:00', 'Trò chơi dân gian', 'Trò chơi: Thả đỉa ba ba ngoài sân', 'Sân trường', 'play'),
+(56, 2, 'Tuesday', '16:00:00', '17:00:00', 'Vệ sinh & Trả trẻ', 'Chuẩn bị đồ dùng và đợi ba mẹ', 'Cổng A', 'dropoff'),
+(57, 2, 'Wednesday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Tập bài dân vũ Kìa Con Bướm Vàng', 'Sân trường', 'pickup'),
+(58, 2, 'Wednesday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng theo thực đơn', 'Phòng ăn', 'meal'),
+(59, 2, 'Wednesday', '09:00:00', '10:15:00', 'Khám phá khoa học', 'Xem phim tư liệu ngắn về vòng đời của loài Bướm', 'Lớp học', 'study'),
+(60, 2, 'Wednesday', '10:15:00', '11:15:00', 'Hoạt động góc', 'Bé tập đóng vai làm bác sĩ, người bán hàng', 'Lớp học', 'play'),
+(61, 2, 'Wednesday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap'),
+(62, 2, 'Wednesday', '14:00:00', '14:30:00', 'Ăn xế chiều', 'Suất nhẹ xế chiều', 'Phòng ăn', 'meal'),
+(63, 2, 'Wednesday', '14:30:00', '16:00:00', 'Học vẽ cơ bản', 'Hướng dẫn vẽ chú bọ rùa bằng các nét tròn', 'Lớp học', 'study'),
+(64, 2, 'Wednesday', '16:00:00', '17:00:00', 'Vệ sinh & Trả trẻ', 'Chuẩn bị đồ dùng và đợi ba mẹ', 'Cổng A', 'dropoff'),
+(65, 2, 'Thursday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Tập bài dân vũ Kìa Con Bướm Vàng', 'Sân trường', 'pickup'),
+(66, 2, 'Thursday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng theo thực đơn', 'Phòng ăn', 'meal'),
+(67, 2, 'Thursday', '09:00:00', '10:15:00', 'Làm quen Toán học', 'Phân biệt kích thước lớn - nhỏ của các loài bọ', 'Lớp học', 'study'),
+(68, 2, 'Thursday', '10:15:00', '11:15:00', 'Kỹ năng sống', 'Hướng dẫn quy trình rửa tay bằng xà phòng chuẩn', 'Lớp học', 'study'),
+(69, 2, 'Thursday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap'),
+(70, 2, 'Thursday', '14:00:00', '14:30:00', 'Ăn xế chiều', 'Suất nhẹ xế chiều', 'Phòng ăn', 'meal'),
+(71, 2, 'Thursday', '14:30:00', '16:00:00', 'Trò chơi vận động', 'Trò chơi: Bay như chú bướm, bò như chú kiến', 'Lớp học', 'play'),
+(72, 2, 'Thursday', '16:00:00', '17:00:00', 'Vệ sinh & Trả trẻ', 'Chuẩn bị đồ dùng và đợi ba mẹ', 'Cổng A', 'dropoff'),
+(73, 2, 'Friday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Tập bài dân vũ Kìa Con Bướm Vàng', 'Sân trường', 'pickup'),
+(74, 2, 'Friday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng theo thực đơn', 'Phòng ăn', 'meal'),
+(75, 2, 'Friday', '09:00:00', '10:15:00', 'Âm nhạc tổng kết', 'Hát bài Chị Ong Nâu Và Em Bé kết hợp gõ đệm', 'Lớp học', 'study'),
+(76, 2, 'Friday', '10:15:00', '11:15:00', 'Vui chơi sân trường', 'Dạo chơi nhặt lá cây, quan sát côn trùng vườn', 'Sân vườn', 'play'),
+(77, 2, 'Friday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap'),
+(78, 2, 'Friday', '14:00:00', '14:30:00', 'Ăn xế chiều', 'Suất nhẹ xế chiều', 'Phòng ăn', 'meal'),
+(79, 2, 'Friday', '14:30:00', '16:00:00', 'Bé ngoan cuối tuần', 'Đánh giá thi đua tuần, tuyên dương phát cờ', 'Lớp học', 'other'),
+(80, 2, 'Friday', '16:00:00', '17:00:00', 'Vệ sinh & Trả trẻ', 'Dọn dẹp balo và trả trẻ cho phụ huynh', 'Cổng A', 'dropoff'),
+(81, 3, 'Monday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Tập bài thể dục sáng: Đội kèn tí hon', 'Sân trường', 'pickup'),
+(82, 3, 'Monday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng theo thực đơn', 'Phòng ăn', 'meal'),
+(83, 3, 'Monday', '09:00:00', '10:15:00', 'Học tập chuyên đề', 'Bé làm quen và nhận biết nhạc cụ: Trống, Đàn', 'Lớp học', 'study'),
+(84, 3, 'Monday', '10:15:00', '11:15:00', 'Vui chơi âm nhạc', 'Tự do gõ trống đồ chơi, lắc vòng theo nhịp điệu', 'Lớp học', 'play'),
+(85, 3, 'Monday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap'),
+(86, 3, 'Monday', '14:00:00', '14:30:00', 'Ăn xế chiều', 'Suất nhẹ xế chiều', 'Phòng ăn', 'meal'),
+(87, 3, 'Monday', '14:30:00', '16:00:00', 'Kể chuyện âm thanh', 'Nghe kể chuyện theo các hiệu ứng âm thanh nhạc cụ', 'Lớp học', 'study'),
+(88, 3, 'Monday', '16:00:00', '17:00:00', 'Vệ sinh & Trả trẻ', 'Chuẩn bị đồ dùng và đợi ba mẹ', 'Cổng A', 'dropoff'),
+(89, 3, 'Tuesday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Tập bài thể dục sáng: Đội kèn tí hon', 'Sân trường', 'pickup'),
+(90, 3, 'Tuesday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng theo thực đơn', 'Phòng ăn', 'meal'),
+(91, 3, 'Tuesday', '09:00:00', '10:15:00', 'Tiếng Anh Phonics', 'Học từ vựng âm nhạc: Song, Dance, Music', 'Lớp học', 'study'),
+(92, 3, 'Tuesday', '10:15:00', '11:15:00', 'Vận động thể chất', 'Nhảy dân vũ tập thể theo nhạc thiếu nhi sôi động', 'Sân trường', 'study'),
+(93, 3, 'Tuesday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap'),
+(94, 3, 'Tuesday', '14:00:00', '14:30:00', 'Ăn xế chiều', 'Suất nhẹ xế chiều', 'Phòng ăn', 'meal'),
+(95, 3, 'Tuesday', '14:30:00', '16:00:00', 'Hoạt động vũ đạo', 'Tập các động tác múa tay theo nhịp bài hát', 'Lớp học', 'play'),
+(96, 3, 'Tuesday', '16:00:00', '17:00:00', 'Vệ sinh & Trả trẻ', 'Chuẩn bị đồ dùng và đợi ba mẹ', 'Cổng A', 'dropoff'),
+(97, 3, 'Wednesday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Tập bài thể dục sáng: Đội kèn tí hon', 'Sân trường', 'pickup'),
+(98, 3, 'Wednesday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng theo thực đơn', 'Phòng ăn', 'meal'),
+(99, 3, 'Wednesday', '09:00:00', '10:15:00', 'Khám phá âm thanh', 'Trò chơi phân biệt âm thanh to - nhỏ, cao - trầm', 'Lớp học', 'study'),
+(100, 3, 'Wednesday', '10:15:00', '11:15:00', 'Trò chơi dân gian', 'Trò chơi: Tập tầm vông kết hợp hát đồng dao', 'Lớp học', 'play'),
+(101, 3, 'Wednesday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap'),
+(102, 3, 'Wednesday', '14:00:00', '14:30:00', 'Ăn xế chiều', 'Suất nhẹ xế chiều', 'Phòng ăn', 'meal'),
+(103, 3, 'Wednesday', '14:30:00', '16:00:00', 'Tự làm nhạc cụ', 'Hướng dẫn bỏ sỏi vào chai nhựa làm xúc xắc', 'Lớp học', 'study'),
+(104, 3, 'Wednesday', '16:00:00', '17:00:00', 'Vệ sinh & Trả trẻ', 'Chuẩn bị đồ dùng và đợi ba mẹ', 'Cổng A', 'dropoff'),
+(105, 3, 'Thursday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Tập bài thể dục sáng: Đội kèn tí hon', 'Sân trường', 'pickup'),
+(106, 3, 'Thursday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng theo thực đơn', 'Phòng ăn', 'meal'),
+(107, 3, 'Thursday', '09:00:00', '10:15:00', 'Làm quen Toán học', 'Tập đếm số lượng nốt nhạc trang trí trên bảng', 'Lớp học', 'study'),
+(108, 3, 'Thursday', '10:15:00', '11:15:00', 'Vận động nhóm', 'Trò chơi dân gian liên hoàn: Nhảy bao bố nhỏ', 'Sân vườn', 'play'),
+(109, 3, 'Thursday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap'),
+(110, 3, 'Thursday', '14:00:00', '14:30:00', 'Ăn xế chiều', 'Suất nhẹ xế chiều', 'Phòng ăn', 'meal'),
+(111, 3, 'Thursday', '14:30:00', '16:00:00', 'Trò chơi âm nhạc', 'Trò chơi: Nhảy vào vòng tròn khi nhạc tắt', 'Lớp học', 'play'),
+(112, 3, 'Thursday', '16:00:00', '17:00:00', 'Vệ sinh & Trả trẻ', 'Chuẩn bị đồ dùng và đợi ba mẹ', 'Cổng A', 'dropoff'),
+(113, 3, 'Friday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Tập bài thể dục sáng: Đội kèn tí hon', 'Sân trường', 'pickup'),
+(114, 3, 'Friday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng theo thực đơn', 'Phòng ăn', 'meal'),
+(115, 3, 'Friday', '09:00:00', '10:15:00', 'Văn nghệ tổng kết', 'Hát múa biểu diễn bài hát Mùa Hè Đến trước lớp', 'Lớp học', 'study'),
+(116, 3, 'Friday', '10:15:00', '11:15:00', 'Biểu diễn tự do', 'Các nhóm nhỏ tự tin lên sân khấu thể hiện', 'Lớp học', 'play'),
+(117, 3, 'Friday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap'),
+(118, 3, 'Friday', '14:00:00', '14:30:00', 'Ăn xế chiều', 'Suất nhẹ xế chiều', 'Phòng ăn', 'meal'),
+(119, 3, 'Friday', '14:30:00', '16:00:00', 'Bé ngoan cuối tuần', 'Bình xét thi đua, trao cờ bé ngoan cuối tuần', 'Lớp học', 'other'),
+(120, 3, 'Friday', '16:00:00', '17:00:00', 'Vệ sinh & Trả trẻ', 'Dọn dẹp balo và trả trẻ cho phụ huynh', 'Cổng A', 'dropoff'),
+(121, 4, 'Monday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Tập bài thể dục sáng: Lá cây xào xạc', 'Sân trường', 'pickup'),
+(122, 4, 'Monday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng theo thực đơn', 'Phòng ăn', 'meal'),
+(123, 4, 'Monday', '09:00:00', '10:15:00', 'Học tập tạo hình', 'Làm tranh sáng tạo xé dán từ các loại lá khô', 'Lớp học', 'study'),
+(124, 4, 'Monday', '10:15:00', '11:15:00', 'Vui chơi thiên nhiên', 'Phân loại các nhóm sỏi đá theo màu sắc kích thước', 'Lớp học', 'play'),
+(125, 4, 'Monday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap'),
+(126, 4, 'Monday', '14:00:00', '14:30:00', 'Ăn xế chiều', 'Suất nhẹ xế chiều', 'Phòng ăn', 'meal'),
+(127, 4, 'Monday', '14:30:00', '16:00:00', 'Kể chuyện môi trường', 'Nghe kể chuyện về bảo vệ rừng xanh và động vật', 'Lớp học', 'study'),
+(128, 4, 'Monday', '16:00:00', '17:00:00', 'Vệ sinh & Trả trẻ', 'Chuẩn bị đồ dùng và đợi ba mẹ', 'Cổng A', 'dropoff'),
+(129, 4, 'Tuesday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Tập bài thể dục sáng: Lá cây xào xạc', 'Sân trường', 'pickup'),
+(130, 4, 'Tuesday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng theo thực đơn', 'Phòng ăn', 'meal'),
+(131, 4, 'Tuesday', '09:00:00', '10:15:00', 'Tiếng Anh Phonics', 'Học từ vựng môi trường: Tree, Leaf, Flower, Earth', 'Lớp học', 'study'),
+(132, 4, 'Tuesday', '10:15:00', '11:15:00', 'Vận động làm vườn', 'Ra sân tưới cây, bắt sâu cho chậu cây cảnh nhỏ', 'Sân vườn', 'play'),
+(133, 4, 'Tuesday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap'),
+(134, 4, 'Tuesday', '14:00:00', '14:30:00', 'Ăn xế chiều', 'Suất nhẹ xế chiều', 'Phòng ăn', 'meal'),
+(135, 4, 'Tuesday', '14:30:00', '16:00:00', 'Trò chơi vận động', 'Trò chơi: Nhảy qua các chướng ngại vật sỏi đá', 'Sân trường', 'play'),
+(136, 4, 'Tuesday', '16:00:00', '17:00:00', 'Vệ sinh & Trả trẻ', 'Chuẩn bị đồ dùng và đợi ba mẹ', 'Cổng A', 'dropoff'),
+(137, 4, 'Wednesday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Tập bài thể dục sáng: Lá cây xào xạc', 'Sân trường', 'pickup'),
+(138, 4, 'Wednesday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng theo thực đơn', 'Phòng ăn', 'meal'),
+(139, 4, 'Wednesday', '09:00:00', '10:15:00', 'Khám phá khoa học', 'Học bài học bỏ rác đúng nơi quy định bảo vệ trường', 'Lớp học', 'study'),
+(140, 4, 'Wednesday', '10:15:00', '11:15:00', 'Trò chơi tái chế', 'Cùng cô tập phân loại rác hữu cơ và vô cơ', 'Lớp học', 'play'),
+(141, 4, 'Wednesday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap'),
+(142, 4, 'Wednesday', '14:00:00', '14:30:00', 'Ăn xế chiều', 'Suất nhẹ xế chiều', 'Phòng ăn', 'meal'),
+(143, 4, 'Wednesday', '14:30:00', '16:00:00', 'Làm đồ handmade', 'Tập cắt dán hoa giấy từ các mảnh giấy vụn thừa', 'Lớp học', 'study'),
+(144, 4, 'Wednesday', '16:00:00', '17:00:00', 'Vệ sinh & Trả trẻ', 'Chuẩn bị đồ dùng và đợi ba mẹ', 'Cổng A', 'dropoff'),
+(145, 4, 'Thursday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Tập bài thể dục sáng: Lá cây xào xạc', 'Sân trường', 'pickup'),
+(146, 4, 'Thursday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng theo thực đơn', 'Phòng ăn', 'meal'),
+(147, 4, 'Thursday', '09:00:00', '10:15:00', 'Làm quen Toán học', 'Tập đếm cánh hoa và học khái niệm nhiều - ít', 'Lớp học', 'study'),
+(148, 4, 'Thursday', '10:15:00', '11:15:00', 'Trải nghiệm nông nghiệp', 'Thực hành gieo hạt mầm đậu xanh vào chậu đất nhỏ', 'Sân vườn', 'play'),
+(149, 4, 'Thursday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap'),
+(150, 4, 'Thursday', '14:00:00', '14:30:00', 'Ăn xế chiều', 'Suất nhẹ xế chiều', 'Phòng ăn', 'meal'),
+(151, 4, 'Thursday', '14:30:00', '16:00:00', 'Trò chơi tương tác', 'Trò chơi đóng vai: Em làm bác nông dân tưới rau', 'Lớp học', 'play'),
+(152, 4, 'Thursday', '16:00:00', '17:00:00', 'Vệ sinh & Trả trẻ', 'Chuẩn bị đồ dùng và đợi ba mẹ', 'Cổng A', 'dropoff'),
+(153, 4, 'Friday', '07:30:00', '08:30:00', 'Đón bé & Thể dục sáng', 'Tập bài thể dục sáng: Lá cây xào xạc', 'Sân trường', 'pickup'),
+(154, 4, 'Friday', '08:30:00', '09:00:00', 'Ăn sáng dinh dưỡng', 'Suất ăn sáng theo thực đơn', 'Phòng ăn', 'meal'),
+(155, 4, 'Friday', '09:00:00', '10:15:00', 'Âm nhạc ôn tập', 'Tập hát bài hát tập thể Em Yêu Cây Xanh rộn rã', 'Lớp học', 'study'),
+(156, 4, 'Friday', '10:15:00', '11:15:00', 'Triển lãm mini', 'Trưng bày các chậu cây đậu xanh tự tay bé gieo', 'Lớp học', 'play'),
+(157, 4, 'Friday', '11:15:00', '14:00:00', 'Ăn trưa & Ngủ trưa', 'Cơm trưa và giấc ngủ trưa yên tĩnh', 'Phòng ngủ', 'nap'),
+(158, 4, 'Friday', '14:00:00', '14:30:00', 'Ăn xế chiều', 'Suất nhẹ xế chiều', 'Phòng ăn', 'meal'),
+(159, 4, 'Friday', '14:30:00', '16:00:00', 'Bé ngoan cuối tháng', 'Tổng kết thi đua tháng 7, phát quà và cờ bé ngoan', 'Lớp học', 'other'),
+(160, 4, 'Friday', '16:00:00', '17:00:00', 'Vệ sinh & Trả trẻ', 'Dọn dẹp balo và trả trẻ cho phụ huynh', 'Cổng A', 'dropoff');
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `WeeklySchedules`
+-- Table structure for table `WeeklySchedules`
 --
 
 CREATE TABLE `WeeklySchedules` (
@@ -1821,41 +1750,45 @@ CREATE TABLE `WeeklySchedules` (
   `WeekOrder` int NOT NULL,
   `WeekTheme` varchar(255) NOT NULL,
   `CreatedAt` bigint DEFAULT (unix_timestamp()),
-  `UpdatedAt` bigint DEFAULT (unix_timestamp()),
-  `ApprovedStatus` int DEFAULT '0'
+  `UpdatedAt` bigint DEFAULT (unix_timestamp())
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `WeeklySchedules`
+-- Dumping data for table `WeeklySchedules`
 --
 
-INSERT INTO `WeeklySchedules` (`WeeklyScheduleID`, `MonthlyScheduleID`, `WeekOrder`, `WeekTheme`, `CreatedAt`, `UpdatedAt`, `ApprovedStatus`) VALUES
-(1, 1, 1, 'Tuần 1: Làm quen với biển cả (Sinh vật đại dương)', 1783012594, 1783497482, 0),
-(2, 1, 2, 'Tuần 2: Những người bạn tí hon (Thế giới côn trùng)', 1783012594, 1783470776, 0),
-(3, 1, 3, 'Tuần 3: Giai điệu mùa hè (Âm nhạc và vận động)', 1783012594, 1783470788, 0),
-(4, 1, 4, 'Tuần 4: Sáng tạo cùng thiên nhiên (Bảo vệ môi trường)', 1783012594, 1783012594, 0),
-(5, 2, 1, 'Tuần 1: Làm quen với rừng xanh (Sinh vật trong rừng)', 1783471617, 1783472756, 1),
-(6, 2, 2, '', 1783472851, 1783472862, 1),
-(7, 2, 3, 'Đi Du Lịch', 1783473202, 1783473239, 1);
+INSERT INTO `WeeklySchedules` (`WeeklyScheduleID`, `MonthlyScheduleID`, `WeekOrder`, `WeekTheme`, `CreatedAt`, `UpdatedAt`) VALUES
+(1, 1, 1, 'Tuần 1: Làm quen với biển cả (Sinh vật đại dương)', 1783012594, 1783012594),
+(2, 1, 2, 'Tuần 2: Những người bạn tí hon (Thế giới côn trùng)', 1783012594, 1783012594),
+(3, 1, 3, 'Tuần 3: Giai điệu mùa hè (Âm nhạc và vận động)', 1783012594, 1783012594),
+(4, 1, 4, 'Tuần 4: Sáng tạo cùng thiên nhiên (Bảo vệ môi trường)', 1783012594, 1783012594);
 
 --
--- Chỉ mục cho các bảng đã đổ
+-- Indexes for dumped tables
 --
 
 --
--- Chỉ mục cho bảng `AcademicYears`
+-- Indexes for table `AcademicYears`
 --
 ALTER TABLE `AcademicYears`
   ADD PRIMARY KEY (`YearID`);
 
 --
--- Chỉ mục cho bảng `Admins`
+-- Indexes for table `Admins`
 --
 ALTER TABLE `Admins`
   ADD PRIMARY KEY (`AdminID`);
 
 --
--- Chỉ mục cho bảng `Attendances`
+-- Indexes for table `Allergies`
+--
+ALTER TABLE `Allergies`
+  ADD PRIMARY KEY (`AllergyID`),
+  ADD KEY `idx_allergies_student` (`StudentID`),
+  ADD KEY `idx_allergies_active` (`IsActive`);
+
+--
+-- Indexes for table `Attendances`
 --
 ALTER TABLE `Attendances`
   ADD PRIMARY KEY (`AttendanceID`),
@@ -1867,27 +1800,27 @@ ALTER TABLE `Attendances`
   ADD KEY `fk_picked_up_parent` (`PickedUpByParentID`);
 
 --
--- Chỉ mục cho bảng `BaseFees`
+-- Indexes for table `BaseFees`
 --
 ALTER TABLE `BaseFees`
   ADD PRIMARY KEY (`FeeID`),
   ADD KEY `YearID` (`YearID`);
 
 --
--- Chỉ mục cho bảng `Buildings`
+-- Indexes for table `Buildings`
 --
 ALTER TABLE `Buildings`
   ADD PRIMARY KEY (`BuildingID`),
   ADD KEY `CampusID` (`CampusID`);
 
 --
--- Chỉ mục cho bảng `Campuses`
+-- Indexes for table `Campuses`
 --
 ALTER TABLE `Campuses`
   ADD PRIMARY KEY (`CampusID`);
 
 --
--- Chỉ mục cho bảng `Classes`
+-- Indexes for table `Classes`
 --
 ALTER TABLE `Classes`
   ADD PRIMARY KEY (`ClassID`),
@@ -1896,28 +1829,28 @@ ALTER TABLE `Classes`
   ADD KEY `YearID` (`YearID`);
 
 --
--- Chỉ mục cho bảng `ClassTeachers`
+-- Indexes for table `ClassTeachers`
 --
 ALTER TABLE `ClassTeachers`
   ADD PRIMARY KEY (`ClassID`,`TeacherID`),
   ADD KEY `TeacherID` (`TeacherID`);
 
 --
--- Chỉ mục cho bảng `DailyActivities`
+-- Indexes for table `DailyActivities`
 --
 ALTER TABLE `DailyActivities`
   ADD PRIMARY KEY (`ActivityID`),
   ADD UNIQUE KEY `Unique_Student_Date` (`StudentID`,`LogDate`);
 
 --
--- Chỉ mục cho bảng `DailyAlbumPhotos`
+-- Indexes for table `DailyAlbumPhotos`
 --
 ALTER TABLE `DailyAlbumPhotos`
   ADD PRIMARY KEY (`PhotoID`),
   ADD KEY `AlbumID` (`AlbumID`);
 
 --
--- Chỉ mục cho bảng `DailyAlbums`
+-- Indexes for table `DailyAlbums`
 --
 ALTER TABLE `DailyAlbums`
   ADD PRIMARY KEY (`AlbumID`),
@@ -1926,7 +1859,7 @@ ALTER TABLE `DailyAlbums`
   ADD KEY `idx_album_date` (`ClassID`,`AlbumDate`) COMMENT 'Tối ưu tốc độ tìm kiếm album theo lớp và ngày';
 
 --
--- Chỉ mục cho bảng `DailyLessons`
+-- Indexes for table `DailyLessons`
 --
 ALTER TABLE `DailyLessons`
   ADD PRIMARY KEY (`LessonLogID`),
@@ -1934,21 +1867,29 @@ ALTER TABLE `DailyLessons`
   ADD KEY `idx_class_lesson_date` (`ClassID`,`LessonDate`);
 
 --
--- Chỉ mục cho bảng `DailySchedules`
+-- Indexes for table `DailySchedules`
 --
 ALTER TABLE `DailySchedules`
   ADD PRIMARY KEY (`DailyScheduleID`),
   ADD KEY `idx_class_date` (`ClassID`,`ScheduleDate`);
 
 --
--- Chỉ mục cho bảng `EventClasses`
+-- Indexes for table `DevelopmentAssessments`
+--
+ALTER TABLE `DevelopmentAssessments`
+  ADD PRIMARY KEY (`AssessmentID`),
+  ADD UNIQUE KEY `uq_dev_assessments_student_term` (`StudentID`,`TermPeriod`),
+  ADD KEY `idx_dev_assessments_term` (`TermPeriod`);
+
+--
+-- Indexes for table `EventClasses`
 --
 ALTER TABLE `EventClasses`
   ADD PRIMARY KEY (`EventID`,`ClassID`),
   ADD KEY `ClassID` (`ClassID`);
 
 --
--- Chỉ mục cho bảng `Events`
+-- Indexes for table `Events`
 --
 ALTER TABLE `Events`
   ADD PRIMARY KEY (`EventID`),
@@ -1956,20 +1897,20 @@ ALTER TABLE `Events`
   ADD KEY `idx_events_time` (`StartTime`,`EndTime`);
 
 --
--- Chỉ mục cho bảng `EventStudents`
+-- Indexes for table `EventStudents`
 --
 ALTER TABLE `EventStudents`
   ADD PRIMARY KEY (`EventID`,`StudentID`),
   ADD KEY `FK_EventStudents_Students` (`StudentID`);
 
 --
--- Chỉ mục cho bảng `Extracurriculars`
+-- Indexes for table `Extracurriculars`
 --
 ALTER TABLE `Extracurriculars`
   ADD PRIMARY KEY (`ActivityID`);
 
 --
--- Chỉ mục cho bảng `fcm_tokens`
+-- Indexes for table `fcm_tokens`
 --
 ALTER TABLE `fcm_tokens`
   ADD PRIMARY KEY (`TokenID`),
@@ -1977,7 +1918,7 @@ ALTER TABLE `fcm_tokens`
   ADD KEY `UserID` (`UserID`);
 
 --
--- Chỉ mục cho bảng `Feedbacks`
+-- Indexes for table `Feedbacks`
 --
 ALTER TABLE `Feedbacks`
   ADD PRIMARY KEY (`FeedbackID`),
@@ -1985,27 +1926,27 @@ ALTER TABLE `Feedbacks`
   ADD KEY `RespondedByID` (`RespondedByID`);
 
 --
--- Chỉ mục cho bảng `Grades`
+-- Indexes for table `Grades`
 --
 ALTER TABLE `Grades`
   ADD PRIMARY KEY (`GradeID`);
 
 --
--- Chỉ mục cho bảng `HealthRecords`
+-- Indexes for table `HealthRecords`
 --
 ALTER TABLE `HealthRecords`
   ADD PRIMARY KEY (`RecordID`),
   ADD KEY `StudentID` (`StudentID`);
 
 --
--- Chỉ mục cho bảng `Holidays`
+-- Indexes for table `Holidays`
 --
 ALTER TABLE `Holidays`
   ADD PRIMARY KEY (`HolidayID`),
   ADD KEY `idx_date` (`HolidayDate`);
 
 --
--- Chỉ mục cho bảng `Invoices`
+-- Indexes for table `Invoices`
 --
 ALTER TABLE `Invoices`
   ADD PRIMARY KEY (`InvoiceID`),
@@ -2014,7 +1955,7 @@ ALTER TABLE `Invoices`
   ADD KEY `PackageID` (`PackageID`);
 
 --
--- Chỉ mục cho bảng `LeaveRequests`
+-- Indexes for table `LeaveRequests`
 --
 ALTER TABLE `LeaveRequests`
   ADD PRIMARY KEY (`RequestID`),
@@ -2023,7 +1964,7 @@ ALTER TABLE `LeaveRequests`
   ADD KEY `ApproverID` (`ApproverID`);
 
 --
--- Chỉ mục cho bảng `MedicationRequests`
+-- Indexes for table `MedicationRequests`
 --
 ALTER TABLE `MedicationRequests`
   ADD PRIMARY KEY (`MedRequestID`),
@@ -2031,28 +1972,28 @@ ALTER TABLE `MedicationRequests`
   ADD KEY `ParentID` (`ParentID`);
 
 --
--- Chỉ mục cho bảng `MenuDetails`
+-- Indexes for table `MenuDetails`
 --
 ALTER TABLE `MenuDetails`
   ADD PRIMARY KEY (`MenuDetailID`),
   ADD UNIQUE KEY `Unique_Menu_Day_Meal` (`MenuID`,`DayOfWeek`,`MealType`);
 
 --
--- Chỉ mục cho bảng `Menus`
+-- Indexes for table `Menus`
 --
 ALTER TABLE `Menus`
   ADD PRIMARY KEY (`MenuID`),
   ADD UNIQUE KEY `Unique_Class_Week_Year` (`ClassID`,`WeekNumber`,`Year`);
 
 --
--- Chỉ mục cho bảng `MonthlySchedules`
+-- Indexes for table `MonthlySchedules`
 --
 ALTER TABLE `MonthlySchedules`
   ADD PRIMARY KEY (`MonthlyScheduleID`),
   ADD UNIQUE KEY `Unique_Class_Month_Year` (`ClassID`,`Month`,`Year`);
 
 --
--- Chỉ mục cho bảng `Newsfeeds`
+-- Indexes for table `Newsfeeds`
 --
 ALTER TABLE `Newsfeeds`
   ADD PRIMARY KEY (`PostID`),
@@ -2060,45 +2001,45 @@ ALTER TABLE `Newsfeeds`
   ADD KEY `TeacherID` (`TeacherID`);
 
 --
--- Chỉ mục cho bảng `NewsfeedTags`
+-- Indexes for table `NewsfeedTags`
 --
 ALTER TABLE `NewsfeedTags`
   ADD PRIMARY KEY (`PostID`,`StudentID`),
   ADD KEY `StudentID` (`StudentID`);
 
 --
--- Chỉ mục cho bảng `Notifications`
+-- Indexes for table `Notifications`
 --
 ALTER TABLE `Notifications`
   ADD PRIMARY KEY (`NotifID`),
   ADD KEY `UserID` (`UserID`);
 
 --
--- Chỉ mục cho bảng `NotificationSettings`
+-- Indexes for table `NotificationSettings`
 --
 ALTER TABLE `NotificationSettings`
   ADD PRIMARY KEY (`UserID`);
 
 --
--- Chỉ mục cho bảng `Parents`
+-- Indexes for table `Parents`
 --
 ALTER TABLE `Parents`
   ADD PRIMARY KEY (`ParentID`);
 
 --
--- Chỉ mục cho bảng `PaymentPackages`
+-- Indexes for table `PaymentPackages`
 --
 ALTER TABLE `PaymentPackages`
   ADD PRIMARY KEY (`PackageID`);
 
 --
--- Chỉ mục cho bảng `Principals`
+-- Indexes for table `Principals`
 --
 ALTER TABLE `Principals`
   ADD PRIMARY KEY (`PrincipalID`);
 
 --
--- Chỉ mục cho bảng `ProxyAuthorizations`
+-- Indexes for table `ProxyAuthorizations`
 --
 ALTER TABLE `ProxyAuthorizations`
   ADD PRIMARY KEY (`AuthorizationID`),
@@ -2106,26 +2047,26 @@ ALTER TABLE `ProxyAuthorizations`
   ADD KEY `ParentID` (`ParentID`);
 
 --
--- Chỉ mục cho bảng `RewardBadges`
+-- Indexes for table `RewardBadges`
 --
 ALTER TABLE `RewardBadges`
   ADD PRIMARY KEY (`BadgeID`);
 
 --
--- Chỉ mục cho bảng `Roles`
+-- Indexes for table `Roles`
 --
 ALTER TABLE `Roles`
   ADD PRIMARY KEY (`RoleID`);
 
 --
--- Chỉ mục cho bảng `StudentAssessments`
+-- Indexes for table `StudentAssessments`
 --
 ALTER TABLE `StudentAssessments`
   ADD PRIMARY KEY (`AssessmentID`),
   ADD KEY `StudentID` (`StudentID`);
 
 --
--- Chỉ mục cho bảng `StudentBadges`
+-- Indexes for table `StudentBadges`
 --
 ALTER TABLE `StudentBadges`
   ADD PRIMARY KEY (`StudentBadgeID`),
@@ -2133,7 +2074,7 @@ ALTER TABLE `StudentBadges`
   ADD KEY `BadgeID` (`BadgeID`);
 
 --
--- Chỉ mục cho bảng `StudentExtracurriculars`
+-- Indexes for table `StudentExtracurriculars`
 --
 ALTER TABLE `StudentExtracurriculars`
   ADD PRIMARY KEY (`EnrollmentID`),
@@ -2143,21 +2084,21 @@ ALTER TABLE `StudentExtracurriculars`
   ADD KEY `SE_ibfk_invoice` (`InvoiceID`);
 
 --
--- Chỉ mục cho bảng `StudentParents`
+-- Indexes for table `StudentParents`
 --
 ALTER TABLE `StudentParents`
   ADD PRIMARY KEY (`StudentID`,`ParentID`),
   ADD KEY `ParentID` (`ParentID`);
 
 --
--- Chỉ mục cho bảng `Students`
+-- Indexes for table `Students`
 --
 ALTER TABLE `Students`
   ADD PRIMARY KEY (`StudentID`),
   ADD KEY `ClassID` (`ClassID`);
 
 --
--- Chỉ mục cho bảng `StudentTuitionPlans`
+-- Indexes for table `StudentTuitionPlans`
 --
 ALTER TABLE `StudentTuitionPlans`
   ADD PRIMARY KEY (`PlanID`),
@@ -2165,27 +2106,27 @@ ALTER TABLE `StudentTuitionPlans`
   ADD KEY `idx_package` (`PackageID`);
 
 --
--- Chỉ mục cho bảng `Teachers`
+-- Indexes for table `Teachers`
 --
 ALTER TABLE `Teachers`
   ADD PRIMARY KEY (`TeacherID`);
 
 --
--- Chỉ mục cho bảng `TeacherWorkHistories`
+-- Indexes for table `TeacherWorkHistories`
 --
 ALTER TABLE `TeacherWorkHistories`
   ADD PRIMARY KEY (`HistoryID`),
   ADD KEY `TeacherID` (`TeacherID`);
 
 --
--- Chỉ mục cho bảng `Transactions`
+-- Indexes for table `Transactions`
 --
 ALTER TABLE `Transactions`
   ADD PRIMARY KEY (`TransactionID`),
   ADD KEY `InvoiceID` (`InvoiceID`);
 
 --
--- Chỉ mục cho bảng `Users`
+-- Indexes for table `Users`
 --
 ALTER TABLE `Users`
   ADD PRIMARY KEY (`UserID`),
@@ -2193,282 +2134,300 @@ ALTER TABLE `Users`
   ADD KEY `RoleID` (`RoleID`);
 
 --
--- Chỉ mục cho bảng `WeeklyRewards`
+-- Indexes for table `WeeklyRewards`
 --
 ALTER TABLE `WeeklyRewards`
   ADD PRIMARY KEY (`RewardID`),
   ADD KEY `StudentID` (`StudentID`);
 
 --
--- Chỉ mục cho bảng `WeeklyScheduleDetails`
+-- Indexes for table `WeeklyScheduleDetails`
 --
 ALTER TABLE `WeeklyScheduleDetails`
   ADD PRIMARY KEY (`ScheduleDetailID`),
   ADD KEY `idx_weekly_schedule_day` (`WeeklyScheduleID`,`DayOfWeek`);
 
 --
--- Chỉ mục cho bảng `WeeklySchedules`
+-- Indexes for table `WeeklySchedules`
 --
 ALTER TABLE `WeeklySchedules`
   ADD PRIMARY KEY (`WeeklyScheduleID`),
   ADD UNIQUE KEY `Unique_Month_WeekOrder` (`MonthlyScheduleID`,`WeekOrder`);
 
 --
--- AUTO_INCREMENT cho các bảng đã đổ
+-- AUTO_INCREMENT for dumped tables
 --
 
 --
--- AUTO_INCREMENT cho bảng `AcademicYears`
+-- AUTO_INCREMENT for table `AcademicYears`
 --
 ALTER TABLE `AcademicYears`
   MODIFY `YearID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
--- AUTO_INCREMENT cho bảng `Attendances`
+-- AUTO_INCREMENT for table `Allergies`
 --
-ALTER TABLE `Attendances`
-  MODIFY `AttendanceID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=287;
+ALTER TABLE `Allergies`
+  MODIFY `AllergyID` int NOT NULL AUTO_INCREMENT COMMENT 'PK', AUTO_INCREMENT=14;
 
 --
--- AUTO_INCREMENT cho bảng `BaseFees`
+-- AUTO_INCREMENT for table `Attendances`
+--
+ALTER TABLE `Attendances`
+  MODIFY `AttendanceID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=328;
+
+--
+-- AUTO_INCREMENT for table `BaseFees`
 --
 ALTER TABLE `BaseFees`
   MODIFY `FeeID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
--- AUTO_INCREMENT cho bảng `Buildings`
+-- AUTO_INCREMENT for table `Buildings`
 --
 ALTER TABLE `Buildings`
   MODIFY `BuildingID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
--- AUTO_INCREMENT cho bảng `Campuses`
+-- AUTO_INCREMENT for table `Campuses`
 --
 ALTER TABLE `Campuses`
   MODIFY `CampusID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
--- AUTO_INCREMENT cho bảng `Classes`
+-- AUTO_INCREMENT for table `Classes`
 --
 ALTER TABLE `Classes`
-  MODIFY `ClassID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `ClassID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
--- AUTO_INCREMENT cho bảng `DailyActivities`
+-- AUTO_INCREMENT for table `DailyActivities`
 --
 ALTER TABLE `DailyActivities`
-  MODIFY `ActivityID` int NOT NULL AUTO_INCREMENT;
+  MODIFY `ActivityID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
--- AUTO_INCREMENT cho bảng `DailyAlbumPhotos`
+-- AUTO_INCREMENT for table `DailyAlbumPhotos`
 --
 ALTER TABLE `DailyAlbumPhotos`
   MODIFY `PhotoID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3021;
 
 --
--- AUTO_INCREMENT cho bảng `DailyAlbums`
+-- AUTO_INCREMENT for table `DailyAlbums`
 --
 ALTER TABLE `DailyAlbums`
   MODIFY `AlbumID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=301;
 
 --
--- AUTO_INCREMENT cho bảng `DailyLessons`
+-- AUTO_INCREMENT for table `DailyLessons`
 --
 ALTER TABLE `DailyLessons`
   MODIFY `LessonLogID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
--- AUTO_INCREMENT cho bảng `DailySchedules`
+-- AUTO_INCREMENT for table `DailySchedules`
 --
 ALTER TABLE `DailySchedules`
   MODIFY `DailyScheduleID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=324;
 
 --
--- AUTO_INCREMENT cho bảng `Events`
+-- AUTO_INCREMENT for table `DevelopmentAssessments`
+--
+ALTER TABLE `DevelopmentAssessments`
+  MODIFY `AssessmentID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+
+--
+-- AUTO_INCREMENT for table `Events`
 --
 ALTER TABLE `Events`
   MODIFY `EventID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
--- AUTO_INCREMENT cho bảng `Extracurriculars`
+-- AUTO_INCREMENT for table `Extracurriculars`
 --
 ALTER TABLE `Extracurriculars`
   MODIFY `ActivityID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
--- AUTO_INCREMENT cho bảng `fcm_tokens`
+-- AUTO_INCREMENT for table `fcm_tokens`
 --
 ALTER TABLE `fcm_tokens`
-  MODIFY `TokenID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=331;
+  MODIFY `TokenID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=327;
 
 --
--- AUTO_INCREMENT cho bảng `Feedbacks`
+-- AUTO_INCREMENT for table `Feedbacks`
 --
 ALTER TABLE `Feedbacks`
   MODIFY `FeedbackID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
--- AUTO_INCREMENT cho bảng `Grades`
+-- AUTO_INCREMENT for table `Grades`
 --
 ALTER TABLE `Grades`
-  MODIFY `GradeID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `GradeID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
--- AUTO_INCREMENT cho bảng `HealthRecords`
+-- AUTO_INCREMENT for table `HealthRecords`
 --
 ALTER TABLE `HealthRecords`
-  MODIFY `RecordID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+  MODIFY `RecordID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
--- AUTO_INCREMENT cho bảng `Holidays`
+-- AUTO_INCREMENT for table `Holidays`
 --
 ALTER TABLE `Holidays`
-  MODIFY `HolidayID` int NOT NULL AUTO_INCREMENT;
+  MODIFY `HolidayID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
--- AUTO_INCREMENT cho bảng `Invoices`
+-- AUTO_INCREMENT for table `Invoices`
 --
 ALTER TABLE `Invoices`
-  MODIFY `InvoiceID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=51;
+  MODIFY `InvoiceID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=52;
 
 --
--- AUTO_INCREMENT cho bảng `LeaveRequests`
+-- AUTO_INCREMENT for table `LeaveRequests`
 --
 ALTER TABLE `LeaveRequests`
   MODIFY `RequestID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
--- AUTO_INCREMENT cho bảng `MedicationRequests`
+-- AUTO_INCREMENT for table `MedicationRequests`
 --
 ALTER TABLE `MedicationRequests`
-  MODIFY `MedRequestID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `MedRequestID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 
 --
--- AUTO_INCREMENT cho bảng `MenuDetails`
+-- AUTO_INCREMENT for table `MenuDetails`
 --
 ALTER TABLE `MenuDetails`
   MODIFY `MenuDetailID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=32;
 
 --
--- AUTO_INCREMENT cho bảng `Menus`
+-- AUTO_INCREMENT for table `Menus`
 --
 ALTER TABLE `Menus`
   MODIFY `MenuID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
--- AUTO_INCREMENT cho bảng `MonthlySchedules`
+-- AUTO_INCREMENT for table `MonthlySchedules`
 --
 ALTER TABLE `MonthlySchedules`
-  MODIFY `MonthlyScheduleID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `MonthlyScheduleID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
--- AUTO_INCREMENT cho bảng `Newsfeeds`
+-- AUTO_INCREMENT for table `Newsfeeds`
 --
 ALTER TABLE `Newsfeeds`
   MODIFY `PostID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
 
 --
--- AUTO_INCREMENT cho bảng `Notifications`
+-- AUTO_INCREMENT for table `Notifications`
 --
 ALTER TABLE `Notifications`
-  MODIFY `NotifID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=258;
+  MODIFY `NotifID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=263;
 
 --
--- AUTO_INCREMENT cho bảng `PaymentPackages`
+-- AUTO_INCREMENT for table `PaymentPackages`
 --
 ALTER TABLE `PaymentPackages`
   MODIFY `PackageID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
--- AUTO_INCREMENT cho bảng `ProxyAuthorizations`
+-- AUTO_INCREMENT for table `ProxyAuthorizations`
 --
 ALTER TABLE `ProxyAuthorizations`
   MODIFY `AuthorizationID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
--- AUTO_INCREMENT cho bảng `RewardBadges`
+-- AUTO_INCREMENT for table `RewardBadges`
 --
 ALTER TABLE `RewardBadges`
   MODIFY `BadgeID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
--- AUTO_INCREMENT cho bảng `Roles`
+-- AUTO_INCREMENT for table `Roles`
 --
 ALTER TABLE `Roles`
   MODIFY `RoleID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
--- AUTO_INCREMENT cho bảng `StudentAssessments`
+-- AUTO_INCREMENT for table `StudentAssessments`
 --
 ALTER TABLE `StudentAssessments`
   MODIFY `AssessmentID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
 
 --
--- AUTO_INCREMENT cho bảng `StudentBadges`
+-- AUTO_INCREMENT for table `StudentBadges`
 --
 ALTER TABLE `StudentBadges`
   MODIFY `StudentBadgeID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
--- AUTO_INCREMENT cho bảng `StudentExtracurriculars`
+-- AUTO_INCREMENT for table `StudentExtracurriculars`
 --
 ALTER TABLE `StudentExtracurriculars`
-  MODIFY `EnrollmentID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `EnrollmentID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
--- AUTO_INCREMENT cho bảng `Students`
+-- AUTO_INCREMENT for table `Students`
 --
 ALTER TABLE `Students`
   MODIFY `StudentID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=147;
 
 --
--- AUTO_INCREMENT cho bảng `StudentTuitionPlans`
+-- AUTO_INCREMENT for table `StudentTuitionPlans`
 --
 ALTER TABLE `StudentTuitionPlans`
   MODIFY `PlanID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
--- AUTO_INCREMENT cho bảng `TeacherWorkHistories`
+-- AUTO_INCREMENT for table `TeacherWorkHistories`
 --
 ALTER TABLE `TeacherWorkHistories`
   MODIFY `HistoryID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
--- AUTO_INCREMENT cho bảng `Transactions`
+-- AUTO_INCREMENT for table `Transactions`
 --
 ALTER TABLE `Transactions`
   MODIFY `TransactionID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=85;
 
 --
--- AUTO_INCREMENT cho bảng `Users`
+-- AUTO_INCREMENT for table `Users`
 --
 ALTER TABLE `Users`
-  MODIFY `UserID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
+  MODIFY `UserID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
 
 --
--- AUTO_INCREMENT cho bảng `WeeklyRewards`
+-- AUTO_INCREMENT for table `WeeklyRewards`
 --
 ALTER TABLE `WeeklyRewards`
   MODIFY `RewardID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
--- AUTO_INCREMENT cho bảng `WeeklyScheduleDetails`
+-- AUTO_INCREMENT for table `WeeklyScheduleDetails`
 --
 ALTER TABLE `WeeklyScheduleDetails`
-  MODIFY `ScheduleDetailID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=541;
+  MODIFY `ScheduleDetailID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=161;
 
 --
--- AUTO_INCREMENT cho bảng `WeeklySchedules`
+-- AUTO_INCREMENT for table `WeeklySchedules`
 --
 ALTER TABLE `WeeklySchedules`
-  MODIFY `WeeklyScheduleID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `WeeklyScheduleID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
--- Ràng buộc đối với các bảng kết xuất
+-- Constraints for dumped tables
 --
 
 --
--- Ràng buộc cho bảng `Attendances`
+-- Constraints for table `Allergies`
+--
+ALTER TABLE `Allergies`
+  ADD CONSTRAINT `fk_allergies_student` FOREIGN KEY (`StudentID`) REFERENCES `Students` (`StudentID`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `Attendances`
 --
 ALTER TABLE `Attendances`
   ADD CONSTRAINT `Attendances_ibfk_1` FOREIGN KEY (`StudentID`) REFERENCES `Students` (`StudentID`),
@@ -2479,19 +2438,19 @@ ALTER TABLE `Attendances`
   ADD CONSTRAINT `fk_picked_up_parent` FOREIGN KEY (`PickedUpByParentID`) REFERENCES `Users` (`UserID`) ON DELETE SET NULL;
 
 --
--- Ràng buộc cho bảng `BaseFees`
+-- Constraints for table `BaseFees`
 --
 ALTER TABLE `BaseFees`
   ADD CONSTRAINT `BaseFees_ibfk_1` FOREIGN KEY (`YearID`) REFERENCES `AcademicYears` (`YearID`);
 
 --
--- Ràng buộc cho bảng `Buildings`
+-- Constraints for table `Buildings`
 --
 ALTER TABLE `Buildings`
   ADD CONSTRAINT `Buildings_ibfk_1` FOREIGN KEY (`CampusID`) REFERENCES `Campuses` (`CampusID`);
 
 --
--- Ràng buộc cho bảng `Classes`
+-- Constraints for table `Classes`
 --
 ALTER TABLE `Classes`
   ADD CONSTRAINT `Classes_ibfk_1` FOREIGN KEY (`GradeID`) REFERENCES `Grades` (`GradeID`),
@@ -2499,91 +2458,97 @@ ALTER TABLE `Classes`
   ADD CONSTRAINT `Classes_ibfk_3` FOREIGN KEY (`YearID`) REFERENCES `AcademicYears` (`YearID`);
 
 --
--- Ràng buộc cho bảng `ClassTeachers`
+-- Constraints for table `ClassTeachers`
 --
 ALTER TABLE `ClassTeachers`
   ADD CONSTRAINT `ClassTeachers_ibfk_1` FOREIGN KEY (`ClassID`) REFERENCES `Classes` (`ClassID`),
   ADD CONSTRAINT `ClassTeachers_ibfk_2` FOREIGN KEY (`TeacherID`) REFERENCES `Teachers` (`TeacherID`);
 
 --
--- Ràng buộc cho bảng `DailyActivities`
+-- Constraints for table `DailyActivities`
 --
 ALTER TABLE `DailyActivities`
   ADD CONSTRAINT `FK_DailyAct_Student` FOREIGN KEY (`StudentID`) REFERENCES `Students` (`StudentID`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `DailyAlbumPhotos`
+-- Constraints for table `DailyAlbumPhotos`
 --
 ALTER TABLE `DailyAlbumPhotos`
   ADD CONSTRAINT `fk_daily_album_photos_parent` FOREIGN KEY (`AlbumID`) REFERENCES `DailyAlbums` (`AlbumID`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
--- Ràng buộc cho bảng `DailyAlbums`
+-- Constraints for table `DailyAlbums`
 --
 ALTER TABLE `DailyAlbums`
   ADD CONSTRAINT `fk_daily_albums_classes` FOREIGN KEY (`ClassID`) REFERENCES `Classes` (`ClassID`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_daily_albums_teachers` FOREIGN KEY (`TeacherID`) REFERENCES `Teachers` (`TeacherID`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
--- Ràng buộc cho bảng `DailyLessons`
+-- Constraints for table `DailyLessons`
 --
 ALTER TABLE `DailyLessons`
   ADD CONSTRAINT `fk_dailylessons_classes` FOREIGN KEY (`ClassID`) REFERENCES `Classes` (`ClassID`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
--- Ràng buộc cho bảng `DailySchedules`
+-- Constraints for table `DailySchedules`
 --
 ALTER TABLE `DailySchedules`
   ADD CONSTRAINT `FK_DailySchedules_Classes` FOREIGN KEY (`ClassID`) REFERENCES `Classes` (`ClassID`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `EventClasses`
+-- Constraints for table `DevelopmentAssessments`
+--
+ALTER TABLE `DevelopmentAssessments`
+  ADD CONSTRAINT `fk_dev_assessments_student` FOREIGN KEY (`StudentID`) REFERENCES `Students` (`StudentID`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `EventClasses`
 --
 ALTER TABLE `EventClasses`
   ADD CONSTRAINT `EventClasses_ibfk_1` FOREIGN KEY (`EventID`) REFERENCES `Events` (`EventID`) ON DELETE CASCADE,
   ADD CONSTRAINT `EventClasses_ibfk_2` FOREIGN KEY (`ClassID`) REFERENCES `Classes` (`ClassID`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `Events`
+-- Constraints for table `Events`
 --
 ALTER TABLE `Events`
   ADD CONSTRAINT `Events_ibfk_1` FOREIGN KEY (`CreatedBy`) REFERENCES `Users` (`UserID`);
 
 --
--- Ràng buộc cho bảng `EventStudents`
+-- Constraints for table `EventStudents`
 --
 ALTER TABLE `EventStudents`
   ADD CONSTRAINT `FK_EventStudents_Events` FOREIGN KEY (`EventID`) REFERENCES `Events` (`EventID`) ON DELETE CASCADE,
   ADD CONSTRAINT `FK_EventStudents_Students` FOREIGN KEY (`StudentID`) REFERENCES `Students` (`StudentID`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `fcm_tokens`
+-- Constraints for table `fcm_tokens`
 --
 ALTER TABLE `fcm_tokens`
   ADD CONSTRAINT `fcm_tokens_ibfk_1` FOREIGN KEY (`UserID`) REFERENCES `Users` (`UserID`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
--- Ràng buộc cho bảng `Feedbacks`
+-- Constraints for table `Feedbacks`
 --
 ALTER TABLE `Feedbacks`
   ADD CONSTRAINT `Feedbacks_ibfk_1` FOREIGN KEY (`ParentID`) REFERENCES `Parents` (`ParentID`),
   ADD CONSTRAINT `Feedbacks_ibfk_2` FOREIGN KEY (`RespondedByID`) REFERENCES `Users` (`UserID`);
 
 --
--- Ràng buộc cho bảng `HealthRecords`
+-- Constraints for table `HealthRecords`
 --
 ALTER TABLE `HealthRecords`
   ADD CONSTRAINT `HealthRecords_ibfk_1` FOREIGN KEY (`StudentID`) REFERENCES `Students` (`StudentID`);
 
 --
--- Ràng buộc cho bảng `Invoices`
+-- Constraints for table `Invoices`
 --
 ALTER TABLE `Invoices`
   ADD CONSTRAINT `Invoices_ibfk_1` FOREIGN KEY (`StudentID`) REFERENCES `Students` (`StudentID`),
   ADD CONSTRAINT `Invoices_ibfk_2` FOREIGN KEY (`PackageID`) REFERENCES `PaymentPackages` (`PackageID`);
 
 --
--- Ràng buộc cho bảng `LeaveRequests`
+-- Constraints for table `LeaveRequests`
 --
 ALTER TABLE `LeaveRequests`
   ADD CONSTRAINT `LeaveRequests_ibfk_1` FOREIGN KEY (`StudentID`) REFERENCES `Students` (`StudentID`),
@@ -2591,90 +2556,90 @@ ALTER TABLE `LeaveRequests`
   ADD CONSTRAINT `LeaveRequests_ibfk_3` FOREIGN KEY (`ApproverID`) REFERENCES `Teachers` (`TeacherID`);
 
 --
--- Ràng buộc cho bảng `MedicationRequests`
+-- Constraints for table `MedicationRequests`
 --
 ALTER TABLE `MedicationRequests`
   ADD CONSTRAINT `MedicationRequests_ibfk_1` FOREIGN KEY (`StudentID`) REFERENCES `Students` (`StudentID`),
   ADD CONSTRAINT `MedicationRequests_ibfk_2` FOREIGN KEY (`ParentID`) REFERENCES `Parents` (`ParentID`);
 
 --
--- Ràng buộc cho bảng `MenuDetails`
+-- Constraints for table `MenuDetails`
 --
 ALTER TABLE `MenuDetails`
   ADD CONSTRAINT `FK_MenuDetails_Menus` FOREIGN KEY (`MenuID`) REFERENCES `Menus` (`MenuID`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `Menus`
+-- Constraints for table `Menus`
 --
 ALTER TABLE `Menus`
   ADD CONSTRAINT `FK_Menus_Classes` FOREIGN KEY (`ClassID`) REFERENCES `Classes` (`ClassID`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `MonthlySchedules`
+-- Constraints for table `MonthlySchedules`
 --
 ALTER TABLE `MonthlySchedules`
   ADD CONSTRAINT `FK_MonthlySchedules_Classes` FOREIGN KEY (`ClassID`) REFERENCES `Classes` (`ClassID`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `Newsfeeds`
+-- Constraints for table `Newsfeeds`
 --
 ALTER TABLE `Newsfeeds`
   ADD CONSTRAINT `Newsfeeds_ibfk_1` FOREIGN KEY (`ClassID`) REFERENCES `Classes` (`ClassID`),
   ADD CONSTRAINT `Newsfeeds_ibfk_2` FOREIGN KEY (`TeacherID`) REFERENCES `Teachers` (`TeacherID`);
 
 --
--- Ràng buộc cho bảng `NewsfeedTags`
+-- Constraints for table `NewsfeedTags`
 --
 ALTER TABLE `NewsfeedTags`
   ADD CONSTRAINT `NewsfeedTags_ibfk_1` FOREIGN KEY (`PostID`) REFERENCES `Newsfeeds` (`PostID`) ON DELETE CASCADE,
   ADD CONSTRAINT `NewsfeedTags_ibfk_2` FOREIGN KEY (`StudentID`) REFERENCES `Students` (`StudentID`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `Notifications`
+-- Constraints for table `Notifications`
 --
 ALTER TABLE `Notifications`
   ADD CONSTRAINT `Notifications_ibfk_1` FOREIGN KEY (`UserID`) REFERENCES `Users` (`UserID`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
--- Ràng buộc cho bảng `NotificationSettings`
+-- Constraints for table `NotificationSettings`
 --
 ALTER TABLE `NotificationSettings`
   ADD CONSTRAINT `k_notifset_user` FOREIGN KEY (`UserID`) REFERENCES `Users` (`UserID`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `Parents`
+-- Constraints for table `Parents`
 --
 ALTER TABLE `Parents`
   ADD CONSTRAINT `Parents_ibfk_1` FOREIGN KEY (`ParentID`) REFERENCES `Users` (`UserID`);
 
 --
--- Ràng buộc cho bảng `Principals`
+-- Constraints for table `Principals`
 --
 ALTER TABLE `Principals`
   ADD CONSTRAINT `Principals_ibfk_1` FOREIGN KEY (`PrincipalID`) REFERENCES `Users` (`UserID`);
 
 --
--- Ràng buộc cho bảng `ProxyAuthorizations`
+-- Constraints for table `ProxyAuthorizations`
 --
 ALTER TABLE `ProxyAuthorizations`
   ADD CONSTRAINT `ProxyAuthorizations_ibfk_1` FOREIGN KEY (`StudentID`) REFERENCES `Students` (`StudentID`),
   ADD CONSTRAINT `ProxyAuthorizations_ibfk_2` FOREIGN KEY (`ParentID`) REFERENCES `Parents` (`ParentID`);
 
 --
--- Ràng buộc cho bảng `StudentAssessments`
+-- Constraints for table `StudentAssessments`
 --
 ALTER TABLE `StudentAssessments`
   ADD CONSTRAINT `StudentAssessments_ibfk_1` FOREIGN KEY (`StudentID`) REFERENCES `Students` (`StudentID`);
 
 --
--- Ràng buộc cho bảng `StudentBadges`
+-- Constraints for table `StudentBadges`
 --
 ALTER TABLE `StudentBadges`
   ADD CONSTRAINT `StudentBadges_ibfk_1` FOREIGN KEY (`StudentID`) REFERENCES `Students` (`StudentID`) ON DELETE CASCADE,
   ADD CONSTRAINT `StudentBadges_ibfk_2` FOREIGN KEY (`BadgeID`) REFERENCES `RewardBadges` (`BadgeID`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `StudentExtracurriculars`
+-- Constraints for table `StudentExtracurriculars`
 --
 ALTER TABLE `StudentExtracurriculars`
   ADD CONSTRAINT `SE_ibfk_invoice` FOREIGN KEY (`InvoiceID`) REFERENCES `Invoices` (`InvoiceID`),
@@ -2682,63 +2647,63 @@ ALTER TABLE `StudentExtracurriculars`
   ADD CONSTRAINT `StudentExtracurriculars_ibfk_2` FOREIGN KEY (`ActivityID`) REFERENCES `Extracurriculars` (`ActivityID`);
 
 --
--- Ràng buộc cho bảng `StudentParents`
+-- Constraints for table `StudentParents`
 --
 ALTER TABLE `StudentParents`
   ADD CONSTRAINT `StudentParents_ibfk_1` FOREIGN KEY (`StudentID`) REFERENCES `Students` (`StudentID`),
   ADD CONSTRAINT `StudentParents_ibfk_2` FOREIGN KEY (`ParentID`) REFERENCES `Parents` (`ParentID`);
 
 --
--- Ràng buộc cho bảng `Students`
+-- Constraints for table `Students`
 --
 ALTER TABLE `Students`
   ADD CONSTRAINT `Students_ibfk_1` FOREIGN KEY (`ClassID`) REFERENCES `Classes` (`ClassID`);
 
 --
--- Ràng buộc cho bảng `StudentTuitionPlans`
+-- Constraints for table `StudentTuitionPlans`
 --
 ALTER TABLE `StudentTuitionPlans`
   ADD CONSTRAINT `STP_ibfk_1` FOREIGN KEY (`StudentID`) REFERENCES `Students` (`StudentID`),
   ADD CONSTRAINT `STP_ibfk_2` FOREIGN KEY (`PackageID`) REFERENCES `PaymentPackages` (`PackageID`);
 
 --
--- Ràng buộc cho bảng `Teachers`
+-- Constraints for table `Teachers`
 --
 ALTER TABLE `Teachers`
   ADD CONSTRAINT `Teachers_ibfk_1` FOREIGN KEY (`TeacherID`) REFERENCES `Users` (`UserID`);
 
 --
--- Ràng buộc cho bảng `TeacherWorkHistories`
+-- Constraints for table `TeacherWorkHistories`
 --
 ALTER TABLE `TeacherWorkHistories`
   ADD CONSTRAINT `k_workhist_teacher` FOREIGN KEY (`TeacherID`) REFERENCES `Teachers` (`TeacherID`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `Transactions`
+-- Constraints for table `Transactions`
 --
 ALTER TABLE `Transactions`
   ADD CONSTRAINT `Transactions_ibfk_1` FOREIGN KEY (`InvoiceID`) REFERENCES `Invoices` (`InvoiceID`);
 
 --
--- Ràng buộc cho bảng `Users`
+-- Constraints for table `Users`
 --
 ALTER TABLE `Users`
   ADD CONSTRAINT `Users_ibfk_1` FOREIGN KEY (`RoleID`) REFERENCES `Roles` (`RoleID`);
 
 --
--- Ràng buộc cho bảng `WeeklyRewards`
+-- Constraints for table `WeeklyRewards`
 --
 ALTER TABLE `WeeklyRewards`
   ADD CONSTRAINT `WeeklyRewards_ibfk_1` FOREIGN KEY (`StudentID`) REFERENCES `Students` (`StudentID`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `WeeklyScheduleDetails`
+-- Constraints for table `WeeklyScheduleDetails`
 --
 ALTER TABLE `WeeklyScheduleDetails`
   ADD CONSTRAINT `FK_Details_WeeklySchedules` FOREIGN KEY (`WeeklyScheduleID`) REFERENCES `WeeklySchedules` (`WeeklyScheduleID`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `WeeklySchedules`
+-- Constraints for table `WeeklySchedules`
 --
 ALTER TABLE `WeeklySchedules`
   ADD CONSTRAINT `FK_WeeklySchedules_Monthly` FOREIGN KEY (`MonthlyScheduleID`) REFERENCES `MonthlySchedules` (`MonthlyScheduleID`) ON DELETE CASCADE;
