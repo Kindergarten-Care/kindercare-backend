@@ -927,3 +927,40 @@
  *       200:
  *         description: Bắt đầu năm học mới thành công
  */
+
+/**
+ * @swagger
+ * /principal/academic-years:
+ *   get:
+ *     summary: Lấy danh sách toàn bộ năm học
+ *     description: Trả về danh sách năm học xếp theo thứ tự mới nhất (YearID DESC).
+ *     tags: ["Principal - Academic Year"]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lấy danh sách năm học thành công
+ */
+
+/**
+ * @swagger
+ * /principal/academic-year/{id}/activate:
+ *   patch:
+ *     summary: Kích hoạt một năm học
+ *     description: Đặt năm học được chọn thành trạng thái hoạt động (IsActive = 1) và tự động vô hiệu hóa tất cả các năm học khác.
+ *     tags: ["Principal - Academic Year"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID của năm học cần kích hoạt
+ *     responses:
+ *       200:
+ *         description: Đặt trạng thái kích hoạt thành công
+ *       404:
+ *         description: Không tìm thấy năm học
+ */

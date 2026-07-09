@@ -695,3 +695,32 @@ export const startAcademicYear = async ({ yearName, startDate, endDate, monthlyT
     message: 'Năm học mới đã được bắt đầu'
   };
 };
+
+export const getAcademicYears = async () => {
+  const [rows] = await pool.query('SELECT * FROM AcademicYears ORDER BY YearID DESC');
+  return rows;
+};
+
+export const activateAcademicYear = async (yearId) => {
+  // Check if year exists
+  const [existing] = await pool.query('SELECT YearID FROM AcademicYears WHERE YearID = ?', [yearId]);
+  if (existing.length === 0) throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy năm học');
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    
+    // Set all to inactive
+    await connection.query('UPDATE AcademicYears SET IsActive = 0');
+    // Set the selected to active
+    await connection.query('UPDATE AcademicYears SET IsActive = 1 WHERE YearID = ?', [yearId]);
+    
+    await connection.commit();
+    return { message: 'Đã kích hoạt năm học thành công' };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};

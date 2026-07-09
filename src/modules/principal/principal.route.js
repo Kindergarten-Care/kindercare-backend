@@ -58,4 +58,10 @@ router.post('/academic-year/end', authenticate, authorize(2), principalControlle
 // Bắt đầu năm học mới
 router.post('/academic-year/start', authenticate, authorize(2), principalController.startAcademicYear);
 
+// Lấy danh sách toàn bộ năm học
+router.get('/academic-years', authenticate, authorize(2), principalController.getAcademicYears);
+
+// Kích hoạt một năm học
+router.patch('/academic-year/:id/activate', authenticate, authorize(2), principalController.activateAcademicYear);
+
 export default router;
