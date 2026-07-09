@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS `Allergies` (
   PRIMARY KEY (`AllergyID`),
   KEY `idx_allergies_student` (`StudentID`),
   KEY `idx_allergies_active`  (`IsActive`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Add FK chỉ khi chưa có (tránh lỗi khi re-run)
 SET @fk_exists := (
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS `DevelopmentAssessments` (
   PRIMARY KEY (`AssessmentID`),
   UNIQUE KEY `uq_dev_assessments_student_term` (`StudentID`, `TermPeriod`),
   KEY `idx_dev_assessments_term` (`TermPeriod`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 SET @fk_exists := (
   SELECT COUNT(1)
