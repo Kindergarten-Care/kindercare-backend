@@ -580,13 +580,30 @@ export const getClassDetail = async (classId) => {
 };
 
 export const assignTeacherToClass = async (classId, teacherId, roleInClass, assignedDate) => {
-  const [classRows] = await pool.query('SELECT ClassName FROM Classes WHERE ClassID = ?', [classId]);
+  const [classRows] = await pool.query('SELECT ClassName, YearID FROM Classes WHERE ClassID = ?', [classId]);
   if (classRows.length === 0) throw new Error('Không tìm thấy lớp');
+  const yearId = classRows[0].YearID;
 
   const [teacherRows] = await pool.query('SELECT FullName FROM Teachers WHERE TeacherID = ?', [teacherId]);
   if (teacherRows.length === 0) throw new Error('Không tìm thấy giáo viên');
 
   const assignedTimestamp = assignedDate || Math.floor(Date.now() / 1000);
+
+  // Xóa phân công cũ của giáo viên này trong cùng năm học (mỗi giáo viên chỉ 1 lớp/năm)
+  if (yearId) {
+    await pool.query(`
+      DELETE ct FROM ClassTeachers ct
+      JOIN Classes c ON ct.ClassID = c.ClassID
+      WHERE ct.TeacherID = ? AND c.YearID = ?
+    `, [teacherId, yearId]);
+  } else {
+    // Nếu lớp không có YearID (fallback), xóa tất cả phân công cũ của giáo viên này ở các lớp không có YearID
+    await pool.query(`
+      DELETE ct FROM ClassTeachers ct
+      JOIN Classes c ON ct.ClassID = c.ClassID
+      WHERE ct.TeacherID = ? AND c.YearID IS NULL
+    `, [teacherId]);
+  }
 
   // Insert or Update class assignment
   await pool.query(
