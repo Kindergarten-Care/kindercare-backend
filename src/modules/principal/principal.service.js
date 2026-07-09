@@ -647,7 +647,34 @@ import bcrypt from 'bcryptjs';
 import csvParser from 'csv-parser';
 import { Readable } from 'stream';
 
-export const enrollStudent = async ({ student, parent, account, isNewParent }) => {
+export const searchParentsByPhone = async (phone) => {
+  const [rows] = await pool.query(
+    'SELECT ParentID as id, FullName as fullName, PhoneNumber as phoneNumber, Email as email, Occupation as occupation, Address as address FROM Parents WHERE PhoneNumber = ?',
+    [phone]
+  );
+  return rows[0] || null;
+};
+
+export const getPaymentConfigs = async () => {
+  // Get all packages
+  const [packages] = await pool.query('SELECT PackageID as id, PackageName as name, DurationInMonths as duration, DiscountPercentage as discount FROM PaymentPackages');
+  
+  // Get active year base fees
+  const [fees] = await pool.query(`
+    SELECT bf.MonthlyTuition, bf.DailyMealFee 
+    FROM BaseFees bf
+    JOIN AcademicYears ay ON bf.YearID = ay.YearID
+    WHERE ay.IsActive = 1
+    LIMIT 1
+  `);
+
+  return {
+    packages,
+    baseFee: fees[0] || { MonthlyTuition: 0, DailyMealFee: 0 }
+  };
+};
+
+export const enrollStudent = async ({ student, parent, account, isNewParent, packageId }) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -684,6 +711,28 @@ export const enrollStudent = async ({ student, parent, account, isNewParent }) =
       'INSERT INTO StudentParents (StudentID, ParentID, Relationship, IsPrimaryContact) VALUES (?, ?, "Phụ huynh", 1)',
       [studentId, parentId]
     );
+
+    // 5. Create StudentTuitionPlan if packageId is provided
+    if (packageId) {
+      // Get base fee for current active year
+      const [fees] = await connection.query(`
+        SELECT bf.MonthlyTuition
+        FROM BaseFees bf
+        JOIN AcademicYears ay ON bf.YearID = ay.YearID
+        WHERE ay.IsActive = 1
+        LIMIT 1
+      `);
+      const monthlyTuitionSnapshot = fees.length > 0 ? fees[0].MonthlyTuition : 0;
+      
+      // Calculate start month from admission date (format YYYY-MM)
+      const admissionDateObj = new Date(student.admissionDate * 1000);
+      const startMonth = `${admissionDateObj.getFullYear()}-${String(admissionDateObj.getMonth() + 1).padStart(2, '0')}`;
+
+      await connection.query(
+        'INSERT INTO StudentTuitionPlans (StudentID, PackageID, StartMonth, MonthlyTuitionSnapshot, Status) VALUES (?, ?, ?, ?, "Active")',
+        [studentId, packageId, startMonth, monthlyTuitionSnapshot]
+      );
+    }
 
     await connection.commit();
     return { studentId, parentId };

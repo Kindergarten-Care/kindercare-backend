@@ -443,6 +443,34 @@ const getAllStudents = async (req, res, next) => {
   }
 };
 
+const searchParentsByPhone = async (req, res, next) => {
+  try {
+    const { phone } = req.query;
+    if (!phone) {
+      return res.status(400).json({ success: false, message: 'Số điện thoại là bắt buộc' });
+    }
+    const parent = await principalService.searchParentsByPhone(phone);
+    res.status(200).json({
+      success: true,
+      data: parent, // null if not found
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getPaymentConfigs = async (req, res, next) => {
+  try {
+    const data = await principalService.getPaymentConfigs();
+    res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const enrollStudent = async (req, res, next) => {
   try {
     const result = await principalService.enrollStudent(req.body);
@@ -476,6 +504,8 @@ export default {
   getTeachersList,
   getParentsList,
   getAllStudents,
+  searchParentsByPhone,
+  getPaymentConfigs,
   enrollStudent,
   importStudents,
   getAccountsByRole,

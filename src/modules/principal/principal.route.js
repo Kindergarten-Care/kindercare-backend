@@ -36,6 +36,12 @@ router.get('/parent/:id/detail', authenticate, authorize(2), principalController
 // Lấy thông tin chi tiết học sinh theo id
 router.get('/student/:id/detail', authenticate, authorize(2), principalController.getStudentDetail);
 
+// Tìm kiếm phụ huynh qua SĐT
+router.get('/parents/search', authenticate, authorize(2), principalController.searchParentsByPhone);
+
+// Lấy cấu hình gói học phí
+router.get('/payment-configs', authenticate, authorize(2), principalController.getPaymentConfigs);
+
 // Thêm học sinh mới (Wizard Flow)
 router.post('/students/enroll', authenticate, authorize(2), principalController.enrollStudent);
 
