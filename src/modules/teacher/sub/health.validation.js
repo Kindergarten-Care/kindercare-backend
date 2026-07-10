@@ -187,6 +187,42 @@ export const validateDevelopmentAssessmentBatch = (req, _res, next) => {
 };
 
 export const validateCreateBmiLog = (req, _res, next) => {
+  const raw = req.body;
+
+  if (raw.termPeriod !== undefined) {
+    if (typeof raw.termPeriod !== 'string') {
+      return next(new ApiError(httpStatus.BAD_REQUEST, 'termPeriod phải là chuỗi định dạng YYYY-MM (VD: 2026-07)'));
+    }
+    if (!TERM_PERIOD_REGEX.test(raw.termPeriod.trim())) {
+      return next(new ApiError(httpStatus.BAD_REQUEST, 'termPeriod phải có định dạng YYYY-MM (VD: 2026-07)'));
+    }
+    req.body = { ...raw, termPeriod: raw.termPeriod.trim() };
+  }
+
+  if (raw.studentId !== undefined) {
+    const parsed = parseInt(raw.studentId, 10);
+    if (isNaN(parsed) || parsed <= 0) {
+      return next(new ApiError(httpStatus.BAD_REQUEST, 'studentId phải là số nguyên dương'));
+    }
+    req.body = { ...req.body, studentId: parsed };
+  }
+
+  if (raw.height !== undefined) {
+    const parsed = parseFloat(raw.height);
+    if (isNaN(parsed) || parsed < 50 || parsed > 200) {
+      return next(new ApiError(httpStatus.BAD_REQUEST, 'height phải là số từ 50-200 (cm)'));
+    }
+    req.body = { ...req.body, height: parsed };
+  }
+
+  if (raw.weight !== undefined) {
+    const parsed = parseFloat(raw.weight);
+    if (isNaN(parsed) || parsed < 3 || parsed > 100) {
+      return next(new ApiError(httpStatus.BAD_REQUEST, 'weight phải là số từ 3-100 (kg)'));
+    }
+    req.body = { ...req.body, weight: parsed };
+  }
+
   const { error, value } = bmiMeasurementSchema.validate(req.body, { abortEarly: false });
   if (error) {
     const details = error.details.map((d) => d.message).join('; ');
