@@ -944,14 +944,14 @@ export const submitClassAssessments = async (req, res, next) => {
 
     // Process each assessment
     for (const item of assessments) {
-      const { 
-        studentId, 
-        physicalScore, 
-        cognitiveScore, 
-        languageScore, 
-        socioEmotionalScore, 
-        aestheticScore, 
-        teacherComment 
+      const {
+        studentId,
+        physicalScore,
+        cognitiveScore,
+        languageScore,
+        socioEmotionalScore,
+        aestheticScore,
+        teacherComment
       } = item;
 
       // Verify student is indeed enrolled in this class
@@ -961,13 +961,13 @@ export const submitClassAssessments = async (req, res, next) => {
       }
 
       await teacherService.upsertStudentAssessment(
-        studentId, 
-        month, 
-        physicalScore, 
-        cognitiveScore, 
-        languageScore, 
-        socioEmotionalScore, 
-        aestheticScore, 
+        studentId,
+        month,
+        physicalScore,
+        cognitiveScore,
+        languageScore,
+        socioEmotionalScore,
+        aestheticScore,
         teacherComment
       );
 
@@ -989,6 +989,92 @@ export const submitClassAssessments = async (req, res, next) => {
 
     res.status(httpStatus.OK).json(
       new ApiResponse(httpStatus.OK, null, 'Cập nhật phiếu bé ngoan thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Simplified submit assessments — classId comes from body, resolved from teacher's active class.
+ * POST /api/teacher/assessments
+ * Body: { classId, month, assessments }
+ */
+export const submitAssessments = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId, month, assessments } = req.body;
+    const numericClassId = Number(classId);
+
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền thao tác trên lớp này');
+    }
+
+    for (const item of assessments) {
+      const { studentId, physicalScore, cognitiveScore, languageScore, socioEmotionalScore, aestheticScore, teacherComment } = item;
+
+      const isInClass = await teacherService.isStudentInClass(studentId, numericClassId);
+      if (!isInClass) {
+        throw new ApiError(httpStatus.BAD_REQUEST, `Học sinh với ID ${studentId} không thuộc lớp ${numericClassId}`);
+      }
+
+      await teacherService.upsertStudentAssessment(
+        studentId, month,
+        physicalScore, cognitiveScore, languageScore,
+        socioEmotionalScore, aestheticScore, teacherComment
+      );
+
+      const [parentIds, studentInfo] = await Promise.all([
+        teacherService.getStudentParentsUserIds(studentId),
+        getStudentBasicInfo(studentId),
+      ]);
+      const studentName = studentInfo ? studentInfo.fullName : `ID: ${studentId}`;
+      for (const parentId of parentIds) {
+        await sendPushToUser(
+          parentId,
+          'Cập nhật Phiếu Bé Ngoan',
+          `Giáo viên đã cập nhật Phiếu Bé Ngoan / Đánh giá tháng ${month} của bé ${studentName}.`,
+          { type: 'STUDENT_ASSESSMENT', studentId: String(studentId), month: String(month) }
+        );
+      }
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Cập nhật phiếu bé ngoan thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get assessment history for a specific student — last 6 months.
+ * GET /api/teacher/assessments?studentId=...
+ */
+export const getStudentAssessmentHistory = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const studentId = Number(req.query.studentId);
+
+    // Get teacher's active class
+    const activeClass = await teacherService.getTeacherActiveClass(teacherId);
+    if (!activeClass) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Bạn chưa được phân công lớp nào trong năm học hiện tại');
+    }
+
+    const classId = activeClass.classId;
+
+    // Verify student belongs to this class
+    const isInClass = await teacherService.isStudentInClass(studentId, classId);
+    if (!isInClass) {
+      throw new ApiError(httpStatus.BAD_REQUEST, `Học sinh với ID ${studentId} không thuộc lớp của bạn`);
+    }
+
+    const history = await teacherService.getStudentAssessmentHistory(classId, studentId);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, { studentId, classId, assessments: history }, 'Lấy lịch sử đánh giá thành công')
     );
   } catch (error) {
     next(error);

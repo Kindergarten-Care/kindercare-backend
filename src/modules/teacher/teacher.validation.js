@@ -378,17 +378,71 @@ export const validateSubmitClassAssessments = (req, res, next) => {
     if (!item.studentId || isNaN(Number(item.studentId))) {
       return next(new ApiError(httpStatus.BAD_REQUEST, `Phần tử thứ ${i + 1} trong assessments phải có studentId hợp lệ`));
     }
-    
+
     // Helper to validate score
     const isValidScore = (score) => score === undefined || score === null || (typeof score === 'number' && score >= 1 && score <= 10);
-    
-    if (!isValidScore(item.physicalScore) || 
-        !isValidScore(item.cognitiveScore) || 
-        !isValidScore(item.languageScore) || 
-        !isValidScore(item.socioEmotionalScore) || 
+
+    if (!isValidScore(item.physicalScore) ||
+        !isValidScore(item.cognitiveScore) ||
+        !isValidScore(item.languageScore) ||
+        !isValidScore(item.socioEmotionalScore) ||
         !isValidScore(item.aestheticScore)) {
       return next(new ApiError(httpStatus.BAD_REQUEST, `Điểm số tại phần tử thứ ${i + 1} phải là số nguyên từ 1 đến 10`));
     }
+  }
+
+  next();
+};
+
+/**
+ * Validate simplified assessments submission (no classId in path — classId comes from body)
+ * Body: { classId, month, assessments }
+ */
+export const validateSubmitAssessments = (req, res, next) => {
+  const { classId, month, assessments } = req.body;
+
+  if (!classId || isNaN(Number(classId))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId là bắt buộc và phải là số nguyên hợp lệ'));
+  }
+
+  if (!month || !/^(0[1-9]|1[0-2])-\d{4}$/.test(month)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'month là bắt buộc và phải có định dạng MM-YYYY (VD: 05-2026)'));
+  }
+
+  if (!Array.isArray(assessments) || assessments.length === 0) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'assessments phải là một mảng không rỗng'));
+  }
+
+  for (let i = 0; i < assessments.length; i++) {
+    const item = assessments[i];
+    if (!item.studentId || isNaN(Number(item.studentId))) {
+      return next(new ApiError(httpStatus.BAD_REQUEST, `Phần tử thứ ${i + 1} trong assessments phải có studentId hợp lệ`));
+    }
+
+    const isValidScore = (score) =>
+      score === undefined || score === null || (typeof score === 'number' && score >= 1 && score <= 10);
+
+    if (!isValidScore(item.physicalScore) ||
+        !isValidScore(item.cognitiveScore) ||
+        !isValidScore(item.languageScore) ||
+        !isValidScore(item.socioEmotionalScore) ||
+        !isValidScore(item.aestheticScore)) {
+      return next(new ApiError(httpStatus.BAD_REQUEST, `Điểm số tại phần tử thứ ${i + 1} phải là số từ 1 đến 10`));
+    }
+  }
+
+  next();
+};
+
+/**
+ * Validate GET /teacher/assessments?studentId=... query parameters.
+ * Uses the teacher's active class (no classId param needed).
+ */
+export const validateGetStudentAssessmentHistory = (req, res, next) => {
+  const { studentId } = req.query;
+
+  if (!studentId || isNaN(Number(studentId))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'studentId là bắt buộc và phải là số nguyên hợp lệ'));
   }
 
   next();

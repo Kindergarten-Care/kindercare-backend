@@ -1191,6 +1191,37 @@ export const upsertStudentAssessment = async (studentId, month, physicalScore, c
 };
 
 /**
+ * Get assessment history for a specific student — last 6 months.
+ * Returns records ordered by month descending.
+ * Verifies the student belongs to the teacher's assigned class.
+ * @param {number} classId - Teacher's assigned classId
+ * @param {number} studentId
+ * @returns {Promise<Array>}
+ */
+export const getStudentAssessmentHistory = async (classId, studentId) => {
+  const [rows] = await pool.query(
+    `SELECT
+        sa.AssessmentID       AS assessmentId,
+        sa.AssessmentMonth    AS month,
+        sa.PhysicalScore      AS physicalScore,
+        sa.CognitiveScore     AS cognitiveScore,
+        sa.LanguageScore      AS languageScore,
+        sa.SocioEmotionalScore AS socioEmotionalScore,
+        sa.AestheticScore     AS aestheticScore,
+        sa.TeacherComment     AS teacherComment
+     FROM StudentAssessments sa
+     JOIN Students s ON sa.StudentID = s.StudentID
+     WHERE s.StudentID  = ?
+       AND s.ClassID    = ?
+       AND s.EnrollmentStatus = 'Active'
+     ORDER BY sa.AssessmentMonth DESC
+     LIMIT 6`,
+    [studentId, classId]
+  );
+  return rows;
+};
+
+/**
  * Get all available reward badges
  */
 export const getRewardBadges = async () => {
