@@ -11,15 +11,18 @@ const TERM_PERIOD_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 const bmiMeasurementSchema = Joi.object({
   studentId: Joi.number().integer().positive().required(),
-  termPeriod: Joi.string().trim().pattern(TERM_PERIOD_REGEX).required()
-    .messages({ 'string.pattern.base': 'termPeriod phải có định dạng YYYY-MM (VD: 2026-07)' }),
+  termPeriod: Joi.string().trim().pattern(TERM_PERIOD_REGEX)
+    .messages({ 'string.pattern.base': 'termPeriod phải có định dạng YYYY-MM (VD: 2026-07)' })
+    .optional(),
   height: Joi.number().min(50).max(200).required()
     .messages({ 'number.min': 'height phải ≥ 50cm', 'number.max': 'height phải ≤ 200cm' }),
   weight: Joi.number().min(3).max(100).required()
     .messages({ 'number.min': 'weight phải ≥ 3kg', 'number.max': 'weight phải ≤ 100kg' }),
   notes: Joi.string().trim().max(1000).allow('', null).optional(),
   measuredAt: Joi.number().integer().positive().optional()
-    .messages({ 'number.integer': 'measuredAt phải là epoch seconds' })
+    .messages({ 'number.integer': 'measuredAt phải là epoch seconds' }),
+  bmi: Joi.number().min(5).max(60).optional()
+    .messages({ 'number.min': 'BMI không hợp lệ', 'number.max': 'BMI không hợp lệ' })
 });
 
 const bmiBatchItemSchema = bmiMeasurementSchema;
