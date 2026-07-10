@@ -8,7 +8,6 @@ router.post('/login', authController.login);
 router.post('/admin/login', authController.loginAdmin);
 router.post('/principal/login', authController.loginPrincipal);
 router.post('/teacher/login', authController.loginTeacher);
-router.post('/parent/login', authController.loginParent);
 router.post('/logout', authenticate, authController.logout);
 router.put('/change-password', authenticate, authController.changePassword);
 

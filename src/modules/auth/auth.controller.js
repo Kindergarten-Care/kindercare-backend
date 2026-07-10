@@ -193,11 +193,10 @@ const changePassword = async (req, res, next) => {
 };
 
 export default {
-    login:          createLoginHandler(),
+    login:          createLoginHandler([4], ['Username', 'Email', 'Phone']), // Parent login
     loginAdmin:     createLoginHandler([1], ['Username']),
     loginPrincipal: createLoginHandler([2], ['Username', 'Email', 'Phone']),
     loginTeacher:   createLoginHandler([3], ['Username', 'Email', 'Phone']),
-    loginParent:    createLoginHandler([4], ['Username', 'Email', 'Phone']),
     logout,
     changePassword,
 };
