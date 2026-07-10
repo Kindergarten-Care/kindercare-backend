@@ -211,7 +211,7 @@ const getMe = async (req, res, next) => {
         } else if (roleId === 2) {
             query = `
                 SELECT u.UserID, u.Username, u.RoleID, r.RoleName,
-                       p.FullName, p.PhoneNumber, p.Email, p.AvatarURL,
+                       p.FullName, p.PhoneNumber, p.Email,
                        p.ProfessionalRank, u.Status
                 FROM Users u
                 LEFT JOIN Roles r ON u.RoleID = r.RoleID
@@ -220,7 +220,7 @@ const getMe = async (req, res, next) => {
         } else if (roleId === 3) {
             query = `
                 SELECT u.UserID, u.Username, u.RoleID, r.RoleName,
-                       t.FullName, t.PhoneNumber, t.Email, t.AvatarURL,
+                       t.FullName, t.PhoneNumber, t.Email,
                        t.ProfessionalRank, t.WorkStatus,
                        UNIX_TIMESTAMP(t.DateOfBirth) AS DateOfBirth,
                        t.Gender, t.IDCard, t.Address, u.Status
