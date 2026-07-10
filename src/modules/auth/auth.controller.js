@@ -195,12 +195,100 @@ const changePassword = async (req, res, next) => {
     }
 };
 
+const getMe = async (req, res, next) => {
+    try {
+        const { userId, roleId } = req.user;
+
+        let query;
+        if (roleId === 1) {
+            query = `
+                SELECT u.UserID, u.Username, u.RoleID, r.RoleName,
+                       a.FullName, u.Status
+                FROM Users u
+                LEFT JOIN Roles r ON u.RoleID = r.RoleID
+                LEFT JOIN Admins a ON u.UserID = a.AdminID
+                WHERE u.UserID = ?`;
+        } else if (roleId === 2) {
+            query = `
+                SELECT u.UserID, u.Username, u.RoleID, r.RoleName,
+                       p.FullName, p.PhoneNumber, p.Email, p.AvatarURL,
+                       p.ProfessionalRank, u.Status
+                FROM Users u
+                LEFT JOIN Roles r ON u.RoleID = r.RoleID
+                LEFT JOIN Principals p ON u.UserID = p.PrincipalID
+                WHERE u.UserID = ?`;
+        } else if (roleId === 3) {
+            query = `
+                SELECT u.UserID, u.Username, u.RoleID, r.RoleName,
+                       t.FullName, t.PhoneNumber, t.Email, t.AvatarURL,
+                       t.ProfessionalRank, t.WorkStatus,
+                       UNIX_TIMESTAMP(t.DateOfBirth) AS DateOfBirth,
+                       t.Gender, t.IDCard, t.Address, u.Status
+                FROM Users u
+                LEFT JOIN Roles r ON u.RoleID = r.RoleID
+                LEFT JOIN Teachers t ON u.UserID = t.TeacherID
+                WHERE u.UserID = ?`;
+        } else if (roleId === 4) {
+            query = `
+                SELECT u.UserID, u.Username, u.RoleID, r.RoleName,
+                       p.FullName, p.PhoneNumber, p.Email, p.AvatarURL,
+                       p.Relationship, u.Status
+                FROM Users u
+                LEFT JOIN Roles r ON u.RoleID = r.RoleID
+                LEFT JOIN Parents p ON u.UserID = p.ParentID
+                WHERE u.UserID = ?`;
+        } else {
+            throw new ApiError(httpStatus.FORBIDDEN, 'Vai trò không hợp lệ');
+        }
+
+        const [rows] = await pool.query(query, [userId]);
+
+        if (rows.length === 0) {
+            throw new ApiError(httpStatus.NOT_FOUND, 'Người dùng không tồn tại');
+        }
+
+        const row = rows[0];
+
+        const userData = {
+            userId: row.UserID,
+            username: row.Username,
+            roleId: row.RoleID,
+            roleName: row.RoleName,
+            fullName: row.FullName || null,
+            phone: row.PhoneNumber || null,
+            phoneNumber: row.PhoneNumber || null,
+            email: row.Email || null,
+            avatarUrl: row.AvatarURL || null,
+            status: row.Status,
+        };
+
+        if (roleId === 3) {
+            userData.professionalRank = row.ProfessionalRank || null;
+            userData.workStatus = row.WorkStatus || null;
+            userData.dateOfBirth = row.DateOfBirth || null;
+            userData.gender = row.Gender || null;
+            userData.idCard = row.IDCard || null;
+            userData.address = row.Address || null;
+        } else if (roleId === 2) {
+            userData.professionalRank = row.ProfessionalRank || null;
+        } else if (roleId === 4) {
+            userData.relationship = row.Relationship || null;
+        }
+
+        res.status(httpStatus.OK).json(
+            new ApiResponse(httpStatus.OK, userData, 'Lấy thông tin người dùng thành công')
+        );
+    } catch (error) {
+        next(error);
+    }
+};
+
 export default {
-    login:          createLoginHandler(null, ['Username', 'Email', 'Phone']),
+    login:          createLoginHandler([4], ['Username', 'Email', 'Phone']), // Parent login
     loginAdmin:     createLoginHandler([1], ['Username']),
     loginPrincipal: createLoginHandler([2], ['Username', 'Email', 'Phone']),
     loginTeacher:   createLoginHandler([3], ['Username', 'Email', 'Phone']),
-    loginParent:    createLoginHandler([4], ['Username', 'Email', 'Phone']),
     logout,
     changePassword,
+    getMe,
 };

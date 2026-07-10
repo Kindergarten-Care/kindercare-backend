@@ -338,6 +338,78 @@
 
 /**
  * @swagger
+ * /auth/me:
+ *   get:
+ *     summary: Get Current User Profile
+ *     description: Validate the Bearer token and return the authenticated user's full profile information from the database.
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved user profile
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy thông tin người dùng thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     userId:
+ *                       type: integer
+ *                       example: 3
+ *                     username:
+ *                       type: string
+ *                       example: gv_lan
+ *                     roleId:
+ *                       type: integer
+ *                       example: 3
+ *                     roleName:
+ *                       type: string
+ *                       example: Teacher
+ *                     fullName:
+ *                       type: string
+ *                       example: Nguyễn Thị Lan
+ *                     phone:
+ *                       type: string
+ *                       nullable: true
+ *                       example: "0901234567"
+ *                     email:
+ *                       type: string
+ *                       nullable: true
+ *                       example: lan.nguyen@kindercare.edu.vn
+ *                     avatarUrl:
+ *                       type: string
+ *                       nullable: true
+ *                     status:
+ *                       type: string
+ *                       example: Active
+ *                     professionalRank:
+ *                       type: string
+ *                       nullable: true
+ *                       description: Only for Teacher/Principal roles
+ *                     workStatus:
+ *                       type: string
+ *                       nullable: true
+ *                       description: Only for Teacher role
+ *       401:
+ *         description: Token missing, invalid, or expired
+ *       404:
+ *         description: User not found in database
+ */
+
+/**
+ * @swagger
  * /auth/logout:
  *   post:
  *     summary: Logout
