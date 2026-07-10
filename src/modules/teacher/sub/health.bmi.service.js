@@ -71,7 +71,7 @@ const validateBmiMeasurement = ({ studentId, classId, termPeriod, height, weight
 const ensureStudentInClass = async (studentId, classId) => {
   const [rows] = await pool.query(
     `SELECT StudentID, FullName, EnrollmentStatus
-       FROM students
+       FROM Students
       WHERE StudentID = ?`,
     [studentId]
   );
@@ -83,7 +83,7 @@ const ensureStudentInClass = async (studentId, classId) => {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Học sinh không còn đang học tại trường');
   }
   const [enroll] = await pool.query(
-    `SELECT StudentID FROM students WHERE StudentID = ? AND ClassID = ?`,
+    `SELECT StudentID FROM Students WHERE StudentID = ? AND ClassID = ?`,
     [studentId, classId]
   );
   if (enroll.length === 0) {
@@ -123,8 +123,8 @@ const SELECT_BMI = `
          hr.RecordedBy AS recordedBy,
          hr.CreatedAt AS createdAt,
          hr.UpdatedAt AS updatedAt
-    FROM healthrecords hr
-    JOIN students s ON hr.StudentID = s.StudentID
+    FROM HealthRecords hr
+    JOIN Students s ON hr.StudentID = s.StudentID
 `;
 
 const decorateRow = (row) => ({
@@ -152,14 +152,14 @@ const getClassBmiLogs = async ({ classId, termPeriod, studentId, includeOverwrit
   }
 
   let fromJoin = `
-       LEFT JOIN healthrecords hr
+       LEFT JOIN HealthRecords hr
               ON s.StudentID = hr.StudentID
              AND hr.TermPeriod = ?
   `;
 
   if (!includeOverwritten) {
     fromJoin = `
-       LEFT JOIN healthrecords hr
+       LEFT JOIN HealthRecords hr
               ON s.StudentID = hr.StudentID
              AND hr.TermPeriod = ?
              AND hr.IsLatest = 1
@@ -181,7 +181,7 @@ const getClassBmiLogs = async ({ classId, termPeriod, studentId, includeOverwrit
             hr.RecordedBy AS recordedBy,
             hr.CreatedAt AS createdAt,
             hr.UpdatedAt AS updatedAt
-       FROM students s
+       FROM Students s
        ${fromJoin}
       WHERE ${where}
       ORDER BY s.FullName ASC, hr.RecordID DESC`,
@@ -228,7 +228,7 @@ const upsertSingleBmi = async (conn, { studentId, classId, termPeriod, height, w
   const bmi = calculateBmi(height, weight);
 
   const [existing] = await conn.query(
-    `SELECT RecordID FROM healthrecords
+    `SELECT RecordID FROM HealthRecords
       WHERE StudentID = ? AND TermPeriod = ? AND IsLatest = 1
       LIMIT 1`,
     [studentId, termPeriod]
@@ -237,14 +237,14 @@ const upsertSingleBmi = async (conn, { studentId, classId, termPeriod, height, w
   if (existing.length > 0) {
     const oldId = existing[0].RecordID;
     await conn.query(
-      `UPDATE healthrecords SET IsLatest = 0 WHERE RecordID = ?`,
+      `UPDATE HealthRecords SET IsLatest = 0 WHERE RecordID = ?`,
       [oldId]
     );
   }
 
   const now = unixNow();
   const [insertResult] = await conn.query(
-    `INSERT INTO healthrecords
+    `INSERT INTO HealthRecords
        (StudentID, TermPeriod, Height, Weight, BMI, Notes,
         MeasuredAt, IsLatest, RecordedBy, CreatedAt, UpdatedAt)
      VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
@@ -313,7 +313,7 @@ export const batchUpsertBmiLogs = async ({ classId, teacherId, termPeriod, recor
 
     const placeholders = studentIds.map(() => '?').join(',');
     const [validStudents] = await connection.query(
-      `SELECT StudentID FROM students
+      `SELECT StudentID FROM Students
         WHERE ClassID = ? AND EnrollmentStatus = 'Active'
           AND StudentID IN (${placeholders})`,
       [classId, ...studentIds]
@@ -369,8 +369,8 @@ export const updateBmiLog = async ({ classId, teacherId, logId, payload }) => {
 
   const [rows] = await pool.query(
     `SELECT hr.RecordID, hr.StudentID, s.ClassID
-       FROM healthrecords hr
-       JOIN students s ON hr.StudentID = s.StudentID
+       FROM HealthRecords hr
+       JOIN Students s ON hr.StudentID = s.StudentID
       WHERE hr.RecordID = ?`,
     [logId]
   );
@@ -407,7 +407,7 @@ export const updateBmiLog = async ({ classId, teacherId, logId, payload }) => {
   }
 
   const [cur] = await pool.query(
-    `SELECT Height, Weight FROM healthrecords WHERE RecordID = ?`,
+    `SELECT Height, Weight FROM HealthRecords WHERE RecordID = ?`,
     [logId]
   );
   const mergedHeight = updates.height !== undefined ? updates.height : Number(cur[0].Height);
@@ -437,7 +437,7 @@ export const updateBmiLog = async ({ classId, teacherId, logId, payload }) => {
   values.push(logId);
 
   await pool.query(
-    `UPDATE healthrecords SET ${fields.join(', ')} WHERE RecordID = ?`,
+    `UPDATE HealthRecords SET ${fields.join(', ')} WHERE RecordID = ?`,
     values
   );
 
@@ -448,8 +448,8 @@ export const deleteBmiLog = async ({ classId, teacherId, logId }) => {
   await ensureTeacherAssignedToClass(teacherId, classId);
   const [rows] = await pool.query(
     `SELECT hr.RecordID, s.ClassID
-       FROM healthrecords hr
-       JOIN students s ON hr.StudentID = s.StudentID
+       FROM HealthRecords hr
+       JOIN Students s ON hr.StudentID = s.StudentID
       WHERE hr.RecordID = ?`,
     [logId]
   );
@@ -461,7 +461,7 @@ export const deleteBmiLog = async ({ classId, teacherId, logId }) => {
   }
 
   const [result] = await pool.query(
-    `DELETE FROM healthrecords WHERE RecordID = ?`,
+    `DELETE FROM HealthRecords WHERE RecordID = ?`,
     [logId]
   );
   if (result.affectedRows === 0) {
