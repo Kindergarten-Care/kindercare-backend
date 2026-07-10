@@ -355,7 +355,7 @@ export const validateGetClassAssessments = (req, res, next) => {
 };
 
 /**
- * Validate submit class assessments
+ * Validate submit class assessments (batch format for /classes/:classId/assessments)
  */
 export const validateSubmitClassAssessments = (req, res, next) => {
   const { classId } = req.params;
@@ -378,17 +378,87 @@ export const validateSubmitClassAssessments = (req, res, next) => {
     if (!item.studentId || isNaN(Number(item.studentId))) {
       return next(new ApiError(httpStatus.BAD_REQUEST, `Phần tử thứ ${i + 1} trong assessments phải có studentId hợp lệ`));
     }
-    
-    // Helper to validate score
-    const isValidScore = (score) => score === undefined || score === null || (typeof score === 'number' && score >= 1 && score <= 10);
-    
-    if (!isValidScore(item.physicalScore) || 
-        !isValidScore(item.cognitiveScore) || 
-        !isValidScore(item.languageScore) || 
-        !isValidScore(item.socioEmotionalScore) || 
-        !isValidScore(item.aestheticScore)) {
-      return next(new ApiError(httpStatus.BAD_REQUEST, `Điểm số tại phần tử thứ ${i + 1} phải là số nguyên từ 1 đến 10`));
+
+    const isValidScore = (score) =>
+      score === undefined || score === null || (typeof score === 'number' && score >= 1 && score <= 10);
+
+    if (!isValidScore(item.physicalScore) ||
+        !isValidScore(item.cognitiveScore) ||
+        !isValidScore(item.languageScore) ||
+        !isValidScore(item.emotionalScore) ||
+        !isValidScore(item.aestheticScore) ||
+        !isValidScore(item.lifeSkillsScore)) {
+      return next(new ApiError(httpStatus.BAD_REQUEST, `Điểm số tại phần tử thứ ${i + 1} phải là số từ 1 đến 10`));
     }
+  }
+
+  next();
+};
+
+/**
+ * Validate simplified assessments submission (no classId in path — classId comes from body)
+ * Body: {
+ *   classId: number,
+ *   studentId: number,
+ *   month: string,          // 'YYYY-MM'
+ *   physicalScore: number,   // 1-10
+ *   cognitiveScore: number,   // 1-10
+ *   languageScore: number,    // 1-10
+ *   emotionalScore: number,   // 1-10
+ *   aestheticScore: number,   // 1-10
+ *   lifeSkillsScore: number, // 1-10
+ *   notes?: string
+ * }
+ */
+export const validateSubmitAssessments = (req, res, next) => {
+  const { classId, studentId, month, physicalScore, cognitiveScore, languageScore, emotionalScore, aestheticScore, lifeSkillsScore } = req.body;
+
+  if (!classId || isNaN(Number(classId))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId là bắt buộc và phải là số nguyên hợp lệ'));
+  }
+
+  if (!studentId || isNaN(Number(studentId))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'studentId là bắt buộc và phải là số nguyên hợp lệ'));
+  }
+
+  if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'month là bắt buộc và phải có định dạng YYYY-MM (VD: 2026-07)'));
+  }
+
+  const isValidScore = (score) =>
+    score === undefined || score === null || (typeof score === 'number' && score >= 1 && score <= 10);
+
+  if (!isValidScore(physicalScore)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'physicalScore phải là số từ 1 đến 10'));
+  }
+  if (!isValidScore(cognitiveScore)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'cognitiveScore phải là số từ 1 đến 10'));
+  }
+  if (!isValidScore(languageScore)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'languageScore phải là số từ 1 đến 10'));
+  }
+  if (!isValidScore(emotionalScore)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'emotionalScore phải là số từ 1 đến 10'));
+  }
+  if (!isValidScore(aestheticScore)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'aestheticScore phải là số từ 1 đến 10'));
+  }
+  if (!isValidScore(lifeSkillsScore)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'lifeSkillsScore phải là số từ 1 đến 10'));
+  }
+
+  next();
+};
+
+/**
+ * Validate GET /teacher/assessments?studentId=... query parameters.
+ * Uses the teacher's active class (no classId param needed).
+ */
+export const validateGetStudentAssessmentHistory = (req, res, next) => {
+  const { studentId } = req.query;
+
+  if (!studentId || isNaN(Number(studentId))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'studentId là bắt buộc và phải là số nguyên hợp lệ'));
   }
 
   next();

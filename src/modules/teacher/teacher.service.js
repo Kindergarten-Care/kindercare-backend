@@ -1,8 +1,37 @@
 import pool from '../../config/db.js';
 
 /**
+ * Get the single active class assigned to a teacher (only AcademicYears with IsActive = 1).
+ * A teacher is assigned to at most one class at any given time.
+ * @param {number} teacherId
+ * @returns {Promise<Object|null>} Class info with academic year, or null if not assigned.
+ */
+export const getTeacherActiveClass = async (teacherId) => {
+  const [rows] = await pool.query(
+    `SELECT
+        c.ClassID    AS classId,
+        c.ClassName  AS className,
+        c.GradeID    AS gradeId,
+        c.YearID     AS yearId,
+        ct.RoleInClass AS roleInClass,
+        ay.YearName  AS academicYearName,
+        ay.StartDate AS academicYearStartDate,
+        ay.EndDate   AS academicYearEndDate,
+        ay.IsActive  AS academicYearIsActive
+     FROM ClassTeachers ct
+     JOIN Classes       c  ON ct.ClassID = c.ClassID
+     JOIN AcademicYears ay ON c.YearID    = ay.YearID
+     WHERE ct.TeacherID  = ?
+       AND ay.IsActive   = 1
+     LIMIT 1`,
+    [teacherId]
+  );
+  return rows[0] ?? null;
+};
+
+/**
  * Get all classes assigned to a teacher
- * @param {number} teacherId 
+ * @param {number} teacherId
  * @returns {Promise<Array>} Classes
  */
 export const getTeacherClasses = async (teacherId) => {
@@ -1082,83 +1111,121 @@ export const getClassDetailedStudents = async (classId) => {
  * Get class assessments for a specific month
  */
 export const getClassAssessments = async (classId, month) => {
-  const query = `
-    SELECT 
-      s.StudentID AS studentId,
-      s.FullName AS fullName,
-      s.AvatarURL AS avatarUrl,
-      a.AssessmentID AS assessmentId,
-      a.PhysicalScore AS physicalScore,
-      a.CognitiveScore AS cognitiveScore,
-      a.LanguageScore AS languageScore,
-      a.SocioEmotionalScore AS socioEmotionalScore,
-      a.AestheticScore AS aestheticScore,
-      a.TeacherComment AS teacherComment
-    FROM Students s
-    LEFT JOIN StudentAssessments a ON s.StudentID = a.StudentID AND a.AssessmentMonth = ?
-    WHERE s.ClassID = ? AND s.EnrollmentStatus = 'Active'
-    ORDER BY s.FullName ASC
-  `;
-  const [rows] = await pool.query(query, [month, classId]);
-  
+  const [rows] = await pool.query(
+    `SELECT
+        s.StudentID            AS studentId,
+        s.FullName            AS fullName,
+        s.AvatarURL           AS avatarUrl,
+        a.AssessmentID        AS assessmentId,
+        a.PhysicalScore       AS physicalScore,
+        a.CognitiveScore      AS cognitiveScore,
+        a.LanguageScore       AS languageScore,
+        a.SocioEmotionalScore AS emotionalScore,
+        a.AestheticScore     AS aestheticScore,
+        a.LifeSkillsScore     AS lifeSkillsScore,
+        a.TeacherComment      AS notes
+     FROM Students s
+     LEFT JOIN StudentAssessments a ON s.StudentID = a.StudentID AND a.AssessmentMonth = ?
+     WHERE s.ClassID = ? AND s.EnrollmentStatus = 'Active'
+     ORDER BY s.FullName ASC`,
+    [month, classId]
+  );
+
   return rows.map(row => {
-    let assessment = null;
-    if (row.assessmentId) {
-      assessment = {
-        assessmentId: row.assessmentId,
-        physicalScore: row.physicalScore,
-        cognitiveScore: row.cognitiveScore,
-        languageScore: row.languageScore,
-        socioEmotionalScore: row.socioEmotionalScore,
-        aestheticScore: row.aestheticScore,
-        teacherComment: row.teacherComment
-      };
+    if (!row.assessmentId) {
+      return { studentId: row.studentId, fullName: row.fullName, avatarUrl: row.avatarUrl, assessment: null };
     }
-    
     return {
       studentId: row.studentId,
       fullName: row.fullName,
       avatarUrl: row.avatarUrl,
-      assessment
+      assessment: {
+        assessmentId:    row.assessmentId,
+        physicalScore:   row.physicalScore,
+        cognitiveScore:  row.cognitiveScore,
+        languageScore:   row.languageScore,
+        emotionalScore:  row.emotionalScore,
+        aestheticScore:  row.aestheticScore,
+        lifeSkillsScore: row.lifeSkillsScore,
+        notes:           row.notes,
+      }
     };
   });
 };
 
 /**
- * Upsert student assessment for a specific month
+ * Upsert student assessment for a specific month.
+ * Fields follow FE spec: emotionalScore, lifeSkillsScore, notes.
+ * @param {number} studentId
+ * @param {string} month — 'YYYY-MM'
+ * @param {number} physicalScore
+ * @param {number} cognitiveScore
+ * @param {number} languageScore
+ * @param {number} emotionalScore — maps to SocioEmotionalScore in DB
+ * @param {number} aestheticScore
+ * @param {number} lifeSkillsScore
+ * @param {string|null} notes — maps to TeacherComment in DB
  */
-export const upsertStudentAssessment = async (studentId, month, physicalScore, cognitiveScore, languageScore, socioEmotionalScore, aestheticScore, teacherComment) => {
-  // Try to find if an assessment already exists
+export const upsertStudentAssessment = async (studentId, month, physicalScore, cognitiveScore, languageScore, emotionalScore, aestheticScore, lifeSkillsScore, notes) => {
   const [existing] = await pool.query(
-    'SELECT AssessmentID FROM StudentAssessments WHERE StudentID = ? AND AssessmentMonth = ?', 
+    'SELECT AssessmentID FROM StudentAssessments WHERE StudentID = ? AND AssessmentMonth = ?',
     [studentId, month]
   );
-  
+
   if (existing.length > 0) {
     const assessmentId = existing[0].AssessmentID;
-    const updateQuery = `
-      UPDATE StudentAssessments
-      SET PhysicalScore = ?, CognitiveScore = ?, LanguageScore = ?, 
-          SocioEmotionalScore = ?, AestheticScore = ?, TeacherComment = ?
-      WHERE AssessmentID = ?
-    `;
-    await pool.query(updateQuery, [
-      physicalScore, cognitiveScore, languageScore, 
-      socioEmotionalScore, aestheticScore, teacherComment, 
-      assessmentId
-    ]);
+    await pool.query(
+      `UPDATE StudentAssessments
+         SET PhysicalScore = ?, CognitiveScore = ?, LanguageScore = ?,
+             SocioEmotionalScore = ?, AestheticScore = ?, LifeSkillsScore = ?, TeacherComment = ?
+         WHERE AssessmentID = ?`,
+      [physicalScore, cognitiveScore, languageScore,
+       emotionalScore, aestheticScore, lifeSkillsScore, notes,
+       assessmentId]
+    );
   } else {
-    const insertQuery = `
-      INSERT INTO StudentAssessments (
-        StudentID, AssessmentMonth, PhysicalScore, CognitiveScore, 
-        LanguageScore, SocioEmotionalScore, AestheticScore, TeacherComment
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    await pool.query(insertQuery, [
-      studentId, month, physicalScore, cognitiveScore, 
-      languageScore, socioEmotionalScore, aestheticScore, teacherComment
-    ]);
+    await pool.query(
+      `INSERT INTO StudentAssessments
+         (StudentID, AssessmentMonth, PhysicalScore, CognitiveScore, LanguageScore,
+          SocioEmotionalScore, AestheticScore, LifeSkillsScore, TeacherComment)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [studentId, month, physicalScore, cognitiveScore, languageScore,
+       emotionalScore, aestheticScore, lifeSkillsScore, notes]
+    );
   }
+};
+
+/**
+ * Get assessment history for a specific student — last 6 months.
+ * Returns records ordered by month descending.
+ * Verifies the student belongs to the teacher's assigned class.
+ * Maps DB fields to FE spec: socioEmotionalScore → emotionalScore, TeacherComment → notes.
+ * @param {number} classId - Teacher's assigned classId
+ * @param {number} studentId
+ * @returns {Promise<Array>}
+ */
+export const getStudentAssessmentHistory = async (classId, studentId) => {
+  const [rows] = await pool.query(
+    `SELECT
+        sa.AssessmentID       AS assessmentId,
+        sa.AssessmentMonth    AS month,
+        sa.PhysicalScore     AS physicalScore,
+        sa.CognitiveScore     AS cognitiveScore,
+        sa.LanguageScore     AS languageScore,
+        sa.SocioEmotionalScore AS emotionalScore,
+        sa.AestheticScore     AS aestheticScore,
+        sa.LifeSkillsScore    AS lifeSkillsScore,
+        sa.TeacherComment     AS notes
+     FROM StudentAssessments sa
+     JOIN Students s ON sa.StudentID = s.StudentID
+     WHERE s.StudentID        = ?
+       AND s.ClassID          = ?
+       AND s.EnrollmentStatus = 'Active'
+     ORDER BY sa.AssessmentMonth DESC
+     LIMIT 6`,
+    [studentId, classId]
+  );
+  return rows;
 };
 
 /**

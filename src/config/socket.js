@@ -14,10 +14,15 @@ export const initSocket = (httpServer) => {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
+  const ioCorsOrigin = process.env.IOCORS_ORIGIN || (allowedOrigins.length > 0 ? allowedOrigins : '*');
+  const ioCorsMethods = process.env.IOCORS_METHODS
+    ? process.env.IOCORS_METHODS.split(',').map(m => m.trim())
+    : ['GET', 'POST'];
+
   io = new Server(httpServer, {
     cors: {
-      origin: allowedOrigins.length > 0 ? allowedOrigins : '*',
-      methods: ['GET', 'POST'],
+      origin: ioCorsOrigin,
+      methods: ioCorsMethods,
       credentials: allowedOrigins.length > 0,
     },
     transports: ['websocket', 'polling'],
