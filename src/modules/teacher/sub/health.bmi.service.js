@@ -97,7 +97,7 @@ const ensureStudentInClass = async (studentId, classId) => {
 
 const ensureTeacherAssignedToClass = async (teacherId, classId) => {
   const [rows] = await pool.query(
-    `SELECT 1 FROM classteachers WHERE TeacherID = ? AND ClassID = ? LIMIT 1`,
+    `SELECT 1 FROM ClassTeachers WHERE TeacherID = ? AND ClassID = ? LIMIT 1`,
     [teacherId, classId]
   );
   if (rows.length === 0) {
