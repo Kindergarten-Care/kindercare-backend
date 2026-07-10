@@ -43,7 +43,8 @@ export const getTeacherClasses = async (teacherId) => {
       (SELECT COUNT(*) FROM Students s WHERE s.ClassID = c.ClassID AND s.EnrollmentStatus = 'Active') AS studentCount
     FROM ClassTeachers ct
     JOIN Classes c ON ct.ClassID = c.ClassID
-    WHERE ct.TeacherID = ?
+    JOIN AcademicYears ay ON c.YearID = ay.YearID
+    WHERE ct.TeacherID = ? AND ay.IsActive = 1
   `;
   const [rows] = await pool.query(query, [teacherId]);
   return rows;
