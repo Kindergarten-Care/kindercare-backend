@@ -12,9 +12,10 @@ export const getNewsfeedsByClass = async (classId, teacherId) => {
        n.MediaURL AS mediaUrl,
        n.PostedAt AS postedAt,
        t.FullName AS teacherName,
-       t.AvatarURL AS teacherAvatar
+       u.AvatarURL AS teacherAvatar
      FROM Newsfeeds n
      LEFT JOIN Teachers t ON n.TeacherID = t.TeacherID
+     LEFT JOIN Users u ON t.UserID = u.UserID
      WHERE n.ClassID = ?
      ORDER BY n.PostedAt DESC`,
     [classId]
