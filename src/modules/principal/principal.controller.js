@@ -331,13 +331,17 @@ const createAccount = async (req, res, next) => {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Tham số ?role= phải là teacher hoặc parent');
     }
 
-    const { username, fullName, phoneNumber, email } = req.body;
-    if (!username || !fullName) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'username và fullName là bắt buộc');
+    let { username, fullName, phoneNumber, email } = req.body;
+    
+    if (role === 'parent') {
+      if (!phoneNumber) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'phoneNumber là bắt buộc đối với phụ huynh');
+      }
+      username = phoneNumber; // Tự động gán username bằng sđt cho phụ huynh
     }
 
-    if (role === 'parent' && !phoneNumber) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'phoneNumber là bắt buộc đối với phụ huynh');
+    if (!username || !fullName) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'username và fullName là bắt buộc');
     }
 
     const userId = await principalService.createAccount(role, { username, fullName, phoneNumber, email });

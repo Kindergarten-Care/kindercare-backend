@@ -158,7 +158,7 @@ const logout = (_req, res) => {
 };
 
 export default {
-    login:          createLoginHandler(),
+    login:          createLoginHandler(null, ['Username', 'Email', 'Phone']),
     loginAdmin:     createLoginHandler([1], ['Username']),
     loginPrincipal: createLoginHandler([2], ['Username', 'Email', 'Phone']),
     loginTeacher:   createLoginHandler([3], ['Username', 'Email', 'Phone']),
