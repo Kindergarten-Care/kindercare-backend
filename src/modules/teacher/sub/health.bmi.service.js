@@ -26,7 +26,7 @@ const validateBmiMeasurement = ({ studentId, classId, termPeriod, height, weight
   if (!Number.isInteger(classId) || classId <= 0) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'classId phải là số nguyên dương');
   }
-  if (!termPeriod || !TERM_PERIOD_REGEX.test(termPeriod)) {
+  if (termPeriod !== undefined && termPeriod !== null && !TERM_PERIOD_REGEX.test(termPeriod)) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
       'termPeriod phải có định dạng YYYY-MM (VD: 2026-07)'
@@ -61,7 +61,7 @@ const validateBmiMeasurement = ({ studentId, classId, termPeriod, height, weight
   return {
     studentId,
     classId,
-    termPeriod,
+    termPeriod: termPeriod || new Date().toISOString().slice(0, 7),
     height: roundTo2(heightNum),
     weight: roundTo2(weightNum),
     notes: notes ?? null,
