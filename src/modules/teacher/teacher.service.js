@@ -1,8 +1,37 @@
 import pool from '../../config/db.js';
 
 /**
+ * Get the single active class assigned to a teacher (only AcademicYears with IsActive = 1).
+ * A teacher is assigned to at most one class at any given time.
+ * @param {number} teacherId
+ * @returns {Promise<Object|null>} Class info with academic year, or null if not assigned.
+ */
+export const getTeacherActiveClass = async (teacherId) => {
+  const [rows] = await pool.query(
+    `SELECT
+        c.ClassID    AS classId,
+        c.ClassName  AS className,
+        c.GradeID    AS gradeId,
+        c.YearID     AS yearId,
+        ct.RoleInClass AS roleInClass,
+        ay.YearName  AS academicYearName,
+        ay.StartDate AS academicYearStartDate,
+        ay.EndDate   AS academicYearEndDate,
+        ay.IsActive  AS academicYearIsActive
+     FROM ClassTeachers ct
+     JOIN Classes       c  ON ct.ClassID = c.ClassID
+     JOIN AcademicYears ay ON c.YearID    = ay.YearID
+     WHERE ct.TeacherID  = ?
+       AND ay.IsActive   = 1
+     LIMIT 1`,
+    [teacherId]
+  );
+  return rows[0] ?? null;
+};
+
+/**
  * Get all classes assigned to a teacher
- * @param {number} teacherId 
+ * @param {number} teacherId
  * @returns {Promise<Array>} Classes
  */
 export const getTeacherClasses = async (teacherId) => {

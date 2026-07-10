@@ -14,6 +14,9 @@ router.use(authenticate, authorize(3));
 // Dashboard
 router.get('/dashboard', teacherController.getDashboard);
 
+// Active Class (chỉ lấy lớp thuộc AcademicYears có IsActive = 1)
+router.get('/my-class', teacherController.getMyActiveClass);
+
 // Profile
 router.get('/profile', teacherController.getProfile);
 router.put('/profile', teacherValidation.validateUpdateProfile, teacherController.updateProfile);

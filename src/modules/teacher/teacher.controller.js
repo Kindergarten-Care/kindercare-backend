@@ -79,6 +79,43 @@ export const getProfile = async (req, res, next) => {
 };
 
 /**
+ * Get the single active class assigned to the authenticated teacher.
+ */
+export const getMyActiveClass = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const result = await teacherService.getTeacherActiveClass(teacherId);
+
+    if (!result) {
+      throw new ApiError(
+        httpStatus.NOT_FOUND,
+        'Giáo viên hiện không được phân công lớp nào trong năm học hoạt động'
+      );
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, {
+        classInfo: {
+          classId: result.classId,
+          className: result.className,
+          gradeId: result.gradeId,
+          yearId: result.yearId,
+          roleInClass: result.roleInClass,
+        },
+        academicYear: {
+          yearName: result.academicYearName,
+          startDate: result.academicYearStartDate,
+          endDate: result.academicYearEndDate,
+          isActive: result.academicYearIsActive,
+        },
+      })
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Update Teacher Profile
  */
 export const updateProfile = async (req, res, next) => {
