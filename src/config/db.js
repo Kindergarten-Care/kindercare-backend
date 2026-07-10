@@ -35,7 +35,19 @@ const pool = mysql.createPool({
       }
     }
   } catch (err) {
-    logger.error("Failed to run self-healing database check: %s", err.message);
+    logger.error(
+      "Failed to run self-healing database check: code=%s, errno=%s, sqlState=%s, message=%s",
+      err.code || 'N/A',
+      err.errno || 'N/A',
+      err.sqlState || 'N/A',
+      err.message || '(empty - possibly AggregateError from low-level TCP/DNS failure)'
+    );
+    if (err.errors && err.errors.length) {
+      logger.error("Inner errors: %o", err.errors);
+    }
+    if (err.cause) {
+      logger.error("Cause: %o", err.cause);
+    }
   }
 })();
 
