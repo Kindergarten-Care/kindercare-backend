@@ -15,7 +15,7 @@ export const getNewsfeedsByClass = async (classId, teacherId) => {
        u.AvatarURL AS teacherAvatar
      FROM Newsfeeds n
      LEFT JOIN Teachers t ON n.TeacherID = t.TeacherID
-     LEFT JOIN Users u ON t.UserID = u.UserID
+     LEFT JOIN Users u ON t.TeacherID = u.UserID
      WHERE n.ClassID = ?
      ORDER BY n.PostedAt DESC`,
     [classId]
