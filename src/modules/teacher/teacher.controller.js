@@ -927,7 +927,8 @@ export const getClassAssessments = async (req, res, next) => {
 };
 
 /**
- * Submit or update class assessments (Phiếu bé ngoan)
+ * Submit or update class assessments (Phiếu bé ngoan) — old batch format.
+ * Kept for backward compatibility with existing /classes/:classId/assessments route.
  */
 export const submitClassAssessments = async (req, res, next) => {
   try {
@@ -942,36 +943,29 @@ export const submitClassAssessments = async (req, res, next) => {
       throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền thao tác trên lớp này');
     }
 
-    // Process each assessment
     for (const item of assessments) {
       const {
         studentId,
         physicalScore,
         cognitiveScore,
         languageScore,
-        socioEmotionalScore,
+        emotionalScore,
         aestheticScore,
-        teacherComment
+        lifeSkillsScore,
+        notes,
       } = item;
 
-      // Verify student is indeed enrolled in this class
       const isInClass = await teacherService.isStudentInClass(studentId, numericClassId);
       if (!isInClass) {
         throw new ApiError(httpStatus.BAD_REQUEST, `Học sinh với ID ${studentId} không thuộc lớp ${numericClassId}`);
       }
 
       await teacherService.upsertStudentAssessment(
-        studentId,
-        month,
-        physicalScore,
-        cognitiveScore,
-        languageScore,
-        socioEmotionalScore,
-        aestheticScore,
-        teacherComment
+        studentId, month,
+        physicalScore, cognitiveScore, languageScore,
+        emotionalScore, aestheticScore, lifeSkillsScore, notes
       );
 
-      // Push notification to parents
       const [parentIds, studentInfo] = await Promise.all([
         teacherService.getStudentParentsUserIds(studentId),
         getStudentBasicInfo(studentId),
@@ -998,50 +992,70 @@ export const submitClassAssessments = async (req, res, next) => {
 /**
  * Simplified submit assessments — classId comes from body, resolved from teacher's active class.
  * POST /api/teacher/assessments
- * Body: { classId, month, assessments }
+ * Body: {
+ *   studentId: number,
+ *   month: string,           // 'YYYY-MM'
+ *   physicalScore: number,   // 1-10
+ *   cognitiveScore: number,   // 1-10
+ *   languageScore: number,    // 1-10
+ *   emotionalScore: number,   // 1-10
+ *   aestheticScore: number,   // 1-10
+ *   lifeSkillsScore: number, // 1-10
+ *   notes?: string
+ * }
  */
 export const submitAssessments = async (req, res, next) => {
   try {
     const teacherId = req.user.userId;
-    const { classId, month, assessments } = req.body;
-    const numericClassId = Number(classId);
+    const {
+      studentId,
+      month,
+      physicalScore,
+      cognitiveScore,
+      languageScore,
+      emotionalScore,
+      aestheticScore,
+      lifeSkillsScore,
+      notes,
+    } = req.body;
+    const classId = Number(req.body.classId);
 
-    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!studentId || !month) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'studentId và month là bắt buộc');
+    }
+
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, classId);
     if (!isAssigned) {
       throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền thao tác trên lớp này');
     }
 
-    for (const item of assessments) {
-      const { studentId, physicalScore, cognitiveScore, languageScore, socioEmotionalScore, aestheticScore, teacherComment } = item;
+    const isInClass = await teacherService.isStudentInClass(studentId, classId);
+    if (!isInClass) {
+      throw new ApiError(httpStatus.BAD_REQUEST, `Học sinh với ID ${studentId} không thuộc lớp ${classId}`);
+    }
 
-      const isInClass = await teacherService.isStudentInClass(studentId, numericClassId);
-      if (!isInClass) {
-        throw new ApiError(httpStatus.BAD_REQUEST, `Học sinh với ID ${studentId} không thuộc lớp ${numericClassId}`);
-      }
+    await teacherService.upsertStudentAssessment(
+      studentId, month,
+      physicalScore, cognitiveScore, languageScore,
+      emotionalScore, aestheticScore, lifeSkillsScore, notes
+    );
 
-      await teacherService.upsertStudentAssessment(
-        studentId, month,
-        physicalScore, cognitiveScore, languageScore,
-        socioEmotionalScore, aestheticScore, teacherComment
+    const [parentIds, studentInfo] = await Promise.all([
+      teacherService.getStudentParentsUserIds(studentId),
+      getStudentBasicInfo(studentId),
+    ]);
+    const studentName = studentInfo ? studentInfo.fullName : `ID: ${studentId}`;
+    for (const parentId of parentIds) {
+      await sendPushToUser(
+        parentId,
+        'Cập nhật Phiếu Bé Ngoan',
+        `Giáo viên đã cập nhật Phiếu Bé Ngoan / Đánh giá tháng ${month} của bé ${studentName}.`,
+        { type: 'STUDENT_ASSESSMENT', studentId: String(studentId), month: String(month) }
       );
-
-      const [parentIds, studentInfo] = await Promise.all([
-        teacherService.getStudentParentsUserIds(studentId),
-        getStudentBasicInfo(studentId),
-      ]);
-      const studentName = studentInfo ? studentInfo.fullName : `ID: ${studentId}`;
-      for (const parentId of parentIds) {
-        await sendPushToUser(
-          parentId,
-          'Cập nhật Phiếu Bé Ngoan',
-          `Giáo viên đã cập nhật Phiếu Bé Ngoan / Đánh giá tháng ${month} của bé ${studentName}.`,
-          { type: 'STUDENT_ASSESSMENT', studentId: String(studentId), month: String(month) }
-        );
-      }
     }
 
     res.status(httpStatus.OK).json(
-      new ApiResponse(httpStatus.OK, null, 'Cập nhật phiếu bé ngoan thành công')
+      new ApiResponse(httpStatus.OK, null, 'Lưu đánh giá thành công')
     );
   } catch (error) {
     next(error);
@@ -1074,7 +1088,7 @@ export const getStudentAssessmentHistory = async (req, res, next) => {
     const history = await teacherService.getStudentAssessmentHistory(classId, studentId);
 
     res.status(httpStatus.OK).json(
-      new ApiResponse(httpStatus.OK, { studentId, classId, assessments: history }, 'Lấy lịch sử đánh giá thành công')
+      new ApiResponse(httpStatus.OK, history, 'Lấy lịch sử đánh giá thành công')
     );
   } catch (error) {
     next(error);
