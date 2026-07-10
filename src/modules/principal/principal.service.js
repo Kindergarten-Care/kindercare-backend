@@ -350,12 +350,15 @@ export const getGradesAndClasses = async () => {
       g.GradeName AS gradeName,
       c.ClassID AS classId,
       c.ClassName AS className,
-      y.YearName AS yearName
+      y.YearName AS yearName,
+      COUNT(ct.TeacherID) AS teacherCount
     FROM Grades g
     LEFT JOIN Classes c ON g.GradeID = c.GradeID AND (
       c.YearID = (SELECT YearID FROM AcademicYears WHERE IsActive = 1 LIMIT 1)
     )
     LEFT JOIN AcademicYears y ON c.YearID = y.YearID
+    LEFT JOIN ClassTeachers ct ON c.ClassID = ct.ClassID
+    GROUP BY g.GradeID, g.GradeName, c.ClassID, c.ClassName, y.YearName
     ORDER BY g.GradeID, c.ClassName
   `;
   const [rows] = await pool.query(query);
@@ -377,7 +380,8 @@ export const getGradesAndClasses = async () => {
       map.get(row.gradeId).classes.push({
         classId: row.classId,
         className: row.className,
-        yearName: row.yearName
+        yearName: row.yearName,
+        teacherCount: row.teacherCount
       });
     }
   }
