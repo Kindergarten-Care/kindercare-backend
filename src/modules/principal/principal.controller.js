@@ -179,6 +179,32 @@ const getParentDetail = async (req, res, next) => {
   }
 };
 
+const getStudentDetail = async (req, res, next) => {
+  try {
+    const roleId = req.user.roleId;
+    if (roleId !== 2) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ hiệu trưởng mới có quyền truy cập chi tiết học sinh');
+    }
+
+    const id = parsePositiveIntId(req.params.id);
+    const student = await principalService.getStudentDetail(id);
+
+    if (!student) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy học sinh với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(
+        httpStatus.OK,
+        student,
+        'Lấy thông tin chi tiết học sinh thành công'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 const resetAccountPassword = async (req, res, next) => {
   try {
     const roleId = req.user.roleId;
@@ -205,12 +231,318 @@ const resetAccountPassword = async (req, res, next) => {
   }
 };
 
+const lockAccount = async (req, res, next) => {
+  try {
+    const roleId = req.user.roleId;
+    if (roleId !== 2) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ hiệu trưởng mới có quyền thao tác');
+    }
+
+    const id = parsePositiveIntId(req.params.id);
+    const success = await principalService.lockAccount(id);
+
+    if (!success) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy tài khoản với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Khóa tài khoản thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const unlockAccount = async (req, res, next) => {
+  try {
+    const roleId = req.user.roleId;
+    if (roleId !== 2) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ hiệu trưởng mới có quyền thao tác');
+    }
+
+    const id = parsePositiveIntId(req.params.id);
+    const success = await principalService.unlockAccount(id);
+
+    if (!success) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy tài khoản với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Mở khóa tài khoản thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getClassDetail = async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id) || id <= 0) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Class ID không hợp lệ');
+    }
+
+    const classDetail = await principalService.getClassDetail(id);
+    if (!classDetail) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy lớp học với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, classDetail, 'Lấy thông tin chi tiết lớp học thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getGradesAndClasses = async (req, res, next) => {
+  try {
+    const grades = await principalService.getGradesAndClasses();
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, grades, 'Lấy danh sách khối và lớp thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createGradeAndClasses = async (req, res, next) => {
+  try {
+    const { gradeName, classes } = req.body;
+    
+    if (!gradeName) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Tên khối (gradeName) là bắt buộc');
+    }
+
+    const gradeId = await principalService.createGradeAndClasses(gradeName, classes);
+    
+    res.status(httpStatus.CREATED).json(
+      new ApiResponse(httpStatus.CREATED, { gradeId }, 'Tạo khối/lớp thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createAccount = async (req, res, next) => {
+  try {
+    const { role } = req.query;
+    if (!role || (role !== 'teacher' && role !== 'parent')) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Tham số ?role= phải là teacher hoặc parent');
+    }
+
+    let { username, fullName, phoneNumber, email } = req.body;
+    
+    if (role === 'parent') {
+      if (!phoneNumber) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'phoneNumber là bắt buộc đối với phụ huynh');
+      }
+      username = phoneNumber; // Tự động gán username bằng sđt cho phụ huynh
+    }
+
+    if (!username || !fullName) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'username và fullName là bắt buộc');
+    }
+
+    const userId = await principalService.createAccount(role, { username, fullName, phoneNumber, email });
+
+    res.status(httpStatus.CREATED).json(
+      new ApiResponse(httpStatus.CREATED, { userId, role }, 'Tạo tài khoản thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+const assignTeacherToClass = async (req, res, next) => {
+  try {
+    const { classId, teacherId, roleInClass, assignedDate } = req.body;
+    if (!classId || !teacherId) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'classId và teacherId là bắt buộc');
+    }
+    await principalService.assignTeacherToClass(classId, teacherId, roleInClass, assignedDate);
+    res.status(httpStatus.OK).json(new ApiResponse(httpStatus.OK, null, 'Bổ nhiệm giáo viên thành công'));
+  } catch (error) {
+    next(error);
+  }
+};
+
+const assignStudentsToClass = async (req, res, next) => {
+  try {
+    const { studentIds, classId } = req.body;
+    if (!Array.isArray(studentIds) || !classId) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'studentIds (mảng) và classId là bắt buộc');
+    }
+    await principalService.assignStudentsToClass(studentIds, classId);
+    res.status(httpStatus.OK).json(new ApiResponse(httpStatus.OK, null, 'Xếp lớp học sinh thành công'));
+  } catch (error) {
+    next(error);
+  }
+};
+
+const endAcademicYear = async (req, res, next) => {
+  try {
+    const result = await principalService.endAcademicYear();
+    res.status(httpStatus.OK).json(new ApiResponse(httpStatus.OK, result, 'Tổng kết năm học thành công'));
+  } catch (error) {
+    next(error);
+  }
+};
+
+  const startAcademicYear = async (req, res, next) => {
+    try {
+      const { yearName, startDate, endDate } = req.body;
+      const monthlyTuition = req.body.monthlyTuition || 0;
+      const dailyMealFee = req.body.dailyMealFee || 0;
+      const isActive = req.body.isActive !== undefined ? req.body.isActive : true;
+      
+      if (!yearName || !startDate || !endDate) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Thiếu thông tin năm học');
+      }
+      const result = await principalService.startAcademicYear({ yearName, startDate, endDate, monthlyTuition, dailyMealFee, isActive });
+      res.status(httpStatus.OK).json(new ApiResponse(httpStatus.OK, result, 'Bắt đầu năm học mới thành công'));
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getUnassignedStudents = async (req, res, next) => {
+  try {
+    const students = await principalService.getUnassignedStudents();
+    res.status(httpStatus.OK).json(new ApiResponse(httpStatus.OK, students, 'Lấy danh sách học sinh chưa xếp lớp thành công'));
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getAcademicYears = async (req, res, next) => {
+  try {
+    const years = await principalService.getAcademicYears();
+    res.status(httpStatus.OK).json(new ApiResponse(httpStatus.OK, years, 'Lấy danh sách năm học thành công'));
+  } catch (error) {
+    next(error);
+  }
+};
+
+const activateAcademicYear = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const result = await principalService.activateAcademicYear(id);
+    res.status(httpStatus.OK).json(new ApiResponse(httpStatus.OK, result, result.message));
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getAllStudents = async (req, res, next) => {
+  try {
+    const students = await principalService.getAllStudents();
+    res.status(200).json({
+      success: true,
+      data: students,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const searchParentsByPhone = async (req, res, next) => {
+  try {
+    const { phone } = req.query;
+    if (!phone) {
+      return res.status(400).json({ success: false, message: 'Số điện thoại là bắt buộc' });
+    }
+    const parent = await principalService.searchParentsByPhone(phone);
+    res.status(200).json({
+      success: true,
+      data: parent, // null if not found
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getPaymentConfigs = async (req, res, next) => {
+  try {
+    const data = await principalService.getPaymentConfigs();
+    res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const enrollStudent = async (req, res, next) => {
+  try {
+    const result = await principalService.enrollStudent(req.body);
+    res.status(201).json({
+      success: true,
+      data: result,
+      message: 'Đã tạo hồ sơ học sinh thành công'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const addParentToStudent = async (req, res, next) => {
+  try {
+    const { id: studentId } = req.params;
+    const result = await principalService.addParentToStudent(studentId, req.body);
+    res.status(201).json({
+      success: true,
+      data: result,
+      message: 'Đã thêm phụ huynh thành công'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const importStudents = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Vui lòng upload file CSV' });
+    }
+    const count = await principalService.importStudentsFromCSV(req.file.buffer);
+    res.status(201).json({
+      success: true,
+      message: `Đã import thành công ${count} học sinh`
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getMyProfile,
   getTeachersList,
   getParentsList,
+  getAllStudents,
+  searchParentsByPhone,
+  getPaymentConfigs,
+  enrollStudent,
+  addParentToStudent,
+  importStudents,
   getAccountsByRole,
   getTeacherDetail,
   getParentDetail,
+  getStudentDetail,
+  getUnassignedStudents,
   resetAccountPassword,
+  lockAccount,
+  unlockAccount,
+  getGradesAndClasses,
+  createGradeAndClasses,
+  createAccount,
+  getClassDetail,
+  assignTeacherToClass,
+  assignStudentsToClass,
+  endAcademicYear,
+  startAcademicYear,
+  getAcademicYears,
+  activateAcademicYear,
 };

@@ -18,16 +18,19 @@ const buildQuery = (identifierType) => {
                r.RoleName,
                COALESCE(a.FullName, pr.FullName, t.FullName, p.FullName) AS FullName,
                (
-                   SELECT CONCAT('[', COALESCE(GROUP_CONCAT(
-                       JSON_OBJECT(
-                           'studentId', s.StudentID,
-                           'fullName', s.FullName,
-                           'relationship', sp.Relationship,
-                           'avatarUrl', s.AvatarURL,
-                           'classId', s.ClassID,
-                           'className', c.ClassName
-                       )
-                   ), ''), ']')
+                   SELECT COALESCE(
+                       JSON_ARRAYAGG(
+                           JSON_OBJECT(
+                               'studentId', s.StudentID,
+                               'fullName', s.FullName,
+                               'relationship', sp.Relationship,
+                               'avatarUrl', s.AvatarURL,
+                               'classId', s.ClassID,
+                               'className', c.ClassName
+                           )
+                       ), 
+                       '[]'
+                   )
                    FROM StudentParents sp
                    JOIN Students s ON sp.StudentID = s.StudentID
                    LEFT JOIN Classes c ON s.ClassID = c.ClassID
@@ -90,13 +93,13 @@ const createLoginHandler = (allowedRoleIds = null, allowedIdentifiers = ['Userna
                 throw new ApiError(httpStatus.FORBIDDEN, 'Tài khoản không có quyền truy cập vào hệ thống này');
             }
 
-            if (user.Status !== 'Active') {
-                throw new ApiError(httpStatus.FORBIDDEN, 'Tài khoản đã bị vô hiệu hóa');
-            }
-
             const isPasswordValid = await bcrypt.compare(password, user.PasswordHash);
             if (!isPasswordValid) {
                 throw new ApiError(httpStatus.UNAUTHORIZED, 'Thông tin đăng nhập không đúng');
+            }
+
+            if (user.Status?.toLowerCase() !== 'active') {
+                throw new ApiError(httpStatus.FORBIDDEN, 'Tài khoản đã bị khóa, liên hệ nhà trường để biết thêm thông tin');
             }
 
             let children = [];

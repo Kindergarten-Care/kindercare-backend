@@ -60,7 +60,203 @@
 
 /**
  * @swagger
+ * /principal/grades-classes:
+ *   get:
+ *     summary: Lấy toàn bộ danh sách khối và lớp
+ *     description: |
+ *       Trả về danh sách tất cả các khối học, mỗi khối học chứa danh sách các lớp học thuộc khối đó.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền truy cập.
+ *     tags: ["Principal - Grades"]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lấy danh sách khối và lớp thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách khối và lớp thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       gradeId:
+ *                         type: integer
+ *                         example: 1
+ *                       gradeName:
+ *                         type: string
+ *                         example: Mầm
+ *                       classes:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             classId:
+ *                               type: integer
+ *                               example: 1
+ *                             className:
+ *                               type: string
+ *                               example: Mầm 1
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ */
+
+/**
+ * @swagger
+ * /principal/grades-classes:
+ *   post:
+ *     summary: Tạo khối học và lớp học tương ứng
+ *     description: |
+ *       API này cho phép tạo khối học mới hoặc dùng khối học đã có. 
+ *       Có thể truyền mảng `classes` để tạo các lớp học tương ứng vào khối đó.
+ *       Nếu lớp học đã tồn tại trong khối, hệ thống sẽ bỏ qua để tránh trùng lặp.
+ *       
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Grades"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - gradeName
+ *             properties:
+ *               gradeName:
+ *                 type: string
+ *                 example: "Chồi"
+ *               classes:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["Chồi 1", "Chồi 2"]
+ *                 description: Danh sách tên các lớp học (không bắt buộc)
+ *     responses:
+ *       201:
+ *         description: Tạo khối và lớp thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 201
+ *                 message:
+ *                   type: string
+ *                   example: Tạo khối/lớp thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     gradeId:
+ *                       type: integer
+ *                       example: 2
+ *       400:
+ *         description: Thiếu thông tin bắt buộc (vd thiếu gradeName)
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ */
+
+/**
+ * @swagger
  * /principal/accounts:
+ *   post:
+ *     summary: Tạo tài khoản giáo viên hoặc phụ huynh
+ *     description: |
+ *       Tạo tài khoản mới và cấp quyền tương ứng dựa vào `role`.
+ *       Mật khẩu mặc định sẽ được đặt là `123456`.
+ *       
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Accounts"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: role
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [teacher, parent]
+ *         description: Loại tài khoản cần tạo (`teacher` hoặc `parent`)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - fullName
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 example: "nguyenvan_a"
+ *                 description: Tên đăng nhập (phải duy nhất)
+ *               fullName:
+ *                 type: string
+ *                 example: "Nguyễn Văn A"
+ *                 description: Họ và tên
+ *               phoneNumber:
+ *                 type: string
+ *                 example: "0987654321"
+ *                 description: Số điện thoại (Bắt buộc với phụ huynh)
+ *               email:
+ *                 type: string
+ *                 example: "nguyenvana@gmail.com"
+ *                 description: Địa chỉ email (Tùy chọn)
+ *     responses:
+ *       201:
+ *         description: Tạo tài khoản thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 201
+ *                 message:
+ *                   type: string
+ *                   example: Tạo tài khoản thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     userId:
+ *                       type: integer
+ *                       example: 10
+ *                     role:
+ *                       type: string
+ *                       example: teacher
+ *       400:
+ *         description: Thiếu thông tin bắt buộc hoặc trùng tên đăng nhập
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
  *   get:
  *     summary: Lấy danh sách tài khoản theo role (gộp teacher + parent)
  *     description: |
@@ -286,6 +482,72 @@
 
 /**
  * @swagger
+ * /principal/student/{id}/detail:
+ *   get:
+ *     summary: Lấy thông tin chi tiết học sinh
+ *     description: |
+ *       Trả về thông tin chi tiết của học sinh kèm danh sách phụ huynh.
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền truy cập.
+ *     tags: ["Principal - Student"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: StudentID của học sinh cần lấy thông tin
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Lấy thông tin chi tiết học sinh thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Lấy thông tin chi tiết học sinh thành công }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer, example: 1 }
+ *                     fullName: { type: string, example: "Nguyễn Minh Khang" }
+ *                     dateOfBirth: { type: integer, nullable: true, description: "Unix timestamp (seconds)", example: 1684108800 }
+ *                     gender: { type: string, nullable: true, example: "Nam" }
+ *                     allergies: { type: string, nullable: true, example: "Dị ứng lạc" }
+ *                     admissionDate: { type: integer, nullable: true, description: "Unix timestamp (seconds)", example: 1693526400 }
+ *                     status: { type: string, nullable: true, example: "Active" }
+ *                     avatarUrl: { type: string, nullable: true, example: null }
+ *                     classId: { type: integer, nullable: true, example: 1 }
+ *                     className: { type: string, nullable: true, example: "Mầm 1" }
+ *                     parents:
+ *                       type: array
+ *                       description: Danh sách phụ huynh của học sinh
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           parentId: { type: integer, example: 4 }
+ *                           fullName: { type: string, example: "Nguyễn Anh Tuấn" }
+ *                           phoneNumber: { type: string, example: "0909090909" }
+ *                           email: { type: string, nullable: true, example: "tuan.nguyen@gmail.com" }
+ *                           relationship: { type: string, example: "Bố" }
+ *                           isPrimary: { type: integer, description: "1 = phụ huynh chính, 0 = phụ huynh phụ", example: 1 }
+ *       400:
+ *         description: Bad Request - id không hợp lệ
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy học sinh
+ */
+
+/**
+ * @swagger
  * /principal/accounts/{id}/reset-password:
  *   patch:
  *     summary: Khôi phục mật khẩu tài khoản về mặc định
@@ -328,4 +590,377 @@
  *         description: Forbidden - Chỉ hiệu trưởng mới có quyền
  *       404:
  *         description: Not Found - Không tìm thấy tài khoản
+ * 
+ * /principal/accounts/{id}/lock:
+ *   patch:
+ *     summary: Khóa tài khoản
+ *     description: Chuyển trạng thái của tài khoản sang "inactive"
+ *     tags: ["Principal - Accounts"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID của tài khoản cần khóa (UserID)
+ *     responses:
+ *       200:
+ *         description: Khóa tài khoản thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Khóa tài khoản thành công
+ *                 data:
+ *                   nullable: true
+ *                   example: null
+ *       400:
+ *         description: Bad Request - ID không hợp lệ
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Chỉ hiệu trưởng mới có quyền
+ *       404:
+ *         description: Not Found - Không tìm thấy tài khoản
+ * 
+ * /principal/accounts/{id}/unlock:
+ *   patch:
+ *     summary: Mở khóa tài khoản
+ *     description: Chuyển trạng thái của tài khoản sang "active"
+ *     tags: ["Principal - Accounts"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID của tài khoản cần mở khóa (UserID)
+ *     responses:
+ *       200:
+ *         description: Mở khóa tài khoản thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Mở khóa tài khoản thành công
+ *                 data:
+ *                   nullable: true
+ *                   example: null
+ *       400:
+ *         description: Bad Request - ID không hợp lệ
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Chỉ hiệu trưởng mới có quyền
+ *       404:
+ *         description: Not Found - Không tìm thấy tài khoản
+ */
+
+/**
+ * @swagger
+ * /principal/class/{id}/detail:
+ *   get:
+ *     summary: Get class detail by ID
+ *     description: |
+ *       Returns full details of a class including:
+ *       - Grade name and class name
+ *       - List of teachers assigned to the class (full name, email, phone, avatar, role in class)
+ *       - Total number of students
+ *       - Today's attendance summary (present, absent, excused) based on `AttendanceDate` unix timestamp matching today's date range
+ *       - Full student list (ID, name, avatar, date of birth, admission date)
+ *
+ *       **Only Principal (roleId=2)** can access this endpoint.
+ *     tags: ["Principal - Grades"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ClassID to retrieve details for
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Class detail retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy thông tin chi tiết lớp học thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     classId:
+ *                       type: integer
+ *                       example: 1
+ *                     className:
+ *                       type: string
+ *                       example: Mầm 1
+ *                     gradeName:
+ *                       type: string
+ *                       example: Khối Mầm
+ *                     teachers:
+ *                       type: array
+ *                       description: List of teachers assigned to this class
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                             example: 7
+ *                           fullName:
+ *                             type: string
+ *                             example: Nguyễn Thị Lan
+ *                           email:
+ *                             type: string
+ *                             nullable: true
+ *                             example: lan.nguyen@kindercare.edu.vn
+ *                           phoneNumber:
+ *                             type: string
+ *                             nullable: true
+ *                             example: "0912345678"
+ *                           avatarUrl:
+ *                             type: string
+ *                             nullable: true
+ *                             example: https://media.kindercare.app/teachers/avatar.jpg
+ *                           roleInClass:
+ *                             type: string
+ *                             example: MainTeacher
+ *                     totalStudents:
+ *                       type: integer
+ *                       description: Total number of students in this class
+ *                       example: 18
+ *                     attendanceToday:
+ *                       type: object
+ *                       description: Attendance summary for today based on unix timestamp range
+ *                       properties:
+ *                         present:
+ *                           type: integer
+ *                           example: 15
+ *                         absent:
+ *                           type: integer
+ *                           example: 2
+ *                         excused:
+ *                           type: integer
+ *                           example: 1
+ *                     students:
+ *                       type: array
+ *                       description: Full list of students in this class
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           studentId:
+ *                             type: integer
+ *                             example: 19
+ *                           fullName:
+ *                             type: string
+ *                             example: Nguyễn Minh Chánh
+ *                           avatarUrl:
+ *                             type: string
+ *                             nullable: true
+ *                             example: https://media.kindercare.app/students/avatar.jpg
+ *                           dateOfBirth:
+ *                             type: integer
+ *                             description: Unix timestamp of student's date of birth
+ *                             example: 1464739200
+ *                           admissionDate:
+ *                             type: integer
+ *                             description: Unix timestamp of student's admission date (nullable)
+ *                             nullable: true
+ *                             example: 1781082000
+ *       400:
+ *         description: Bad Request - Invalid class ID
+ *       401:
+ *         description: Unauthorized - Missing or invalid token
+ *       403:
+ *         description: Forbidden - Only Principal can access
+ *       404:
+ *         description: Not Found - Class with given ID does not exist
+ */
+
+/**
+ * @swagger
+ * /principal/assignments/teacher:
+ *   post:
+ *     summary: Bổ nhiệm Giáo viên vào lớp
+ *     description: Phân công giáo viên chủ nhiệm hoặc giáo viên phụ vào một lớp cụ thể.
+ *     tags: ["Principal - Academic Year"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - classId
+ *               - teacherId
+ *             properties:
+ *               classId:
+ *                 type: integer
+ *               teacherId:
+ *                 type: integer
+ *               roleInClass:
+ *                 type: string
+ *                 example: Giáo viên chủ nhiệm
+ *               assignedDate:
+ *                 type: integer
+ *                 description: Unix timestamp, mặc định là hiện tại
+ *     responses:
+ *       200:
+ *         description: Bổ nhiệm giáo viên thành công
+ *       400:
+ *         description: Thiếu tham số
+ */
+
+/**
+ * @swagger
+ * /principal/assignments/students:
+ *   post:
+ *     summary: Xếp lớp cho học sinh
+ *     description: Di chuyển một danh sách học sinh vào một lớp.
+ *     tags: ["Principal - Academic Year"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - classId
+ *               - studentIds
+ *             properties:
+ *               classId:
+ *                 type: integer
+ *               studentIds:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *     responses:
+ *       200:
+ *         description: Xếp lớp học sinh thành công
+ */
+
+/**
+ * @swagger
+ * /principal/academic-year/end:
+ *   post:
+ *     summary: Tổng kết năm học
+ *     description: Tốt nghiệp khối Lá, gỡ lớp cũ các học sinh khác.
+ *     tags: ["Principal - Academic Year"]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Tổng kết năm học thành công
+ */
+
+/**
+ * @swagger
+ * /principal/academic-year/start:
+ *   post:
+ *     summary: Bắt đầu năm học mới
+ *     description: Tạo năm học mới và nhân bản các lớp cũ sang.
+ *     tags: ["Principal - Academic Year"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - yearName
+ *               - startDate
+ *               - endDate
+ *               - monthlyTuition
+ *               - dailyMealFee
+ *             properties:
+ *               yearName:
+ *                 type: string
+ *               startDate:
+ *                 type: integer
+ *               endDate:
+ *                 type: integer
+ *               monthlyTuition:
+ *                 type: integer
+ *               dailyMealFee:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Bắt đầu năm học mới thành công
+ */
+
+/**
+ * @swagger
+ * /principal/academic-years:
+ *   get:
+ *     summary: Lấy danh sách toàn bộ năm học
+ *     description: Trả về danh sách năm học xếp theo thứ tự mới nhất (YearID DESC).
+ *     tags: ["Principal - Academic Year"]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lấy danh sách năm học thành công
+ */
+
+/**
+ * @swagger
+ * /principal/academic-year/{id}/activate:
+ *   patch:
+ *     summary: Kích hoạt một năm học
+ *     description: Đặt năm học được chọn thành trạng thái hoạt động (IsActive = 1) và tự động vô hiệu hóa tất cả các năm học khác.
+ *     tags: ["Principal - Academic Year"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID của năm học cần kích hoạt
+ *     responses:
+ *       200:
+ *         description: Đặt trạng thái kích hoạt thành công
+ *       404:
+ *         description: Không tìm thấy năm học
  */

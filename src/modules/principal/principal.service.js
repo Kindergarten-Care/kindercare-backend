@@ -1,5 +1,9 @@
 import pool from '../../config/db.js';
 import bcrypt from 'bcryptjs';
+import ApiError from '../../utils/ApiError.js';
+import httpStatus from 'http-status';
+import csvParser from 'csv-parser';
+import { Readable } from 'stream';
 
 /**
  * Lấy thông tin profile của hiệu trưởng theo PrincipalID.
@@ -105,7 +109,7 @@ export const getAccountsByRole = async (roleId) => {
   const emailSelect = roleId === 4
     ? 'p.Email AS email'
     : 't.Email AS email';
-    
+
   const phoneSelect = roleId === 4
     ? 'p.PhoneNumber AS phoneNumber'
     : 't.PhoneNumber AS phoneNumber';
@@ -123,6 +127,7 @@ export const getAccountsByRole = async (roleId) => {
       u.UserID                                    AS id,
       ${fullNameSelect},
       u.Username                                  AS username,
+      u.Status                                    AS status,
       ${emailSelect},
       ${phoneSelect},
       ${avatarSelect}
@@ -242,8 +247,62 @@ export const getParentDetail = async (id) => {
 };
 
 /**
+ * Lấy thông tin chi tiết học sinh + danh sách phụ huynh.
+ *
+ * @param {number} id - StudentID
+ * @returns {Promise<object|null>}
+ */
+
+export const getUnassignedStudents = async () => {
+  const query = `
+    SELECT StudentID as studentId, FullName as fullName, AvatarURL as avatarUrl, DateOfBirth as dateOfBirth, AdmissionDate as admissionDate
+    FROM Students
+    WHERE ClassID IS NULL AND EnrollmentStatus = 'Active'
+  `;
+  const [rows] = await pool.query(query);
+  return rows;
+};
+
+export const getStudentDetail = async (id) => {
+  const studentQuery = `
+    SELECT
+      s.StudentID      AS id,
+      s.FullName       AS fullName,
+      s.DateOfBirth    AS dateOfBirth,
+      s.Gender         AS gender,
+      s.Allergies      AS allergies,
+      s.AdmissionDate  AS admissionDate,
+      s.EnrollmentStatus AS status,
+      s.AvatarURL      AS avatarUrl,
+      s.ClassID        AS classId,
+      c.ClassName      AS className
+    FROM Students s
+    LEFT JOIN Classes c ON s.ClassID = c.ClassID
+    WHERE s.StudentID = ?
+  `;
+  const [rows] = await pool.query(studentQuery, [id]);
+  if (rows.length === 0) return null;
+
+  const parentsQuery = `
+    SELECT
+      p.ParentID       AS parentId,
+      p.FullName       AS fullName,
+      p.PhoneNumber    AS phoneNumber,
+      p.Email          AS email,
+      sp.Relationship  AS relationship,
+      sp.IsPrimary     AS isPrimary
+    FROM StudentParents sp
+    INNER JOIN Parents p ON p.ParentID = sp.ParentID
+    WHERE sp.StudentID = ?
+  `;
+  const [parents] = await pool.query(parentsQuery, [id]);
+
+  return { ...rows[0], parents };
+};
+
+/**
  * Đặt lại mật khẩu của tài khoản về mặc định (123456)
- * 
+ *
  * @param {number} userId - UserID của tài khoản cần reset
  * @returns {Promise<boolean>} true nếu thành công, false nếu không tìm thấy user
  */
@@ -256,6 +315,665 @@ export const resetAccountPassword = async (userId) => {
     'UPDATE Users SET PasswordHash = ? WHERE UserID = ?',
     [hashedPassword, userId]
   );
-  
+
   return result.affectedRows > 0;
+};
+
+/**
+ * Khóa tài khoản (Chuyển status thành 'Inactive')
+ *
+ * @param {number} userId - UserID của tài khoản cần khóa
+ * @returns {Promise<boolean>} true nếu thành công, false nếu không tìm thấy user
+ */
+export const lockAccount = async (userId) => {
+  const query = 'UPDATE Users SET Status = "Inactive" WHERE UserID = ?';
+  const [result] = await pool.query(query, [userId]);
+  return result.affectedRows > 0;
+};
+
+/**
+ * Mở khóa tài khoản (Chuyển status thành 'Active')
+ *
+ * @param {number} userId - UserID của tài khoản cần mở khóa
+ * @returns {Promise<boolean>} true nếu thành công, false nếu không tìm thấy user
+ */
+export const unlockAccount = async (userId) => {
+  const query = 'UPDATE Users SET Status = "Active" WHERE UserID = ?';
+  const [result] = await pool.query(query, [userId]);
+  return result.affectedRows > 0;
+};
+
+export const getGradesAndClasses = async () => {
+  const query = `
+    SELECT
+      g.GradeID AS gradeId,
+      g.GradeName AS gradeName,
+      c.ClassID AS classId,
+      c.ClassName AS className,
+      y.YearName AS yearName,
+      COUNT(ct.TeacherID) AS teacherCount
+    FROM Grades g
+    LEFT JOIN Classes c ON g.GradeID = c.GradeID AND (
+      c.YearID = (SELECT YearID FROM AcademicYears WHERE IsActive = 1 LIMIT 1)
+    )
+    LEFT JOIN AcademicYears y ON c.YearID = y.YearID
+    LEFT JOIN ClassTeachers ct ON c.ClassID = ct.ClassID
+    GROUP BY g.GradeID, g.GradeName, c.ClassID, c.ClassName, y.YearName
+    ORDER BY g.GradeID, c.ClassName
+  `;
+  const [rows] = await pool.query(query);
+
+  const result = [];
+  const map = new Map();
+
+  for (const row of rows) {
+    if (!map.has(row.gradeId)) {
+      const grade = {
+        gradeId: row.gradeId,
+        gradeName: row.gradeName,
+        classes: []
+      };
+      map.set(row.gradeId, grade);
+      result.push(grade);
+    }
+    if (row.classId) {
+      map.get(row.gradeId).classes.push({
+        classId: row.classId,
+        className: row.className,
+        yearName: row.yearName,
+        teacherCount: row.teacherCount
+      });
+    }
+  }
+
+  return result;
+};
+
+export const createGradeAndClasses = async (gradeName, classes) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // 1. Check if grade exists
+    const [existingGrades] = await connection.query(
+      'SELECT GradeID FROM Grades WHERE GradeName = ?',
+      [gradeName]
+    );
+
+    let gradeId;
+    if (existingGrades.length > 0) {
+      gradeId = existingGrades[0].GradeID;
+    } else {
+      // Create new grade
+      const [insertGradeResult] = await connection.query(
+        'INSERT INTO Grades (GradeName) VALUES (?)',
+        [gradeName]
+      );
+      gradeId = insertGradeResult.insertId;
+    }
+
+    // Get active year
+    const [activeYears] = await connection.query('SELECT YearID FROM AcademicYears WHERE IsActive = 1 LIMIT 1');
+    const activeYearId = activeYears.length > 0 ? activeYears[0].YearID : null;
+
+    // 2. Create classes if provided
+    if (Array.isArray(classes) && classes.length > 0) {
+      for (const className of classes) {
+        // Check if class exists in this grade for the active year
+        let existingClassesQuery = 'SELECT ClassID FROM Classes WHERE ClassName = ? AND GradeID = ?';
+        let existingClassesParams = [className, gradeId];
+        
+        if (activeYearId) {
+          existingClassesQuery += ' AND YearID = ?';
+          existingClassesParams.push(activeYearId);
+        } else {
+          existingClassesQuery += ' AND YearID IS NULL';
+        }
+
+        const [existingClasses] = await connection.query(existingClassesQuery, existingClassesParams);
+
+        if (existingClasses.length === 0) {
+          await connection.query(
+            'INSERT INTO Classes (ClassName, GradeID, YearID) VALUES (?, ?, ?)',
+            [className, gradeId, activeYearId]
+          );
+        }
+      }
+    }
+
+    await connection.commit();
+    return gradeId;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+export const createAccount = async (role, payload) => {
+  const { username, fullName, phoneNumber, email } = payload;
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // 1. Kiểm tra username
+    const [existingUsers] = await connection.query(
+      'SELECT UserID FROM Users WHERE Username = ?',
+      [username]
+    );
+    if (existingUsers.length > 0) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Tên đăng nhập đã tồn tại');
+    }
+
+    // 2. Hash mật khẩu mặc định '123456'
+    const saltRounds = 10;
+    const defaultPassword = '123456';
+    const hashedPassword = await bcrypt.hash(defaultPassword, saltRounds);
+
+    // 3. Xác định RoleID
+    const roleId = role === 'teacher' ? 3 : 4;
+
+    // 4. Tạo User
+    const [userResult] = await connection.query(
+      'INSERT INTO Users (Username, PasswordHash, RoleID, Status) VALUES (?, ?, ?, ?)',
+      [username, hashedPassword, roleId, 'Active']
+    );
+    const userId = userResult.insertId;
+
+    // 5. Tạo Teacher hoặc Parent
+    if (role === 'teacher') {
+      await connection.query(
+        'INSERT INTO Teachers (TeacherID, FullName, PhoneNumber, Email) VALUES (?, ?, ?, ?)',
+        [userId, fullName, phoneNumber || null, email || null]
+      );
+    } else if (role === 'parent') {
+      await connection.query(
+        'INSERT INTO Parents (ParentID, FullName, PhoneNumber, Email) VALUES (?, ?, ?, ?)',
+        [userId, fullName, phoneNumber, email || null]
+      );
+    }
+
+    await connection.commit();
+    return userId;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+/**
+ * Lấy thông tin chi tiết lớp học gồm: Khối - Tên lớp, ds giáo viên, ds học sinh, điểm danh hôm nay.
+ * @param {number} classId
+ * @returns {Promise<Object|null>}
+ */
+export const getClassDetail = async (classId) => {
+  // 1. Lấy thông tin Khối & Lớp
+  const classQuery = `
+    SELECT c.ClassID AS classId, c.ClassName AS className, g.GradeName AS gradeName, y.YearName AS yearName
+    FROM Classes c
+    JOIN Grades g ON c.GradeID = g.GradeID
+    LEFT JOIN AcademicYears y ON c.YearID = y.YearID
+    WHERE c.ClassID = ?
+  `;
+  const [classRows] = await pool.query(classQuery, [classId]);
+  if (classRows.length === 0) return null;
+
+  const classInfo = classRows[0];
+
+  // 2. Lấy danh sách Giáo viên (FullName, Email, PhoneNumber lấy từ Teachers; AvatarURL lấy từ Users)
+  const teachersQuery = `
+    SELECT
+      u.UserID AS id,
+      t.FullName AS fullName,
+      t.Email AS email,
+      t.PhoneNumber AS phoneNumber,
+      u.AvatarURL AS avatarUrl,
+      ct.RoleInClass AS roleInClass
+    FROM ClassTeachers ct
+    JOIN Teachers t ON ct.TeacherID = t.TeacherID
+    JOIN Users u ON t.TeacherID = u.UserID
+    WHERE ct.ClassID = ?
+  `;
+  const [teachers] = await pool.query(teachersQuery, [classId]);
+
+  // 3. Lấy danh sách Học sinh
+  const studentsQuery = `
+    SELECT
+      StudentID AS studentId,
+      FullName AS fullName,
+      AvatarURL AS avatarUrl,
+      DateOfBirth AS dateOfBirth,
+      AdmissionDate AS admissionDate
+    FROM Students
+    WHERE ClassID = ?
+  `;
+  const [students] = await pool.query(studentsQuery, [classId]);
+
+  // 4. Tổng hợp Điểm danh hôm nay — tính chính xác unix timestamp midnight VN time (+07:00)
+  // Dùng explicit offset +07:00 khi tạo Date để đảm bảo đúng dù server chạy UTC hay UTC+7
+  const nowVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+  const vnDateStr = `${nowVN.getFullYear()}-${String(nowVN.getMonth() + 1).padStart(2, '0')}-${String(nowVN.getDate()).padStart(2, '0')}`;
+  const startOfTodayUnix = Math.floor(new Date(`${vnDateStr}T00:00:00+07:00`).getTime() / 1000);
+  const endOfTodayUnix = Math.floor(new Date(`${vnDateStr}T23:59:59+07:00`).getTime() / 1000);
+
+  const attendanceQuery = `
+    SELECT a.Status AS status, COUNT(*) AS count
+    FROM Attendances a
+    JOIN Students s ON a.StudentID = s.StudentID
+    WHERE s.ClassID = ? AND a.AttendanceDate BETWEEN ? AND ?
+    GROUP BY a.Status
+  `;
+  const [attendanceRows] = await pool.query(attendanceQuery, [classId, startOfTodayUnix, endOfTodayUnix]);
+
+  const attendanceStatus = { present: 0, absent: 0, excused: 0 };
+  attendanceRows.forEach(row => {
+    if (row.status === 'Present') attendanceStatus.present = row.count;
+    else if (row.status === 'Absent') attendanceStatus.absent = row.count;
+    else if (row.status === 'Excused') attendanceStatus.excused = row.count;
+  });
+
+  return {
+    ...classInfo,
+    teachers,
+    totalStudents: students.length,
+    attendanceToday: attendanceStatus,
+    students
+  };
+};
+
+export const assignTeacherToClass = async (classId, teacherId, roleInClass, assignedDate) => {
+  const [classRows] = await pool.query('SELECT ClassName, YearID FROM Classes WHERE ClassID = ?', [classId]);
+  if (classRows.length === 0) throw new Error('Không tìm thấy lớp');
+  const yearId = classRows[0].YearID;
+
+  const [teacherRows] = await pool.query('SELECT FullName FROM Teachers WHERE TeacherID = ?', [teacherId]);
+  if (teacherRows.length === 0) throw new Error('Không tìm thấy giáo viên');
+
+  const assignedTimestamp = assignedDate || Math.floor(Date.now() / 1000);
+
+  // Xóa phân công cũ của giáo viên này trong cùng năm học (mỗi giáo viên chỉ 1 lớp/năm)
+  if (yearId) {
+    await pool.query(`
+      DELETE ct FROM ClassTeachers ct
+      JOIN Classes c ON ct.ClassID = c.ClassID
+      WHERE ct.TeacherID = ? AND c.YearID = ?
+    `, [teacherId, yearId]);
+  } else {
+    // Nếu lớp không có YearID (fallback), xóa tất cả phân công cũ của giáo viên này ở các lớp không có YearID
+    await pool.query(`
+      DELETE ct FROM ClassTeachers ct
+      JOIN Classes c ON ct.ClassID = c.ClassID
+      WHERE ct.TeacherID = ? AND c.YearID IS NULL
+    `, [teacherId]);
+  }
+
+  // Insert or Update class assignment
+  await pool.query(
+    'INSERT INTO ClassTeachers (ClassID, TeacherID, RoleInClass, AssignedDate) VALUES (?, ?, ?, ?) ' +
+    'ON DUPLICATE KEY UPDATE RoleInClass = VALUES(RoleInClass), AssignedDate = VALUES(AssignedDate)',
+    [classId, teacherId, roleInClass || 'Giáo viên phụ', assignedTimestamp]
+  );
+
+  // Add work history
+  await pool.query(
+    'INSERT INTO TeacherWorkHistories (TeacherID, Title, Tag, Description, Kind, EventDate) VALUES (?, ?, ?, ?, ?, ?)',
+    [
+      teacherId,
+      `Bổ nhiệm làm ${roleInClass || 'Giáo viên phụ'} lớp ${classRows[0].ClassName}`,
+      'Bổ nhiệm',
+      `Phân công giảng dạy tại lớp ${classRows[0].ClassName}`,
+      'Assignment',
+      assignedTimestamp
+    ]
+  );
+};
+
+export const getAllStudents = async () => {
+  const query = `
+    SELECT 
+      s.StudentID as id,
+      s.FullName as fullName,
+      s.AvatarURL as avatarUrl,
+      s.DateOfBirth as dateOfBirth,
+      s.Gender as gender,
+      c.ClassName as currentClass
+    FROM Students s
+    LEFT JOIN Classes c ON s.ClassID = c.ClassID
+    ORDER BY s.FullName ASC
+  `;
+  const [rows] = await pool.query(query);
+  return rows;
+};
+
+
+export const searchParentsByPhone = async (phone) => {
+  const [rows] = await pool.query(
+    'SELECT ParentID as id, FullName as fullName, PhoneNumber as phoneNumber, Email as email, Job as occupation, Address as address FROM Parents WHERE PhoneNumber = ?',
+    [phone]
+  );
+  return rows[0] || null;
+};
+
+export const getPaymentConfigs = async () => {
+  // Get all packages
+  const [packages] = await pool.query('SELECT PackageID as id, PackageName as name, DurationInMonths as duration, DiscountPercentage as discount FROM PaymentPackages');
+  
+  // Get active year base fees
+  const [fees] = await pool.query(`
+    SELECT bf.MonthlyTuition, bf.DailyMealFee 
+    FROM BaseFees bf
+    JOIN AcademicYears ay ON bf.YearID = ay.YearID
+    WHERE ay.IsActive = 1
+    LIMIT 1
+  `);
+
+  return {
+    packages,
+    baseFee: fees[0] || { MonthlyTuition: 0, DailyMealFee: 0 }
+  };
+};
+
+export const enrollStudent = async ({ student, parent, account, isNewParent, packageId }) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    let parentId = parent.id;
+
+    if (isNewParent) {
+      // 1. Create User
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(account.password, salt);
+      
+      const [userResult] = await connection.query(
+        'INSERT INTO Users (Username, PasswordHash, RoleID, Status) VALUES (?, ?, 4, "Active")',
+        [account.username, hashedPassword]
+      );
+      parentId = userResult.insertId;
+
+      // 2. Create Parent
+      await connection.query(
+        'INSERT INTO Parents (ParentID, FullName, PhoneNumber, Email, Job, Address) VALUES (?, ?, ?, ?, ?, ?)',
+        [parentId, parent.fullName, parent.phoneNumber, parent.email, parent.occupation, parent.address]
+      );
+    }
+
+    // 3. Create Student
+    const [studentResult] = await connection.query(
+      'INSERT INTO Students (FullName, DateOfBirth, Gender, Allergies, AdmissionDate, EnrollmentStatus, ClassID) VALUES (?, ?, ?, ?, ?, "Active", NULL)',
+      [student.fullName, student.dateOfBirth, student.gender, student.allergies, student.admissionDate]
+    );
+    const studentId = studentResult.insertId;
+
+    // 4. Link Student and Parent
+    await connection.query(
+      'INSERT INTO StudentParents (StudentID, ParentID, Relationship, IsPrimary) VALUES (?, ?, "Phụ huynh", 1)',
+      [studentId, parentId]
+    );
+
+    // 5. Create StudentTuitionPlan if packageId is provided
+    if (packageId) {
+      // Get base fee for current active year
+      const [fees] = await connection.query(`
+        SELECT bf.MonthlyTuition
+        FROM BaseFees bf
+        JOIN AcademicYears ay ON bf.YearID = ay.YearID
+        WHERE ay.IsActive = 1
+        LIMIT 1
+      `);
+      const monthlyTuitionSnapshot = fees.length > 0 ? fees[0].MonthlyTuition : 0;
+      
+      // Calculate start month from admission date (format YYYY-MM)
+      const admissionDateObj = new Date(student.admissionDate * 1000);
+      const startMonth = `${admissionDateObj.getFullYear()}-${String(admissionDateObj.getMonth() + 1).padStart(2, '0')}`;
+
+      await connection.query(
+        'INSERT INTO StudentTuitionPlans (StudentID, PackageID, StartMonth, MonthlyTuitionSnapshot, Status) VALUES (?, ?, ?, ?, "Active")',
+        [studentId, packageId, startMonth, monthlyTuitionSnapshot]
+      );
+    }
+
+    await connection.commit();
+    return { studentId, parentId };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+export const addParentToStudent = async (studentId, { parentId, isNewParent, parent, account, relationship, isPrimary }) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    let finalParentId = parentId;
+
+    if (isNewParent) {
+      // 1. Create User (if account provided) or just parent
+      let userId = null;
+      if (account) {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(account.password, salt);
+        const [userResult] = await connection.query(
+          'INSERT INTO Users (Username, PasswordHash, RoleID, Status) VALUES (?, ?, 4, "Active")',
+          [account.username, hashedPassword]
+        );
+        userId = userResult.insertId;
+      }
+      
+      // 2. Create Parent
+      const [parentResult] = await connection.query(
+        'INSERT INTO Parents (ParentID, FullName, PhoneNumber, Email, Job, Address) VALUES (?, ?, ?, ?, ?, ?)',
+        [userId, parent.fullName, parent.phoneNumber, parent.email, parent.occupation, parent.address]
+      );
+      finalParentId = userId || parentResult.insertId;
+    }
+
+    // 3. Link Student and Parent
+    await connection.query(
+      'INSERT INTO StudentParents (StudentID, ParentID, Relationship, IsPrimary) VALUES (?, ?, ?, ?)',
+      [studentId, finalParentId, relationship, isPrimary ? 1 : 0]
+    );
+
+    await connection.commit();
+    return { studentId, parentId: finalParentId };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+export const importStudentsFromCSV = async (fileBuffer) => {
+  return new Promise((resolve, reject) => {
+    const results = [];
+    const stream = Readable.from(fileBuffer);
+
+    stream
+      .pipe(csvParser())
+      .on('data', (data) => results.push(data))
+      .on('end', async () => {
+        const connection = await pool.getConnection();
+        try {
+          await connection.beginTransaction();
+
+          let count = 0;
+          for (const row of results) {
+            if (!row.FullName) continue;
+            
+            // Format dates from DD/MM/YYYY to timestamp
+            let dateOfBirth = null;
+            if (row.DateOfBirth) {
+              const parts = row.DateOfBirth.split('/');
+              if (parts.length === 3) {
+                dateOfBirth = Math.floor(new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00Z`).getTime() / 1000);
+              }
+            }
+
+            let admissionDate = Math.floor(Date.now() / 1000);
+            if (row.AdmissionDate) {
+               const parts = row.AdmissionDate.split('/');
+               if (parts.length === 3) {
+                 admissionDate = Math.floor(new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00Z`).getTime() / 1000);
+               }
+            }
+
+            await connection.query(
+              'INSERT INTO Students (FullName, DateOfBirth, Gender, Allergies, AdmissionDate, EnrollmentStatus, ClassID) VALUES (?, ?, ?, ?, ?, "Active", NULL)',
+              [row.FullName, dateOfBirth, row.Gender, row.Allergies, admissionDate]
+            );
+            count++;
+          }
+
+          await connection.commit();
+          resolve(count);
+        } catch (error) {
+          await connection.rollback();
+          reject(error);
+        } finally {
+          connection.release();
+        }
+      })
+      .on('error', (error) => reject(error));
+  });
+};
+
+export const assignStudentsToClass = async (studentIds, classId) => {
+  if (studentIds.length === 0) return;
+  const [classRows] = await pool.query('SELECT ClassID FROM Classes WHERE ClassID = ?', [classId]);
+  if (classRows.length === 0) throw new Error('Không tìm thấy lớp');
+
+  await pool.query('UPDATE Students SET ClassID = ? WHERE StudentID IN (?)', [classId, studentIds]);
+};
+
+export const endAcademicYear = async () => {
+  // Find current active year
+  const [activeYears] = await pool.query('SELECT YearID, YearName FROM AcademicYears WHERE IsActive = 1');
+  if (activeYears.length === 0) throw new Error('Không có năm học nào đang hoạt động');
+  
+  // GradeID = 3 represents "Khối Lá". We need to find students in Khối Lá classes.
+  // Wait, let's find students in Khối Lá:
+  const queryLopLa = `
+    SELECT s.StudentID 
+    FROM Students s
+    JOIN Classes c ON s.ClassID = c.ClassID
+    JOIN Grades g ON c.GradeID = g.GradeID
+    WHERE g.GradeName LIKE '%Lá%' OR g.GradeName LIKE '%5 tuổi%'
+  `;
+  const [laStudents] = await pool.query(queryLopLa);
+  
+  let graduatedCount = 0;
+  if (laStudents.length > 0) {
+    const studentIds = laStudents.map(s => s.StudentID);
+    const updateResult = await pool.query(
+      'UPDATE Students SET EnrollmentStatus = "Graduated", ClassID = NULL WHERE StudentID IN (?)',
+      [studentIds]
+    );
+    graduatedCount = updateResult[0].affectedRows;
+  }
+
+  // Update remaining students to ClassID = NULL so they are waiting for placement in the new year.
+  const [updateRemaining] = await pool.query(
+    'UPDATE Students SET ClassID = NULL WHERE EnrollmentStatus = "Active"'
+  );
+
+  return {
+    message: 'Đã hoàn tất tổng kết năm học',
+    graduatedStudents: graduatedCount,
+    waitingPlacement: updateRemaining.affectedRows
+  };
+};
+
+export const startAcademicYear = async ({ yearName, startDate, endDate, monthlyTuition, dailyMealFee, isActive = true }) => {
+  // Check if year already exists
+  const [existing] = await pool.query('SELECT YearID FROM AcademicYears WHERE YearName = ?', [yearName]);
+  if (existing.length > 0) throw new Error('Năm học này đã tồn tại');
+
+  if (isActive) {
+    // Set all years to inactive
+    await pool.query('UPDATE AcademicYears SET IsActive = 0');
+  }
+
+  // Insert new year
+  const [insertYear] = await pool.query(
+    'INSERT INTO AcademicYears (YearName, StartDate, EndDate, IsActive) VALUES (?, ?, ?, ?)',
+    [yearName, startDate, endDate, isActive ? 1 : 0]
+  );
+  const newYearId = insertYear.insertId;
+
+  // Clone classes from the most recent inactive year
+  // First find the last year ID
+  const [lastYearRows] = await pool.query('SELECT YearID FROM AcademicYears WHERE YearID != ? ORDER BY YearID DESC LIMIT 1', [newYearId]);
+  
+  let clonedClassesCount = 0;
+  if (lastYearRows.length > 0) {
+    const lastYearId = lastYearRows[0].YearID;
+    
+    // Copy base fees
+    await pool.query(
+      'INSERT INTO BaseFees (YearID, MonthlyTuition, DailyMealFee) VALUES (?, ?, ?)',
+      [newYearId, monthlyTuition, dailyMealFee]
+    );
+
+    // Copy classes
+    const [oldClasses] = await pool.query('SELECT ClassName, GradeID, BuildingID FROM Classes WHERE YearID = ?', [lastYearId]);
+    if (oldClasses.length > 0) {
+      for (const c of oldClasses) {
+        await pool.query(
+          'INSERT INTO Classes (ClassName, GradeID, BuildingID, YearID) VALUES (?, ?, ?, ?)',
+          [c.ClassName, c.GradeID, c.BuildingID, newYearId]
+        );
+      }
+      clonedClassesCount = oldClasses.length;
+    }
+  } else {
+    // Just create base fees
+    await pool.query(
+      'INSERT INTO BaseFees (YearID, MonthlyTuition, DailyMealFee) VALUES (?, ?, ?)',
+      [newYearId, monthlyTuition, dailyMealFee]
+    );
+  }
+
+  return {
+    newYearId,
+    yearName,
+    clonedClassesCount,
+    message: 'Năm học mới đã được bắt đầu'
+  };
+};
+
+export const getAcademicYears = async () => {
+  const [rows] = await pool.query('SELECT * FROM AcademicYears ORDER BY YearID DESC');
+  return rows;
+};
+
+export const activateAcademicYear = async (yearId) => {
+  // Check if year exists
+  const [existing] = await pool.query('SELECT YearID FROM AcademicYears WHERE YearID = ?', [yearId]);
+  if (existing.length === 0) throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy năm học');
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    
+    // Set all to inactive
+    await connection.query('UPDATE AcademicYears SET IsActive = 0');
+    // Set the selected to active
+    await connection.query('UPDATE AcademicYears SET IsActive = 1 WHERE YearID = ?', [yearId]);
+    
+    await connection.commit();
+    return { message: 'Đã kích hoạt năm học thành công' };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 };
