@@ -1,0 +1,195 @@
+# API Contract — Biểu phí & Hóa đơn (Principal)
+
+Base path: `/principal`
+
+Tất cả endpoint dưới đây yêu cầu:
+- Header: `Authorization: Bearer <token>`
+- Role: **Principal** (`RoleID = 2`). Nếu không đúng role → `403 Forbidden`.
+
+---
+
+## 1. GET `/principal/fees`
+
+Lấy toàn bộ dữ liệu biểu phí: gói học phí, học phí cơ bản theo mọi năm học (kể cả năm không active), và hoạt động ngoại khóa.
+
+### Request
+
+Không có query param.
+
+```
+GET /principal/fees
+Authorization: Bearer <token>
+```
+
+### Response `200 OK`
+
+```json
+{
+  "success": true,
+  "data": {
+    "packages": [
+      {
+        "id": 1,
+        "name": "Gói Tháng",
+        "duration": 1,
+        "discount": 0.00
+      },
+      {
+        "id": 2,
+        "name": "Gói Học Kỳ",
+        "duration": 6,
+        "discount": 5.00
+      },
+      {
+        "id": 3,
+        "name": "Gói Cả Năm",
+        "duration": 12,
+        "discount": 10.00
+      }
+    ],
+    "baseFees": [
+      {
+        "id": 2,
+        "yearId": 2,
+        "yearName": "Niên khóa 2027-2028",
+        "isActive": 1,
+        "monthlyTuition": 0.00,
+        "dailyMealFee": 0.00
+      },
+      {
+        "id": 1,
+        "yearId": 1,
+        "yearName": "Niên khóa 2026-2027",
+        "isActive": 0,
+        "monthlyTuition": 4000000.00,
+        "dailyMealFee": 50000.00
+      }
+    ],
+    "extracurriculars": [
+      {
+        "id": 1,
+        "name": "...",
+        "monthlyFee": 0.00,
+        "description": "..."
+      }
+    ]
+  }
+}
+```
+
+### Field description
+
+| Field | Type | Ghi chú |
+|---|---|---|
+| `packages[].id` | number | `PackageID` |
+| `packages[].name` | string | Tên gói học phí |
+| `packages[].duration` | number | Số tháng của gói |
+| `packages[].discount` | number | % giảm giá |
+| `baseFees[].id` | number | `FeeID` |
+| `baseFees[].yearId` | number | Năm học áp dụng |
+| `baseFees[].yearName` | string \| null | Tên năm học (null nếu năm học đã bị xoá) |
+| `baseFees[].isActive` | 0 \| 1 \| null | Năm học đang active hay không |
+| `baseFees[].monthlyTuition` | number | Học phí/tháng |
+| `baseFees[].dailyMealFee` | number | Phí ăn/ngày |
+| `extracurriculars[].id` | number | `ActivityID` |
+| `extracurriculars[].name` | string | Tên hoạt động ngoại khóa |
+| `extracurriculars[].monthlyFee` | number | Phí/tháng |
+| `extracurriculars[].description` | string \| null | Mô tả |
+
+> Danh sách `baseFees` bao gồm **tất cả năm học**, không lọc theo `isActive` — khác với endpoint cũ `GET /principal/payment-configs` (chỉ trả biểu phí của năm học đang active).
+
+---
+
+## 2. GET `/principal/invoices`
+
+Lấy danh sách hóa đơn (invoices), hỗ trợ filter qua query string.
+
+### Request
+
+```
+GET /principal/invoices?studentId=19&billingMonth=07-2026&paymentStatus=Unpaid&invoiceType=EXTRACURRICULAR
+Authorization: Bearer <token>
+```
+
+| Query param | Type | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `studentId` | number | Không | Lọc theo học sinh |
+| `billingMonth` | string (`MM-YYYY`) | Không | Lọc theo tháng, vd `07-2026` |
+| `paymentStatus` | string | Không | `Unpaid` \| `Paid` \| ... (theo giá trị lưu trong DB) |
+| `invoiceType` | string | Không | `MONTHLY` \| `EXTRACURRICULAR` \| ... |
+
+Không truyền param nào → trả về toàn bộ hóa đơn, sắp xếp theo `createdAt` giảm dần.
+
+### Response `200 OK`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 51,
+      "studentId": 19,
+      "studentFullName": "Nguyễn Văn A",
+      "packageId": null,
+      "packageName": null,
+      "periodRange": null,
+      "billingMonth": "07-2026",
+      "tuitionFee": 0.00,
+      "expectedMealFee": 0.00,
+      "extracurricularFee": 0.00,
+      "surcharge": 0.00,
+      "refundAmount": 0.00,
+      "discountAmount": 0.00,
+      "totalAmount": 0.00,
+      "paymentStatus": "Unpaid",
+      "invoiceType": "EXTRACURRICULAR",
+      "createdAt": 1783564680,
+      "dueDate": 1783616400,
+      "reminderSentAt": null,
+      "overdueReminderSentAt": 1783645200
+    }
+  ]
+}
+```
+
+### Field description
+
+| Field | Type | Ghi chú |
+|---|---|---|
+| `id` | number | `InvoiceID` |
+| `studentId` | number \| null | |
+| `studentFullName` | string \| null | Join từ bảng `Students` |
+| `packageId` | number \| null | |
+| `packageName` | string \| null | Join từ bảng `PaymentPackages` |
+| `periodRange` | string \| null | |
+| `billingMonth` | string | Định dạng `MM-YYYY` |
+| `tuitionFee` | number | Học phí |
+| `expectedMealFee` | number | Phí ăn dự kiến |
+| `extracurricularFee` | number | Phí ngoại khóa |
+| `surcharge` | number | Phụ phí |
+| `refundAmount` | number | Số tiền hoàn |
+| `discountAmount` | number | Số tiền giảm giá |
+| `totalAmount` | number | Cột generated: `tuitionFee + expectedMealFee + extracurricularFee + surcharge - refundAmount - discountAmount` |
+| `paymentStatus` | string | Trạng thái thanh toán |
+| `invoiceType` | string | `MONTHLY` \| `EXTRACURRICULAR` \| ... |
+| `createdAt` | number (unix timestamp) | |
+| `dueDate` | number (unix timestamp) \| null | |
+| `reminderSentAt` | number (unix timestamp) \| null | |
+| `overdueReminderSentAt` | number (unix timestamp) \| null | |
+
+---
+
+## Error response format (chung cho cả 2 endpoint)
+
+```json
+{
+  "success": false,
+  "message": "..."
+}
+```
+
+| Status | Trường hợp |
+|---|---|
+| 401 | Thiếu/token không hợp lệ |
+| 403 | User không phải role Principal |
+| 500 | Lỗi hệ thống |

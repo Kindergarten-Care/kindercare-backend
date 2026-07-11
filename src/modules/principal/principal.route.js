@@ -42,6 +42,12 @@ router.get('/parents/search', authenticate, authorize(2), principalController.se
 // Lấy cấu hình gói học phí
 router.get('/payment-configs', authenticate, authorize(2), principalController.getPaymentConfigs);
 
+// Lấy danh sách toàn bộ biểu phí (gói học phí + học phí cơ bản mọi năm học, kể cả năm không active)
+router.get('/fees', authenticate, authorize(2), principalController.getAllFees);
+
+// Lấy danh sách hóa đơn (invoices), hỗ trợ filter qua query: studentId, billingMonth, paymentStatus, invoiceType
+router.get('/invoices', authenticate, authorize(2), principalController.getInvoices);
+
 // Thêm học sinh mới (Wizard Flow)
 router.post('/students/enroll', authenticate, authorize(2), principalController.enrollStudent);
 

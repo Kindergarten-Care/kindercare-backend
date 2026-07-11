@@ -677,6 +677,96 @@ export const getPaymentConfigs = async () => {
   };
 };
 
+export const getAllFees = async () => {
+  const [packages] = await pool.query(
+    'SELECT PackageID as id, PackageName as name, DurationInMonths as duration, DiscountPercentage as discount FROM PaymentPackages'
+  );
+
+  const [baseFees] = await pool.query(`
+    SELECT
+      bf.FeeID as id,
+      bf.YearID as yearId,
+      ay.YearName as yearName,
+      ay.IsActive as isActive,
+      bf.MonthlyTuition as monthlyTuition,
+      bf.DailyMealFee as dailyMealFee
+    FROM BaseFees bf
+    LEFT JOIN AcademicYears ay ON bf.YearID = ay.YearID
+    ORDER BY bf.YearID DESC
+  `);
+
+  const [extracurriculars] = await pool.query(`
+    SELECT
+      ActivityID as id,
+      ActivityName as name,
+      MonthlyFee as monthlyFee,
+      Description as description
+    FROM Extracurriculars
+    ORDER BY ActivityID ASC
+  `);
+
+  return {
+    packages,
+    baseFees,
+    extracurriculars,
+  };
+};
+
+export const getInvoices = async ({ studentId, billingMonth, paymentStatus, invoiceType } = {}) => {
+  const conditions = [];
+  const params = [];
+
+  if (studentId) {
+    conditions.push('i.StudentID = ?');
+    params.push(studentId);
+  }
+  if (billingMonth) {
+    conditions.push('i.BillingMonth = ?');
+    params.push(billingMonth);
+  }
+  if (paymentStatus) {
+    conditions.push('i.PaymentStatus = ?');
+    params.push(paymentStatus);
+  }
+  if (invoiceType) {
+    conditions.push('i.InvoiceType = ?');
+    params.push(invoiceType);
+  }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const [rows] = await pool.query(`
+    SELECT
+      i.InvoiceID as id,
+      i.StudentID as studentId,
+      s.FullName as studentFullName,
+      i.PackageID as packageId,
+      pp.PackageName as packageName,
+      i.PeriodRange as periodRange,
+      i.BillingMonth as billingMonth,
+      i.TuitionFee as tuitionFee,
+      i.ExpectedMealFee as expectedMealFee,
+      i.ExtracurricularFee as extracurricularFee,
+      i.Surcharge as surcharge,
+      i.RefundAmount as refundAmount,
+      i.DiscountAmount as discountAmount,
+      i.TotalAmount as totalAmount,
+      i.PaymentStatus as paymentStatus,
+      i.InvoiceType as invoiceType,
+      i.CreatedAt as createdAt,
+      i.DueDate as dueDate,
+      i.ReminderSentAt as reminderSentAt,
+      i.OverdueReminderSentAt as overdueReminderSentAt
+    FROM Invoices i
+    LEFT JOIN Students s ON i.StudentID = s.StudentID
+    LEFT JOIN PaymentPackages pp ON i.PackageID = pp.PackageID
+    ${whereClause}
+    ORDER BY i.CreatedAt DESC
+  `, params);
+
+  return rows;
+};
+
 export const enrollStudent = async ({ student, parent, account, isNewParent, packageId }) => {
   const connection = await pool.getConnection();
   try {
