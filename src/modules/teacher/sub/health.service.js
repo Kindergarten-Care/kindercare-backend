@@ -478,8 +478,8 @@ const clampScore = (v) => {
   if (v === undefined || v === null || v === '') return null;
   const n = parseInt(v, 10);
   if (isNaN(n)) return null;
-  if (n < 0) return 0;
-  if (n > 5) return 5;
+  if (n < 1) return 1;
+  if (n > 10) return 10;
   return n;
 };
 
