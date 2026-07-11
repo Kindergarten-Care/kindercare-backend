@@ -254,7 +254,7 @@
 
 ### 1.16b. Development Assessments (module Health — tab Y tế)
 
-> **KHÁC** với Phiếu bé ngoan. Dùng bảng `developmentassessments`.
+> **KHÁC** với Phiếu bé ngoan. Dùng bảng `DevelopmentAssessments`.
 
 - `GET /teacher/classes/:classId/student-health/assessments?termPeriod=YYYY-MM`
   - Response: `{ data: { assessments: [ { studentId, name, avatarUrl, assessmentId, termPeriod, physicalScore, emotionalScore, socialScore, languageScore, cognitiveScore, overallNote, assessedBy } ] } }`
@@ -341,7 +341,7 @@
 
 ### 2.6. Ngã ở hai hệ thống Assessment — KHÔNG nhầm lẫn
 
-- **Development Assessments** (bảng `developmentassessments`): dùng `/classes/:classId/student-health/assessments`, 5 fields, score 0–5
+- **Development Assessments** (bảng `DevelopmentAssessments`): dùng `/classes/:classId/student-health/assessments`, 5 fields, score 1–10
 - **Student Assessments — Phiếu bé ngoan** (bảng `StudentAssessments`): dùng `/assessments`, 7 fields, score 1–10. Xem mục 1.16 và 1.16b chi tiết.
 
 ### 2.7. Ngã ở field `medicineImageURL` vs `medicineImageUrl` (case sensitivity)

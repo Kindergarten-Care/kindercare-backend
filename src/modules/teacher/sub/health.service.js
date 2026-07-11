@@ -34,7 +34,7 @@ export const getAllAllergiesInClass = async (classId) => {
             a.CreatedAt AS createdAt,
             a.UpdatedAt AS updatedAt
        FROM allergies a
-       JOIN students s ON a.StudentID = s.StudentID
+       JOIN Students s ON a.StudentID = s.StudentID
       WHERE s.ClassID = ?
         AND s.EnrollmentStatus = 'Active'
         AND a.IsActive = 1
@@ -140,7 +140,7 @@ export const getMedicationsInClass = async (classId, dateString) => {
             mr.MedicineImageURL AS medicineImageUrl, mr.ParentNote AS parentNote,
             mr.AdministeredAt AS administeredAt, mr.AdministeredBy AS administeredBy
        FROM medicationrequests mr
-       JOIN students s ON mr.StudentID = s.StudentID
+       JOIN Students s ON mr.StudentID = s.StudentID
       WHERE s.ClassID = ?
         AND ((mr.ScheduledDate IS NOT NULL AND mr.ScheduledDate BETWEEN ? AND ?)
              OR (mr.ScheduledDate IS NULL AND mr.RequestDate BETWEEN ? AND ?))
@@ -228,7 +228,7 @@ export const getClassHealthRecords = async (classId, termPeriod) => {
     `SELECT s.StudentID AS studentId, s.FullName AS name, s.AvatarURL AS avatarUrl,
             hr.RecordID AS recordId, hr.TermPeriod AS termPeriod,
             hr.Height AS height, hr.Weight AS weight, hr.BMI AS bmi, hr.Notes AS note
-       FROM students s
+       FROM Students s
        LEFT JOIN healthrecords hr ON s.StudentID = hr.StudentID AND hr.TermPeriod = ?
       WHERE s.ClassID = ?
         AND s.EnrollmentStatus = 'Active'
@@ -420,7 +420,7 @@ export const getDevelopmentAssessments = async (classId, termPeriod) => {
             da.CognitiveScore AS cognitiveScore,
             da.OverallNote AS overallNote,
             da.AssessedBy AS assessedBy
-       FROM students s
+       FROM Students s
        LEFT JOIN DevelopmentAssessments da
               ON s.StudentID = da.StudentID AND da.TermPeriod = ?
       WHERE s.ClassID = ?
@@ -489,7 +489,7 @@ const clampScore = (v) => {
 
 export const assertStudentBelongsToClass = async (studentId, classId) => {
   const [rows] = await pool.query(
-    `SELECT StudentID FROM students WHERE StudentID = ? AND ClassID = ?`,
+    `SELECT StudentID FROM Students WHERE StudentID = ? AND ClassID = ?`,
     [studentId, classId]
   );
   if (rows.length === 0) {
