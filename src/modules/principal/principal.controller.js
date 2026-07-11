@@ -475,6 +475,31 @@ const getPaymentConfigs = async (req, res, next) => {
   }
 };
 
+const getAllFees = async (req, res, next) => {
+  try {
+    const data = await principalService.getAllFees();
+    res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getInvoices = async (req, res, next) => {
+  try {
+    const { studentId, billingMonth, paymentStatus, invoiceType } = req.query;
+    const data = await principalService.getInvoices({ studentId, billingMonth, paymentStatus, invoiceType });
+    res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const enrollStudent = async (req, res, next) => {
   try {
     const result = await principalService.enrollStudent(req.body);
@@ -524,6 +549,8 @@ export default {
   getAllStudents,
   searchParentsByPhone,
   getPaymentConfigs,
+  getAllFees,
+  getInvoices,
   enrollStudent,
   addParentToStudent,
   importStudents,
