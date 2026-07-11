@@ -1065,6 +1065,310 @@
 
 /**
  * @swagger
+ * /principal/extracurriculars:
+ *   post:
+ *     summary: Thêm hoạt động ngoại khóa mới
+ *     description: |
+ *       Tạo mới một hoạt động ngoại khóa (`Extracurriculars`).
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Fees"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - monthlyFee
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Vẽ Sáng Tạo"
+ *               monthlyFee:
+ *                 type: number
+ *                 format: float
+ *                 example: 300000.00
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Khám phá hội họa"
+ *     responses:
+ *       201:
+ *         description: Tạo hoạt động ngoại khóa thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 201 }
+ *                 message: { type: string, example: Tạo hoạt động ngoại khóa thành công }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer, description: "ActivityID", example: 3 }
+ *                     name: { type: string, example: "Vẽ Sáng Tạo" }
+ *                     monthlyFee: { type: number, format: float, example: 300000.00 }
+ *                     description: { type: string, nullable: true, example: "Khám phá hội họa" }
+ *       400:
+ *         description: Bad Request - thiếu name hoặc monthlyFee
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *
+ * /principal/extracurriculars/{id}:
+ *   patch:
+ *     summary: Sửa thông tin một hoạt động ngoại khóa
+ *     description: |
+ *       Cập nhật một hoặc nhiều trường (`name`, `monthlyFee`, `description`) của hoạt động
+ *       ngoại khóa (`Extracurriculars`) theo `ActivityID`. Chỉ cần truyền field muốn sửa.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Fees"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: ActivityID của hoạt động ngoại khóa cần sửa
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Tiếng Anh Tăng Cường"
+ *               monthlyFee:
+ *                 type: number
+ *                 format: float
+ *                 example: 500000.00
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Học với giáo viên bản ngữ"
+ *     responses:
+ *       200:
+ *         description: Cập nhật hoạt động ngoại khóa thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Cập nhật hoạt động ngoại khóa thành công }
+ *                 data: { nullable: true, example: null }
+ *       400:
+ *         description: Bad Request - id không hợp lệ, hoặc không truyền field nào để sửa
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy hoạt động ngoại khóa
+ */
+
+/**
+ * @swagger
+ * /principal/base-fees/{id}:
+ *   patch:
+ *     summary: Sửa học phí cơ bản của một năm học
+ *     description: |
+ *       Cập nhật một hoặc nhiều trường (`monthlyTuition`, `dailyMealFee`) của biểu phí cơ bản
+ *       (`BaseFees`) theo `FeeID`. Chỉ cần truyền field muốn sửa. Áp dụng được cho biểu phí
+ *       của bất kỳ năm học nào, kể cả năm học không active.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Fees"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: FeeID của biểu phí cần sửa (lấy từ `GET /principal/fees` → `baseFees[].id`)
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               monthlyTuition:
+ *                 type: number
+ *                 format: float
+ *                 example: 4200000.00
+ *                 description: Học phí/tháng (tùy chọn)
+ *               dailyMealFee:
+ *                 type: number
+ *                 format: float
+ *                 example: 55000.00
+ *                 description: Phí ăn/ngày (tùy chọn)
+ *     responses:
+ *       200:
+ *         description: Cập nhật biểu phí thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Cập nhật biểu phí thành công }
+ *                 data: { nullable: true, example: null }
+ *       400:
+ *         description: Bad Request - id không hợp lệ, hoặc không truyền field nào để sửa
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy biểu phí
+ */
+
+/**
+ * @swagger
+ * /principal/payment-packages:
+ *   post:
+ *     summary: Thêm gói học phí mới
+ *     description: |
+ *       Tạo mới một gói học phí (`PaymentPackages`).
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Fees"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - duration
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Gói Quý"
+ *               duration:
+ *                 type: integer
+ *                 description: Số tháng của gói
+ *                 example: 3
+ *               discount:
+ *                 type: number
+ *                 format: float
+ *                 description: "% giảm giá (mặc định 0 nếu không truyền)"
+ *                 example: 3.00
+ *     responses:
+ *       201:
+ *         description: Tạo gói học phí thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 201 }
+ *                 message: { type: string, example: Tạo gói học phí thành công }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer, description: "PackageID", example: 4 }
+ *                     name: { type: string, example: "Gói Quý" }
+ *                     duration: { type: integer, example: 3 }
+ *                     discount: { type: number, format: float, example: 3.00 }
+ *       400:
+ *         description: Bad Request - thiếu name hoặc duration
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ */
+
+/**
+ * @swagger
+ * /principal/payment-packages/{id}:
+ *   patch:
+ *     summary: Sửa thông tin một gói học phí
+ *     description: |
+ *       Cập nhật một hoặc nhiều trường (`name`, `duration`, `discount`) của gói học phí
+ *       (`PaymentPackages`) theo `PackageID`. Chỉ cần truyền field muốn sửa.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Fees"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: PackageID của gói học phí cần sửa
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Gói Tháng"
+ *                 description: Tên gói học phí (tùy chọn)
+ *               duration:
+ *                 type: integer
+ *                 example: 1
+ *                 description: Số tháng của gói (tùy chọn)
+ *               discount:
+ *                 type: number
+ *                 format: float
+ *                 example: 5.00
+ *                 description: "% giảm giá (tùy chọn)"
+ *     responses:
+ *       200:
+ *         description: Cập nhật gói học phí thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Cập nhật gói học phí thành công }
+ *                 data: { nullable: true, example: null }
+ *       400:
+ *         description: Bad Request - id không hợp lệ hoặc thiếu cả 3 field cần sửa
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy gói học phí
+ */
+
+/**
+ * @swagger
  * /principal/invoices:
  *   get:
  *     summary: Lấy danh sách hóa đơn (invoices)

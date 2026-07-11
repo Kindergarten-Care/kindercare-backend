@@ -100,7 +100,54 @@ Authorization: Bearer <token>
 
 ---
 
-## 2. GET `/principal/invoices`
+## 2. PATCH `/principal/base-fees/{id}`
+
+Sửa học phí cơ bản (`BaseFees`) của một năm học. Chỉ cần truyền field muốn sửa. Áp dụng được cho biểu phí của bất kỳ năm học nào, kể cả năm không active.
+
+### Request
+
+```
+PATCH /principal/base-fees/2
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "monthlyTuition": 4200000,
+  "dailyMealFee": 55000
+}
+```
+
+| Path param | Type | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `id` | number | Có | `FeeID` (lấy từ `GET /principal/fees` → `baseFees[].id`) |
+
+| Body field | Type | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `monthlyTuition` | number | Không* | Học phí/tháng |
+| `dailyMealFee` | number | Không* | Phí ăn/ngày |
+
+\* Cần truyền ít nhất 1 trong 2 field, nếu không sẽ trả `400 Bad Request`.
+
+### Response `200 OK`
+
+```json
+{
+  "success": true,
+  "message": "Cập nhật biểu phí thành công",
+  "data": null
+}
+```
+
+### Error cases riêng
+
+| Status | Trường hợp |
+|---|---|
+| 400 | `id` không hợp lệ, hoặc không truyền field nào để sửa |
+| 404 | Không tìm thấy biểu phí với `id` tương ứng |
+
+---
+
+## 3. GET `/principal/invoices`
 
 Lấy danh sách hóa đơn (invoices), hỗ trợ filter qua query string.
 
@@ -179,7 +226,199 @@ Không truyền param nào → trả về toàn bộ hóa đơn, sắp xếp the
 
 ---
 
-## Error response format (chung cho cả 2 endpoint)
+## 4. POST `/principal/payment-packages`
+
+Thêm gói học phí mới.
+
+### Request
+
+```
+POST /principal/payment-packages
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "Gói Quý",
+  "duration": 3,
+  "discount": 3.00
+}
+```
+
+| Body field | Type | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `name` | string | Có | Tên gói học phí |
+| `duration` | number | Có | Số tháng của gói |
+| `discount` | number | Không | % giảm giá (mặc định 0 nếu không truyền) |
+
+### Response `201 Created`
+
+```json
+{
+  "success": true,
+  "message": "Tạo gói học phí thành công",
+  "data": {
+    "id": 4,
+    "name": "Gói Quý",
+    "duration": 3,
+    "discount": 3.00
+  }
+}
+```
+
+### Error cases riêng
+
+| Status | Trường hợp |
+|---|---|
+| 400 | Thiếu `name` hoặc `duration` |
+
+---
+
+## 5. PATCH `/principal/payment-packages/{id}`
+
+Sửa thông tin một gói học phí (`PaymentPackages`). Chỉ cần truyền field muốn sửa.
+
+### Request
+
+```
+PATCH /principal/payment-packages/1
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "Gói Tháng",
+  "duration": 1,
+  "discount": 5.00
+}
+```
+
+| Path param | Type | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `id` | number | Có | `PackageID` của gói học phí cần sửa |
+
+| Body field | Type | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `name` | string | Không* | Tên gói học phí |
+| `duration` | number | Không* | Số tháng của gói |
+| `discount` | number | Không* | % giảm giá |
+
+\* Cần truyền ít nhất 1 trong 3 field, nếu không sẽ trả `400 Bad Request`.
+
+### Response `200 OK`
+
+```json
+{
+  "success": true,
+  "message": "Cập nhật gói học phí thành công",
+  "data": null
+}
+```
+
+### Error cases riêng
+
+| Status | Trường hợp |
+|---|---|
+| 400 | `id` không hợp lệ, hoặc không truyền field nào để sửa |
+| 404 | Không tìm thấy gói học phí với `id` tương ứng |
+
+---
+
+## 6. POST `/principal/extracurriculars`
+
+Thêm hoạt động ngoại khóa mới.
+
+### Request
+
+```
+POST /principal/extracurriculars
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "Vẽ Sáng Tạo",
+  "monthlyFee": 300000,
+  "description": "Khám phá hội họa"
+}
+```
+
+| Body field | Type | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `name` | string | Có | Tên hoạt động |
+| `monthlyFee` | number | Có | Phí/tháng |
+| `description` | string | Không | Mô tả |
+
+### Response `201 Created`
+
+```json
+{
+  "success": true,
+  "message": "Tạo hoạt động ngoại khóa thành công",
+  "data": {
+    "id": 3,
+    "name": "Vẽ Sáng Tạo",
+    "monthlyFee": 300000,
+    "description": "Khám phá hội họa"
+  }
+}
+```
+
+### Error cases riêng
+
+| Status | Trường hợp |
+|---|---|
+| 400 | Thiếu `name` hoặc `monthlyFee` |
+
+---
+
+## 7. PATCH `/principal/extracurriculars/{id}`
+
+Sửa thông tin một hoạt động ngoại khóa. Chỉ cần truyền field muốn sửa.
+
+### Request
+
+```
+PATCH /principal/extracurriculars/1
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "Tiếng Anh Tăng Cường",
+  "monthlyFee": 500000,
+  "description": "Học với giáo viên bản ngữ"
+}
+```
+
+| Path param | Type | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `id` | number | Có | `ActivityID` của hoạt động cần sửa |
+
+| Body field | Type | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `name` | string | Không* | Tên hoạt động |
+| `monthlyFee` | number | Không* | Phí/tháng |
+| `description` | string | Không* | Mô tả |
+
+\* Cần truyền ít nhất 1 trong 3 field, nếu không sẽ trả `400 Bad Request`.
+
+### Response `200 OK`
+
+```json
+{
+  "success": true,
+  "message": "Cập nhật hoạt động ngoại khóa thành công",
+  "data": null
+}
+```
+
+### Error cases riêng
+
+| Status | Trường hợp |
+|---|---|
+| 400 | `id` không hợp lệ, hoặc không truyền field nào để sửa |
+| 404 | Không tìm thấy hoạt động ngoại khóa với `id` tương ứng |
+
+---
+
+## Error response format (chung cho các endpoint)
 
 ```json
 {

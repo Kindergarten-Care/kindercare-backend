@@ -712,6 +712,120 @@ export const getAllFees = async () => {
   };
 };
 
+export const createExtracurricular = async ({ name, monthlyFee, description }) => {
+  const [result] = await pool.query(
+    'INSERT INTO Extracurriculars (ActivityName, MonthlyFee, Description) VALUES (?, ?, ?)',
+    [name, monthlyFee, description || null]
+  );
+
+  return {
+    id: result.insertId,
+    name,
+    monthlyFee,
+    description: description || null,
+  };
+};
+
+export const updateExtracurricular = async (activityId, { name, monthlyFee, description }) => {
+  const fields = [];
+  const params = [];
+
+  if (name !== undefined) {
+    fields.push('ActivityName = ?');
+    params.push(name);
+  }
+  if (monthlyFee !== undefined) {
+    fields.push('MonthlyFee = ?');
+    params.push(monthlyFee);
+  }
+  if (description !== undefined) {
+    fields.push('Description = ?');
+    params.push(description);
+  }
+
+  if (!fields.length) {
+    return false;
+  }
+
+  params.push(activityId);
+  const [result] = await pool.query(
+    `UPDATE Extracurriculars SET ${fields.join(', ')} WHERE ActivityID = ?`,
+    params
+  );
+
+  return result.affectedRows > 0;
+};
+
+export const updateBaseFee = async (feeId, { monthlyTuition, dailyMealFee }) => {
+  const fields = [];
+  const params = [];
+
+  if (monthlyTuition !== undefined) {
+    fields.push('MonthlyTuition = ?');
+    params.push(monthlyTuition);
+  }
+  if (dailyMealFee !== undefined) {
+    fields.push('DailyMealFee = ?');
+    params.push(dailyMealFee);
+  }
+
+  if (!fields.length) {
+    return false;
+  }
+
+  params.push(feeId);
+  const [result] = await pool.query(
+    `UPDATE BaseFees SET ${fields.join(', ')} WHERE FeeID = ?`,
+    params
+  );
+
+  return result.affectedRows > 0;
+};
+
+export const createPaymentPackage = async ({ name, duration, discount }) => {
+  const [result] = await pool.query(
+    'INSERT INTO PaymentPackages (PackageName, DurationInMonths, DiscountPercentage) VALUES (?, ?, ?)',
+    [name, duration, discount ?? 0]
+  );
+
+  return {
+    id: result.insertId,
+    name,
+    duration,
+    discount: discount ?? 0,
+  };
+};
+
+export const updatePaymentPackage = async (packageId, { name, duration, discount }) => {
+  const fields = [];
+  const params = [];
+
+  if (name !== undefined) {
+    fields.push('PackageName = ?');
+    params.push(name);
+  }
+  if (duration !== undefined) {
+    fields.push('DurationInMonths = ?');
+    params.push(duration);
+  }
+  if (discount !== undefined) {
+    fields.push('DiscountPercentage = ?');
+    params.push(discount);
+  }
+
+  if (!fields.length) {
+    return false;
+  }
+
+  params.push(packageId);
+  const [result] = await pool.query(
+    `UPDATE PaymentPackages SET ${fields.join(', ')} WHERE PackageID = ?`,
+    params
+  );
+
+  return result.affectedRows > 0;
+};
+
 export const getInvoices = async ({ studentId, billingMonth, paymentStatus, invoiceType } = {}) => {
   const conditions = [];
   const params = [];
