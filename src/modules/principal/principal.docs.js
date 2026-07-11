@@ -464,6 +464,7 @@
  *                         properties:
  *                           studentId: { type: integer, example: 1 }
  *                           fullName: { type: string, example: "Nguyễn Minh Khang" }
+ *                           avatarUrl: { type: string, nullable: true, example: null }
  *                           dateOfBirth: { type: integer, description: "Unix timestamp (seconds)", example: 1684108800 }
  *                           gender: { type: string, nullable: true, example: Nam }
  *                           classId: { type: integer, nullable: true, example: 1 }
