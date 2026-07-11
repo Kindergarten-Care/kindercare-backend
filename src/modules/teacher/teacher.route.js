@@ -48,6 +48,11 @@ router.get(
   teacherValidation.validateGetClassMenu,
   teacherController.getClassMenu
 );
+router.get(
+  '/classes/:classId/menu/weekly',
+  teacherValidation.validateGetWeeklyMenu,
+  teacherController.getWeeklyMenu
+);
 router.put(
   '/classes/:classId/menu',
   teacherValidation.validateUpdateClassMenu,

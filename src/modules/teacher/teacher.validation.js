@@ -164,6 +164,28 @@ export const validateGetClassMenu = (req, res, next) => {
 };
 
 /**
+ * Validate class weekly menu input parameters
+ */
+export const validateGetWeeklyMenu = (req, res, next) => {
+  const { classId } = req.params;
+  const { date } = req.query;
+
+  const numericClassId = Number(classId);
+  if (isNaN(numericClassId)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId phải là một số nguyên hợp lệ'));
+  }
+
+  if (date !== undefined && date !== null) {
+    const numericDate = Number(date);
+    if (isNaN(numericDate) || numericDate < 0) {
+      return next(new ApiError(httpStatus.BAD_REQUEST, 'Ngày lọc (date) phải là một số nguyên Unix timestamp hợp lệ'));
+    }
+  }
+
+  next();
+};
+
+/**
  * Validate quick meal logs submission
  */
 export const validateQuickMealLogs = (req, res, next) => {

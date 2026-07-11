@@ -467,6 +467,43 @@ export const getClassMenu = async (req, res, next) => {
 };
 
 /**
+ * Get class meal menu for an entire week
+ */
+export const getWeeklyMenu = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId } = req.params;
+    const { date } = req.query;
+
+    const numericClassId = Number(classId);
+
+    // Security check: teacher must be assigned to this class
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền xem thông tin thực đơn của lớp này');
+    }
+
+    // Calculate target date timestamp (seconds) at start of day in UTC
+    let targetTimestamp;
+    if (date) {
+      const d = new Date(Number(date) * 1000);
+      targetTimestamp = Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 1000);
+    } else {
+      const today = new Date();
+      targetTimestamp = Math.floor(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / 1000);
+    }
+
+    const menuData = await teacherService.getWeeklyMenu(numericClassId, targetTimestamp);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, menuData, 'Lấy thực đơn tuần thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Mass submit/update student meal logs for a class
  */
 export const submitQuickMealLogs = async (req, res, next) => {
