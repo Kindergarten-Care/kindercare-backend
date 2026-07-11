@@ -47,7 +47,7 @@
 
 ### 2.1. Development Assessments (module Health)
 
-> **Bảng**: `developmentassessments`
+> **Bảng**: `DevelopmentAssessments`
 > **Đường dẫn**: `/teacher/classes/:classId/student-health/assessments`
 > **Method**: `GET`, `PUT` (batch upsert)
 > **Dùng cho**: Trang Y tế / Sức khỏe — tab Đánh giá phát triển
