@@ -205,6 +205,34 @@ const getStudentDetail = async (req, res, next) => {
   }
 };
 
+const updateStudent = async (req, res, next) => {
+  try {
+    const roleId = req.user.roleId;
+    if (roleId !== 2) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ hiệu trưởng mới có quyền sửa thông tin học sinh');
+    }
+
+    const id = parsePositiveIntId(req.params.id);
+    const { fullName, dateOfBirth, gender, allergies, avatarUrl } = req.body;
+
+    if ([fullName, dateOfBirth, gender, allergies, avatarUrl].every((v) => v === undefined)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Cần ít nhất một trong các trường: fullName, dateOfBirth, gender, allergies, avatarUrl');
+    }
+
+    const success = await principalService.updateStudent(id, { fullName, dateOfBirth, gender, allergies, avatarUrl });
+
+    if (!success) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy học sinh với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Cập nhật thông tin học sinh thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 const resetAccountPassword = async (req, res, next) => {
   try {
     const roleId = req.user.roleId;
@@ -668,6 +696,7 @@ export default {
   getTeacherDetail,
   getParentDetail,
   getStudentDetail,
+  updateStudent,
   getUnassignedStudents,
   resetAccountPassword,
   lockAccount,

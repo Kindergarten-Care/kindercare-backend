@@ -301,6 +301,44 @@ export const getStudentDetail = async (id) => {
   return { ...rows[0], parents };
 };
 
+export const updateStudent = async (studentId, { fullName, dateOfBirth, gender, allergies, avatarUrl }) => {
+  const fields = [];
+  const params = [];
+
+  if (fullName !== undefined) {
+    fields.push('FullName = ?');
+    params.push(fullName);
+  }
+  if (dateOfBirth !== undefined) {
+    fields.push('DateOfBirth = ?');
+    params.push(dateOfBirth);
+  }
+  if (gender !== undefined) {
+    fields.push('Gender = ?');
+    params.push(gender);
+  }
+  if (allergies !== undefined) {
+    fields.push('Allergies = ?');
+    params.push(allergies);
+  }
+  if (avatarUrl !== undefined) {
+    fields.push('AvatarURL = ?');
+    params.push(avatarUrl);
+  }
+
+  if (!fields.length) {
+    return false;
+  }
+
+  params.push(studentId);
+  const [result] = await pool.query(
+    `UPDATE Students SET ${fields.join(', ')} WHERE StudentID = ?`,
+    params
+  );
+
+  return result.affectedRows > 0;
+};
+
 /**
  * Đặt lại mật khẩu của tài khoản về mặc định (123456)
  *

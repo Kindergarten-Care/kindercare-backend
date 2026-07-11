@@ -549,6 +549,79 @@
 
 /**
  * @swagger
+ * /principal/student/{id}:
+ *   patch:
+ *     summary: Sửa thông tin học sinh
+ *     description: |
+ *       Cập nhật một hoặc nhiều trường thông tin cá nhân của học sinh
+ *       (`fullName`, `dateOfBirth`, `gender`, `allergies`, `avatarUrl`). Chỉ cần truyền field muốn sửa.
+ *
+ *       **Lưu ý:** Endpoint này không dùng để đổi lớp hoặc trạng thái nhập học — dùng
+ *       `POST /principal/assignments/students` để xếp lớp, hoặc các API tổng kết/bắt đầu năm học
+ *       để thay đổi `EnrollmentStatus`.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Student"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: StudentID của học sinh cần sửa
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               fullName:
+ *                 type: string
+ *                 example: "Nguyễn Minh Khang"
+ *               dateOfBirth:
+ *                 type: integer
+ *                 description: Unix timestamp (seconds)
+ *                 example: 1684108800
+ *               gender:
+ *                 type: string
+ *                 example: "Nam"
+ *               allergies:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Dị ứng lạc"
+ *               avatarUrl:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "https://media.kindercare.app/students/avatar.jpg"
+ *     responses:
+ *       200:
+ *         description: Cập nhật thông tin học sinh thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Cập nhật thông tin học sinh thành công }
+ *                 data: { nullable: true, example: null }
+ *       400:
+ *         description: Bad Request - id không hợp lệ, hoặc không truyền field nào để sửa
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy học sinh
+ */
+
+/**
+ * @swagger
  * /principal/accounts/{id}/reset-password:
  *   patch:
  *     summary: Khôi phục mật khẩu tài khoản về mặc định

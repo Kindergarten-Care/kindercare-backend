@@ -36,6 +36,9 @@ router.get('/parent/:id/detail', authenticate, authorize(2), principalController
 // Lấy thông tin chi tiết học sinh theo id
 router.get('/student/:id/detail', authenticate, authorize(2), principalController.getStudentDetail);
 
+// Sửa thông tin học sinh (fullName, dateOfBirth, gender, allergies, avatarUrl)
+router.patch('/student/:id', authenticate, authorize(2), principalController.updateStudent);
+
 // Tìm kiếm phụ huynh qua SĐT
 router.get('/parents/search', authenticate, authorize(2), principalController.searchParentsByPhone);
 
