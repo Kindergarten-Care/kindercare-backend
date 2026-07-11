@@ -384,6 +384,31 @@ const getHealthLogById = async (logId) => {
 // Development Assessments  (bảng `DevelopmentAssessments`)
 // -----------------------------------------------------------------------------
 
+export const getDevelopmentAssessmentHistory = async (studentId, monthsBack = 6) => {
+  const limit = Math.min(Math.max(parseInt(monthsBack, 10) || 6, 1), 12);
+  const [rows] = await pool.query(
+    `SELECT
+       da.AssessmentID    AS assessmentId,
+       da.StudentID       AS studentId,
+       da.TermPeriod      AS termPeriod,
+       da.PhysicalScore   AS physicalScore,
+       da.EmotionalScore  AS emotionalScore,
+       da.SocialScore     AS socialScore,
+       da.LanguageScore   AS languageScore,
+       da.CognitiveScore  AS cognitiveScore,
+       da.OverallNote     AS overallNote,
+       da.AssessedBy      AS assessedBy,
+       da.CreatedAt       AS createdAt,
+       da.UpdatedAt       AS updatedAt
+     FROM DevelopmentAssessments da
+     WHERE da.StudentID = ?
+     ORDER BY da.TermPeriod DESC
+     LIMIT ?`,
+    [studentId, limit]
+  );
+  return rows;
+};
+
 export const getDevelopmentAssessments = async (classId, termPeriod) => {
   const [rows] = await pool.query(
     `SELECT s.StudentID AS studentId, s.FullName AS name, s.AvatarURL AS avatarUrl,
@@ -396,7 +421,7 @@ export const getDevelopmentAssessments = async (classId, termPeriod) => {
             da.OverallNote AS overallNote,
             da.AssessedBy AS assessedBy
        FROM students s
-       LEFT JOIN developmentassessments da
+       LEFT JOIN DevelopmentAssessments da
               ON s.StudentID = da.StudentID AND da.TermPeriod = ?
       WHERE s.ClassID = ?
         AND s.EnrollmentStatus = 'Active'
@@ -423,7 +448,7 @@ export const upsertDevelopmentAssessments = async (teacherId, termPeriod, items)
       const now = unixNow();
 
       await connection.query(
-        `INSERT INTO developmentassessments
+        `INSERT INTO DevelopmentAssessments
            (StudentID, TermPeriod, PhysicalScore, EmotionalScore, SocialScore,
             LanguageScore, CognitiveScore, OverallNote, AssessedBy, CreatedAt, UpdatedAt)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

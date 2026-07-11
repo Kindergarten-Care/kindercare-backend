@@ -186,6 +186,23 @@ export const validateDevelopmentAssessmentBatch = (req, _res, next) => {
   next();
 };
 
+export const validateDevelopmentAssessmentHistory = (req, _res, next) => {
+  const { studentId, monthsBack } = req.query;
+
+  if (!studentId || isNaN(parseInt(studentId, 10)) || parseInt(studentId, 10) <= 0) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'studentId phải là số nguyên dương'));
+  }
+
+  if (monthsBack !== undefined) {
+    const mb = parseInt(monthsBack, 10);
+    if (isNaN(mb) || mb < 1 || mb > 12) {
+      return next(new ApiError(httpStatus.BAD_REQUEST, 'monthsBack phải là số từ 1 đến 12'));
+    }
+  }
+
+  next();
+};
+
 export const validateCreateBmiLog = (req, _res, next) => {
   const raw = req.body;
 

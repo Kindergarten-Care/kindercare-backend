@@ -393,3 +393,24 @@ export const upsertClassDevelopmentAssessments = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getDevelopmentAssessmentHistory = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const classId = await ensureClassAccess(teacherId, req.params.classId);
+
+    const studentId = parseInt(req.query.studentId, 10);
+    if (isNaN(studentId) || studentId <= 0) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'studentId là bắt buộc và phải là số nguyên dương');
+    }
+
+    const monthsBack = parseInt(req.query.monthsBack, 10) || 6;
+    const history = await healthService.getDevelopmentAssessmentHistory(studentId, monthsBack);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, { history }, 'Lấy lịch sử đánh giá thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
