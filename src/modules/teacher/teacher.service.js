@@ -623,7 +623,7 @@ export const getClassStudentsAttendance = async (classId, dateTimestamp) => {
  */
 export const getClassMenu = async (classId, dateTimestamp) => {
   const query = `
-    SELECT 
+    SELECT
       md.MenuDetailID AS menuDetailId,
       md.MenuID AS menuId,
       md.DayOfWeek AS dayOfWeek,
@@ -633,13 +633,44 @@ export const getClassMenu = async (classId, dateTimestamp) => {
       md.NutritionalDetails AS nutritionalDetails
     FROM Menus m
     JOIN MenuDetails md ON m.MenuID = md.MenuID
-    WHERE m.ClassID = ? 
+    WHERE m.ClassID = ?
       AND m.Year = YEAR(FROM_UNIXTIME(?))
       AND m.WeekNumber = WEEK(FROM_UNIXTIME(?), 1)
       AND md.DayOfWeek = DAYNAME(FROM_UNIXTIME(?))
     ORDER BY FIELD(md.MealType, 'Breakfast', 'Lunch', 'Snack')
   `;
   const [rows] = await pool.query(query, [classId, dateTimestamp, dateTimestamp, dateTimestamp]);
+  return rows;
+};
+
+/**
+ * Get class meal menu for an entire week (Mon-Sun)
+ * @param {number} classId
+ * @param {number} dateTimestamp Unix timestamp (seconds) for any day inside the target week
+ * @returns {Promise<Array>} Flat list of menu items for all days in the week
+ */
+export const getWeeklyMenu = async (classId, dateTimestamp) => {
+  const query = `
+    SELECT
+      md.MenuDetailID AS menuDetailId,
+      md.MenuID AS menuId,
+      md.DayOfWeek AS dayOfWeek,
+      md.MealType AS mealType,
+      md.DishName AS dishName,
+      md.Calories AS calories,
+      md.NutritionalDetails AS nutritionalDetails,
+      m.MenuName AS menuName,
+      m.WeekNumber AS weekNumber,
+      m.Year AS year
+    FROM Menus m
+    JOIN MenuDetails md ON m.MenuID = md.MenuID
+    WHERE m.ClassID = ?
+      AND m.Year = YEAR(FROM_UNIXTIME(?))
+      AND m.WeekNumber = WEEK(FROM_UNIXTIME(?), 1)
+    ORDER BY FIELD(md.DayOfWeek, 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'),
+             FIELD(md.MealType, 'Breakfast', 'Lunch', 'Snack')
+  `;
+  const [rows] = await pool.query(query, [classId, dateTimestamp, dateTimestamp]);
   return rows;
 };
 
