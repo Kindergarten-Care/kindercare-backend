@@ -229,6 +229,7 @@ export const getParentDetail = async (id) => {
     SELECT
       sp.StudentID     AS studentId,
       s.FullName       AS fullName,
+      s.AvatarURL      AS avatarUrl,
       s.DateOfBirth    AS dateOfBirth,
       s.Gender         AS gender,
       s.ClassID        AS classId,
