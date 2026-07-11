@@ -487,6 +487,111 @@ const getAllFees = async (req, res, next) => {
   }
 };
 
+const createExtracurricular = async (req, res, next) => {
+  try {
+    const { name, monthlyFee, description } = req.body;
+
+    if (!name || monthlyFee === undefined) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Cần truyền name và monthlyFee');
+    }
+
+    const data = await principalService.createExtracurricular({ name, monthlyFee, description });
+
+    res.status(httpStatus.CREATED).json(
+      new ApiResponse(httpStatus.CREATED, data, 'Tạo hoạt động ngoại khóa thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateExtracurricular = async (req, res, next) => {
+  try {
+    const id = parsePositiveIntId(req.params.id);
+    const { name, monthlyFee, description } = req.body;
+
+    if (name === undefined && monthlyFee === undefined && description === undefined) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Cần ít nhất một trong các trường: name, monthlyFee, description');
+    }
+
+    const success = await principalService.updateExtracurricular(id, { name, monthlyFee, description });
+
+    if (!success) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy hoạt động ngoại khóa với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Cập nhật hoạt động ngoại khóa thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateBaseFee = async (req, res, next) => {
+  try {
+    const id = parsePositiveIntId(req.params.id);
+    const { monthlyTuition, dailyMealFee } = req.body;
+
+    if (monthlyTuition === undefined && dailyMealFee === undefined) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Cần ít nhất một trong các trường: monthlyTuition, dailyMealFee');
+    }
+
+    const success = await principalService.updateBaseFee(id, { monthlyTuition, dailyMealFee });
+
+    if (!success) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy biểu phí với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Cập nhật biểu phí thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createPaymentPackage = async (req, res, next) => {
+  try {
+    const { name, duration, discount } = req.body;
+
+    if (!name || duration === undefined) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Cần truyền name và duration');
+    }
+
+    const data = await principalService.createPaymentPackage({ name, duration, discount });
+
+    res.status(httpStatus.CREATED).json(
+      new ApiResponse(httpStatus.CREATED, data, 'Tạo gói học phí thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updatePaymentPackage = async (req, res, next) => {
+  try {
+    const id = parsePositiveIntId(req.params.id);
+    const { name, duration, discount } = req.body;
+
+    if (name === undefined && duration === undefined && discount === undefined) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Cần ít nhất một trong các trường: name, duration, discount');
+    }
+
+    const success = await principalService.updatePaymentPackage(id, { name, duration, discount });
+
+    if (!success) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy gói học phí với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Cập nhật gói học phí thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getInvoices = async (req, res, next) => {
   try {
     const { studentId, billingMonth, paymentStatus, invoiceType } = req.query;
@@ -550,6 +655,11 @@ export default {
   searchParentsByPhone,
   getPaymentConfigs,
   getAllFees,
+  createExtracurricular,
+  updateExtracurricular,
+  updateBaseFee,
+  createPaymentPackage,
+  updatePaymentPackage,
   getInvoices,
   enrollStudent,
   addParentToStudent,
