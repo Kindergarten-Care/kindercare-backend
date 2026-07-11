@@ -89,12 +89,12 @@ const healthLogUpdateSchema = Joi.object({
 
 const developmentAssessmentItemSchema = Joi.object({
   studentId: Joi.number().integer().positive().required(),
-  physicalScore: Joi.number().integer().min(0).max(5).allow(null).optional(),
-  emotionalScore: Joi.number().integer().min(0).max(5).allow(null).optional(),
-  socialScore: Joi.number().integer().min(0).max(5).allow(null).optional(),
-  languageScore: Joi.number().integer().min(0).max(5).allow(null).optional(),
-  cognitiveScore: Joi.number().integer().min(0).max(5).allow(null).optional(),
-  overallNote: Joi.string().trim().allow('', null).max(1000).optional()
+  physicalScore: Joi.number().integer().min(1).max(10).allow(null).optional(),
+  emotionalScore: Joi.number().integer().min(1).max(10).allow(null).optional(),
+  socialScore: Joi.number().integer().min(1).max(10).allow(null).optional(),
+  languageScore: Joi.number().integer().min(1).max(10).allow(null).optional(),
+  cognitiveScore: Joi.number().integer().min(1).max(10).allow(null).optional(),
+  overallNote: Joi.string().trim().allow('', null).max(500).optional()
 });
 
 const developmentAssessmentBodySchema = Joi.object({
