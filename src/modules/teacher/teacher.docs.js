@@ -1325,3 +1325,125 @@
  *       500:
  *         description: Internal Server Error
  */
+
+/**
+ * @swagger
+ * /teacher/proxy-approvals:
+ *   get:
+ *     summary: Get Proxy Approvals
+ *     description: Retrieve all proxy authorizations for students in the active class assigned to the teacher. Results include parent details.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved the list of proxy approvals
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách đơn đón hộ thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       authorizationId:
+ *                         type: integer
+ *                         example: 15
+ *                       studentId:
+ *                         type: integer
+ *                         example: 120
+ *                       studentName:
+ *                         type: string
+ *                         example: Nguyễn Văn A
+ *                       studentAvatar:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://example.com/avatar.jpg
+ *                       parentId:
+ *                         type: integer
+ *                         example: 56
+ *                       parentName:
+ *                         type: string
+ *                         example: Nguyễn Văn B
+ *                       parentPhone:
+ *                         type: string
+ *                         example: "0987654321"
+ *                       proxyName:
+ *                         type: string
+ *                         example: Lê Thị C
+ *                       proxyPhone:
+ *                         type: string
+ *                         example: "0123456789"
+ *                       proxyIdCard:
+ *                         type: string
+ *                         example: "012345678912"
+ *                       proxyPhotoUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://example.com/proxy.jpg
+ *                       authorizationDate:
+ *                         type: string
+ *                         example: "2026-07-13"
+ *                       type:
+ *                         type: string
+ *                         example: Temporary
+ *                       notes:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Đón hộ vì đi công tác
+ *                       status:
+ *                         type: string
+ *                         example: Pending
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Internal Server Error
+ * 
+ *   patch:
+ *     summary: Approve Proxy Authorization
+ *     description: Approve a pending proxy authorization for a student.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - authorizationId
+ *             properties:
+ *               authorizationId:
+ *                 type: integer
+ *                 example: 15
+ *     responses:
+ *       200:
+ *         description: Successfully approved proxy authorization
+ *       400:
+ *         description: Bad Request (Missing or invalid authorizationId)
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Proxy authorization not found or not in Pending status
+ *       500:
+ *         description: Internal Server Error
+ */
