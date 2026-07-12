@@ -36,11 +36,35 @@ router.get('/parent/:id/detail', authenticate, authorize(2), principalController
 // Lấy thông tin chi tiết học sinh theo id
 router.get('/student/:id/detail', authenticate, authorize(2), principalController.getStudentDetail);
 
+// Sửa thông tin học sinh (fullName, dateOfBirth, gender, allergies, avatarUrl)
+router.patch('/student/:id', authenticate, authorize(2), principalController.updateStudent);
+
 // Tìm kiếm phụ huynh qua SĐT
 router.get('/parents/search', authenticate, authorize(2), principalController.searchParentsByPhone);
 
 // Lấy cấu hình gói học phí
 router.get('/payment-configs', authenticate, authorize(2), principalController.getPaymentConfigs);
+
+// Lấy danh sách toàn bộ biểu phí (gói học phí + học phí cơ bản mọi năm học, kể cả năm không active)
+router.get('/fees', authenticate, authorize(2), principalController.getAllFees);
+
+// Thêm gói học phí mới
+router.post('/payment-packages', authenticate, authorize(2), principalController.createPaymentPackage);
+
+// Sửa thông tin một gói học phí (name, duration, discount)
+router.patch('/payment-packages/:id', authenticate, authorize(2), principalController.updatePaymentPackage);
+
+// Sửa học phí cơ bản của một năm học (monthlyTuition, dailyMealFee) theo FeeID
+router.patch('/base-fees/:id', authenticate, authorize(2), principalController.updateBaseFee);
+
+// Thêm hoạt động ngoại khóa mới
+router.post('/extracurriculars', authenticate, authorize(2), principalController.createExtracurricular);
+
+// Sửa thông tin một hoạt động ngoại khóa (name, monthlyFee, description)
+router.patch('/extracurriculars/:id', authenticate, authorize(2), principalController.updateExtracurricular);
+
+// Lấy danh sách hóa đơn (invoices), hỗ trợ filter qua query: studentId, billingMonth, paymentStatus, invoiceType
+router.get('/invoices', authenticate, authorize(2), principalController.getInvoices);
 
 // Thêm học sinh mới (Wizard Flow)
 router.post('/students/enroll', authenticate, authorize(2), principalController.enrollStudent);

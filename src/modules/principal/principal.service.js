@@ -229,6 +229,7 @@ export const getParentDetail = async (id) => {
     SELECT
       sp.StudentID     AS studentId,
       s.FullName       AS fullName,
+      s.AvatarURL      AS avatarUrl,
       s.DateOfBirth    AS dateOfBirth,
       s.Gender         AS gender,
       s.ClassID        AS classId,
@@ -298,6 +299,44 @@ export const getStudentDetail = async (id) => {
   const [parents] = await pool.query(parentsQuery, [id]);
 
   return { ...rows[0], parents };
+};
+
+export const updateStudent = async (studentId, { fullName, dateOfBirth, gender, allergies, avatarUrl }) => {
+  const fields = [];
+  const params = [];
+
+  if (fullName !== undefined) {
+    fields.push('FullName = ?');
+    params.push(fullName);
+  }
+  if (dateOfBirth !== undefined) {
+    fields.push('DateOfBirth = ?');
+    params.push(dateOfBirth);
+  }
+  if (gender !== undefined) {
+    fields.push('Gender = ?');
+    params.push(gender);
+  }
+  if (allergies !== undefined) {
+    fields.push('Allergies = ?');
+    params.push(allergies);
+  }
+  if (avatarUrl !== undefined) {
+    fields.push('AvatarURL = ?');
+    params.push(avatarUrl);
+  }
+
+  if (!fields.length) {
+    return false;
+  }
+
+  params.push(studentId);
+  const [result] = await pool.query(
+    `UPDATE Students SET ${fields.join(', ')} WHERE StudentID = ?`,
+    params
+  );
+
+  return result.affectedRows > 0;
 };
 
 /**
@@ -675,6 +714,210 @@ export const getPaymentConfigs = async () => {
     packages,
     baseFee: fees[0] || { MonthlyTuition: 0, DailyMealFee: 0 }
   };
+};
+
+export const getAllFees = async () => {
+  const [packages] = await pool.query(
+    'SELECT PackageID as id, PackageName as name, DurationInMonths as duration, DiscountPercentage as discount FROM PaymentPackages'
+  );
+
+  const [baseFees] = await pool.query(`
+    SELECT
+      bf.FeeID as id,
+      bf.YearID as yearId,
+      ay.YearName as yearName,
+      ay.IsActive as isActive,
+      bf.MonthlyTuition as monthlyTuition,
+      bf.DailyMealFee as dailyMealFee
+    FROM BaseFees bf
+    LEFT JOIN AcademicYears ay ON bf.YearID = ay.YearID
+    ORDER BY bf.YearID DESC
+  `);
+
+  const [extracurriculars] = await pool.query(`
+    SELECT
+      ActivityID as id,
+      ActivityName as name,
+      MonthlyFee as monthlyFee,
+      Description as description
+    FROM Extracurriculars
+    ORDER BY ActivityID ASC
+  `);
+
+  return {
+    packages,
+    baseFees,
+    extracurriculars,
+  };
+};
+
+export const createExtracurricular = async ({ name, monthlyFee, description }) => {
+  const [result] = await pool.query(
+    'INSERT INTO Extracurriculars (ActivityName, MonthlyFee, Description) VALUES (?, ?, ?)',
+    [name, monthlyFee, description || null]
+  );
+
+  return {
+    id: result.insertId,
+    name,
+    monthlyFee,
+    description: description || null,
+  };
+};
+
+export const updateExtracurricular = async (activityId, { name, monthlyFee, description }) => {
+  const fields = [];
+  const params = [];
+
+  if (name !== undefined) {
+    fields.push('ActivityName = ?');
+    params.push(name);
+  }
+  if (monthlyFee !== undefined) {
+    fields.push('MonthlyFee = ?');
+    params.push(monthlyFee);
+  }
+  if (description !== undefined) {
+    fields.push('Description = ?');
+    params.push(description);
+  }
+
+  if (!fields.length) {
+    return false;
+  }
+
+  params.push(activityId);
+  const [result] = await pool.query(
+    `UPDATE Extracurriculars SET ${fields.join(', ')} WHERE ActivityID = ?`,
+    params
+  );
+
+  return result.affectedRows > 0;
+};
+
+export const updateBaseFee = async (feeId, { monthlyTuition, dailyMealFee }) => {
+  const fields = [];
+  const params = [];
+
+  if (monthlyTuition !== undefined) {
+    fields.push('MonthlyTuition = ?');
+    params.push(monthlyTuition);
+  }
+  if (dailyMealFee !== undefined) {
+    fields.push('DailyMealFee = ?');
+    params.push(dailyMealFee);
+  }
+
+  if (!fields.length) {
+    return false;
+  }
+
+  params.push(feeId);
+  const [result] = await pool.query(
+    `UPDATE BaseFees SET ${fields.join(', ')} WHERE FeeID = ?`,
+    params
+  );
+
+  return result.affectedRows > 0;
+};
+
+export const createPaymentPackage = async ({ name, duration, discount }) => {
+  const [result] = await pool.query(
+    'INSERT INTO PaymentPackages (PackageName, DurationInMonths, DiscountPercentage) VALUES (?, ?, ?)',
+    [name, duration, discount ?? 0]
+  );
+
+  return {
+    id: result.insertId,
+    name,
+    duration,
+    discount: discount ?? 0,
+  };
+};
+
+export const updatePaymentPackage = async (packageId, { name, duration, discount }) => {
+  const fields = [];
+  const params = [];
+
+  if (name !== undefined) {
+    fields.push('PackageName = ?');
+    params.push(name);
+  }
+  if (duration !== undefined) {
+    fields.push('DurationInMonths = ?');
+    params.push(duration);
+  }
+  if (discount !== undefined) {
+    fields.push('DiscountPercentage = ?');
+    params.push(discount);
+  }
+
+  if (!fields.length) {
+    return false;
+  }
+
+  params.push(packageId);
+  const [result] = await pool.query(
+    `UPDATE PaymentPackages SET ${fields.join(', ')} WHERE PackageID = ?`,
+    params
+  );
+
+  return result.affectedRows > 0;
+};
+
+export const getInvoices = async ({ studentId, billingMonth, paymentStatus, invoiceType } = {}) => {
+  const conditions = [];
+  const params = [];
+
+  if (studentId) {
+    conditions.push('i.StudentID = ?');
+    params.push(studentId);
+  }
+  if (billingMonth) {
+    conditions.push('i.BillingMonth = ?');
+    params.push(billingMonth);
+  }
+  if (paymentStatus) {
+    conditions.push('i.PaymentStatus = ?');
+    params.push(paymentStatus);
+  }
+  if (invoiceType) {
+    conditions.push('i.InvoiceType = ?');
+    params.push(invoiceType);
+  }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const [rows] = await pool.query(`
+    SELECT
+      i.InvoiceID as id,
+      i.StudentID as studentId,
+      s.FullName as studentFullName,
+      i.PackageID as packageId,
+      pp.PackageName as packageName,
+      i.PeriodRange as periodRange,
+      i.BillingMonth as billingMonth,
+      i.TuitionFee as tuitionFee,
+      i.ExpectedMealFee as expectedMealFee,
+      i.ExtracurricularFee as extracurricularFee,
+      i.Surcharge as surcharge,
+      i.RefundAmount as refundAmount,
+      i.DiscountAmount as discountAmount,
+      i.TotalAmount as totalAmount,
+      i.PaymentStatus as paymentStatus,
+      i.InvoiceType as invoiceType,
+      i.CreatedAt as createdAt,
+      i.DueDate as dueDate,
+      i.ReminderSentAt as reminderSentAt,
+      i.OverdueReminderSentAt as overdueReminderSentAt
+    FROM Invoices i
+    LEFT JOIN Students s ON i.StudentID = s.StudentID
+    LEFT JOIN PaymentPackages pp ON i.PackageID = pp.PackageID
+    ${whereClause}
+    ORDER BY i.CreatedAt DESC
+  `, params);
+
+  return rows;
 };
 
 export const enrollStudent = async ({ student, parent, account, isNewParent, packageId }) => {

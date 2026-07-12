@@ -464,6 +464,7 @@
  *                         properties:
  *                           studentId: { type: integer, example: 1 }
  *                           fullName: { type: string, example: "Nguyễn Minh Khang" }
+ *                           avatarUrl: { type: string, nullable: true, example: null }
  *                           dateOfBirth: { type: integer, description: "Unix timestamp (seconds)", example: 1684108800 }
  *                           gender: { type: string, nullable: true, example: Nam }
  *                           classId: { type: integer, nullable: true, example: 1 }
@@ -538,6 +539,79 @@
  *                           isPrimary: { type: integer, description: "1 = phụ huynh chính, 0 = phụ huynh phụ", example: 1 }
  *       400:
  *         description: Bad Request - id không hợp lệ
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy học sinh
+ */
+
+/**
+ * @swagger
+ * /principal/student/{id}:
+ *   patch:
+ *     summary: Sửa thông tin học sinh
+ *     description: |
+ *       Cập nhật một hoặc nhiều trường thông tin cá nhân của học sinh
+ *       (`fullName`, `dateOfBirth`, `gender`, `allergies`, `avatarUrl`). Chỉ cần truyền field muốn sửa.
+ *
+ *       **Lưu ý:** Endpoint này không dùng để đổi lớp hoặc trạng thái nhập học — dùng
+ *       `POST /principal/assignments/students` để xếp lớp, hoặc các API tổng kết/bắt đầu năm học
+ *       để thay đổi `EnrollmentStatus`.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Student"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: StudentID của học sinh cần sửa
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               fullName:
+ *                 type: string
+ *                 example: "Nguyễn Minh Khang"
+ *               dateOfBirth:
+ *                 type: integer
+ *                 description: Unix timestamp (seconds)
+ *                 example: 1684108800
+ *               gender:
+ *                 type: string
+ *                 example: "Nam"
+ *               allergies:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Dị ứng lạc"
+ *               avatarUrl:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "https://media.kindercare.app/students/avatar.jpg"
+ *     responses:
+ *       200:
+ *         description: Cập nhật thông tin học sinh thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Cập nhật thông tin học sinh thành công }
+ *                 data: { nullable: true, example: null }
+ *       400:
+ *         description: Bad Request - id không hợp lệ, hoặc không truyền field nào để sửa
  *       401:
  *         description: Unauthorized - thiếu/không hợp lệ token
  *       403:
@@ -940,6 +1014,519 @@
  *     responses:
  *       200:
  *         description: Lấy danh sách năm học thành công
+ */
+
+/**
+ * @swagger
+ * /principal/payment-configs:
+ *   get:
+ *     summary: Lấy cấu hình gói học phí (chỉ năm học đang active)
+ *     description: |
+ *       Trả về danh sách gói học phí (`PaymentPackages`) và học phí cơ bản (`BaseFees`)
+ *       của **năm học đang active** (`AcademicYears.IsActive = 1`).
+ *
+ *       **Lưu ý:** API này chỉ trả biểu phí của năm học hiện hành. Nếu cần xem biểu phí
+ *       của mọi năm học (kể cả năm không active) và cả hoạt động ngoại khóa, dùng
+ *       `GET /principal/fees`.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền truy cập.
+ *     tags: ["Principal - Fees"]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lấy cấu hình gói học phí thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     packages:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id: { type: integer, example: 1 }
+ *                           name: { type: string, example: "Gói Tháng" }
+ *                           duration: { type: integer, description: "Số tháng của gói", example: 1 }
+ *                           discount: { type: number, format: float, example: 0.00 }
+ *                     baseFee:
+ *                       type: object
+ *                       description: Học phí cơ bản của năm học đang active
+ *                       properties:
+ *                         MonthlyTuition: { type: number, format: float, example: 4000000.00 }
+ *                         DailyMealFee: { type: number, format: float, example: 50000.00 }
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ */
+
+/**
+ * @swagger
+ * /principal/fees:
+ *   get:
+ *     summary: Lấy toàn bộ danh sách biểu phí (gói học phí, học phí theo mọi năm, hoạt động ngoại khóa)
+ *     description: |
+ *       Trả về đầy đủ dữ liệu biểu phí của trường, gồm 3 object riêng biệt:
+ *       - `packages`: danh sách gói học phí (`PaymentPackages`)
+ *       - `baseFees`: học phí cơ bản (`BaseFees`) của **tất cả năm học**, kể cả năm học
+ *         không active (khác với `GET /principal/payment-configs` chỉ trả năm active)
+ *       - `extracurriculars`: danh sách hoạt động ngoại khóa (`Extracurriculars`) và phí/tháng
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền truy cập.
+ *     tags: ["Principal - Fees"]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lấy danh sách biểu phí thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     packages:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id: { type: integer, example: 1 }
+ *                           name: { type: string, example: "Gói Tháng" }
+ *                           duration: { type: integer, example: 1 }
+ *                           discount: { type: number, format: float, example: 0.00 }
+ *                     baseFees:
+ *                       type: array
+ *                       description: Học phí cơ bản của tất cả năm học, kể cả năm không active
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id: { type: integer, description: "FeeID", example: 1 }
+ *                           yearId: { type: integer, example: 1 }
+ *                           yearName: { type: string, nullable: true, example: "Niên khóa 2026-2027" }
+ *                           isActive:
+ *                             type: integer
+ *                             nullable: true
+ *                             description: "1 = năm học đang active, 0 = không active"
+ *                             example: 0
+ *                           monthlyTuition: { type: number, format: float, example: 4000000.00 }
+ *                           dailyMealFee: { type: number, format: float, example: 50000.00 }
+ *                     extracurriculars:
+ *                       type: array
+ *                       description: Danh sách hoạt động ngoại khóa
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id: { type: integer, description: "ActivityID", example: 1 }
+ *                           name: { type: string, example: "Vẽ" }
+ *                           monthlyFee: { type: number, format: float, example: 200000.00 }
+ *                           description: { type: string, nullable: true, example: "Lớp vẽ mỹ thuật" }
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ */
+
+/**
+ * @swagger
+ * /principal/extracurriculars:
+ *   post:
+ *     summary: Thêm hoạt động ngoại khóa mới
+ *     description: |
+ *       Tạo mới một hoạt động ngoại khóa (`Extracurriculars`).
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Fees"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - monthlyFee
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Vẽ Sáng Tạo"
+ *               monthlyFee:
+ *                 type: number
+ *                 format: float
+ *                 example: 300000.00
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Khám phá hội họa"
+ *     responses:
+ *       201:
+ *         description: Tạo hoạt động ngoại khóa thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 201 }
+ *                 message: { type: string, example: Tạo hoạt động ngoại khóa thành công }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer, description: "ActivityID", example: 3 }
+ *                     name: { type: string, example: "Vẽ Sáng Tạo" }
+ *                     monthlyFee: { type: number, format: float, example: 300000.00 }
+ *                     description: { type: string, nullable: true, example: "Khám phá hội họa" }
+ *       400:
+ *         description: Bad Request - thiếu name hoặc monthlyFee
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *
+ * /principal/extracurriculars/{id}:
+ *   patch:
+ *     summary: Sửa thông tin một hoạt động ngoại khóa
+ *     description: |
+ *       Cập nhật một hoặc nhiều trường (`name`, `monthlyFee`, `description`) của hoạt động
+ *       ngoại khóa (`Extracurriculars`) theo `ActivityID`. Chỉ cần truyền field muốn sửa.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Fees"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: ActivityID của hoạt động ngoại khóa cần sửa
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Tiếng Anh Tăng Cường"
+ *               monthlyFee:
+ *                 type: number
+ *                 format: float
+ *                 example: 500000.00
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Học với giáo viên bản ngữ"
+ *     responses:
+ *       200:
+ *         description: Cập nhật hoạt động ngoại khóa thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Cập nhật hoạt động ngoại khóa thành công }
+ *                 data: { nullable: true, example: null }
+ *       400:
+ *         description: Bad Request - id không hợp lệ, hoặc không truyền field nào để sửa
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy hoạt động ngoại khóa
+ */
+
+/**
+ * @swagger
+ * /principal/base-fees/{id}:
+ *   patch:
+ *     summary: Sửa học phí cơ bản của một năm học
+ *     description: |
+ *       Cập nhật một hoặc nhiều trường (`monthlyTuition`, `dailyMealFee`) của biểu phí cơ bản
+ *       (`BaseFees`) theo `FeeID`. Chỉ cần truyền field muốn sửa. Áp dụng được cho biểu phí
+ *       của bất kỳ năm học nào, kể cả năm học không active.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Fees"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: FeeID của biểu phí cần sửa (lấy từ `GET /principal/fees` → `baseFees[].id`)
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               monthlyTuition:
+ *                 type: number
+ *                 format: float
+ *                 example: 4200000.00
+ *                 description: Học phí/tháng (tùy chọn)
+ *               dailyMealFee:
+ *                 type: number
+ *                 format: float
+ *                 example: 55000.00
+ *                 description: Phí ăn/ngày (tùy chọn)
+ *     responses:
+ *       200:
+ *         description: Cập nhật biểu phí thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Cập nhật biểu phí thành công }
+ *                 data: { nullable: true, example: null }
+ *       400:
+ *         description: Bad Request - id không hợp lệ, hoặc không truyền field nào để sửa
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy biểu phí
+ */
+
+/**
+ * @swagger
+ * /principal/payment-packages:
+ *   post:
+ *     summary: Thêm gói học phí mới
+ *     description: |
+ *       Tạo mới một gói học phí (`PaymentPackages`).
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Fees"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - duration
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Gói Quý"
+ *               duration:
+ *                 type: integer
+ *                 description: Số tháng của gói
+ *                 example: 3
+ *               discount:
+ *                 type: number
+ *                 format: float
+ *                 description: "% giảm giá (mặc định 0 nếu không truyền)"
+ *                 example: 3.00
+ *     responses:
+ *       201:
+ *         description: Tạo gói học phí thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 201 }
+ *                 message: { type: string, example: Tạo gói học phí thành công }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer, description: "PackageID", example: 4 }
+ *                     name: { type: string, example: "Gói Quý" }
+ *                     duration: { type: integer, example: 3 }
+ *                     discount: { type: number, format: float, example: 3.00 }
+ *       400:
+ *         description: Bad Request - thiếu name hoặc duration
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ */
+
+/**
+ * @swagger
+ * /principal/payment-packages/{id}:
+ *   patch:
+ *     summary: Sửa thông tin một gói học phí
+ *     description: |
+ *       Cập nhật một hoặc nhiều trường (`name`, `duration`, `discount`) của gói học phí
+ *       (`PaymentPackages`) theo `PackageID`. Chỉ cần truyền field muốn sửa.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Fees"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: PackageID của gói học phí cần sửa
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Gói Tháng"
+ *                 description: Tên gói học phí (tùy chọn)
+ *               duration:
+ *                 type: integer
+ *                 example: 1
+ *                 description: Số tháng của gói (tùy chọn)
+ *               discount:
+ *                 type: number
+ *                 format: float
+ *                 example: 5.00
+ *                 description: "% giảm giá (tùy chọn)"
+ *     responses:
+ *       200:
+ *         description: Cập nhật gói học phí thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Cập nhật gói học phí thành công }
+ *                 data: { nullable: true, example: null }
+ *       400:
+ *         description: Bad Request - id không hợp lệ hoặc thiếu cả 3 field cần sửa
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy gói học phí
+ */
+
+/**
+ * @swagger
+ * /principal/invoices:
+ *   get:
+ *     summary: Lấy danh sách hóa đơn (invoices)
+ *     description: |
+ *       Trả về danh sách hóa đơn (`Invoices`), join thêm tên học sinh và tên gói học phí.
+ *       Hỗ trợ lọc qua query string; không truyền tham số nào sẽ trả về toàn bộ hóa đơn,
+ *       sắp xếp theo `createdAt` giảm dần.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền truy cập.
+ *     tags: ["Principal - Fees"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: studentId
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Lọc theo học sinh
+ *         example: 19
+ *       - in: query
+ *         name: billingMonth
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Lọc theo tháng, định dạng `MM-YYYY`
+ *         example: "07-2026"
+ *       - in: query
+ *         name: paymentStatus
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Lọc theo trạng thái thanh toán (giá trị lưu trong DB, vd `Unpaid`, `Paid`)
+ *         example: "Unpaid"
+ *       - in: query
+ *         name: invoiceType
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Lọc theo loại hóa đơn (vd `MONTHLY`, `EXTRACURRICULAR`)
+ *         example: "EXTRACURRICULAR"
+ *     responses:
+ *       200:
+ *         description: Lấy danh sách hóa đơn thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: integer, description: "InvoiceID", example: 51 }
+ *                       studentId: { type: integer, nullable: true, example: 19 }
+ *                       studentFullName: { type: string, nullable: true, example: "Nguyễn Văn A" }
+ *                       packageId: { type: integer, nullable: true, example: null }
+ *                       packageName: { type: string, nullable: true, example: null }
+ *                       periodRange: { type: string, nullable: true, example: null }
+ *                       billingMonth: { type: string, example: "07-2026" }
+ *                       tuitionFee: { type: number, format: float, example: 0.00 }
+ *                       expectedMealFee: { type: number, format: float, example: 0.00 }
+ *                       extracurricularFee: { type: number, format: float, example: 0.00 }
+ *                       surcharge: { type: number, format: float, example: 0.00 }
+ *                       refundAmount: { type: number, format: float, example: 0.00 }
+ *                       discountAmount: { type: number, format: float, example: 0.00 }
+ *                       totalAmount:
+ *                         type: number
+ *                         format: float
+ *                         description: "Cột generated: tuitionFee + expectedMealFee + extracurricularFee + surcharge - refundAmount - discountAmount"
+ *                         example: 0.00
+ *                       paymentStatus: { type: string, example: "Unpaid" }
+ *                       invoiceType: { type: string, example: "EXTRACURRICULAR" }
+ *                       createdAt: { type: integer, description: "Unix timestamp (seconds)", example: 1783564680 }
+ *                       dueDate: { type: integer, nullable: true, description: "Unix timestamp (seconds)", example: 1783616400 }
+ *                       reminderSentAt: { type: integer, nullable: true, example: null }
+ *                       overdueReminderSentAt: { type: integer, nullable: true, example: 1783645200 }
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
  */
 
 /**
