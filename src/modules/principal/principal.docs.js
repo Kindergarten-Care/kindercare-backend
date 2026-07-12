@@ -622,6 +622,77 @@
 
 /**
  * @swagger
+ * /principal/students/import:
+ *   post:
+ *     summary: Import học sinh hàng loạt từ file CSV hoặc XLSX
+ *     description: |
+ *       Đọc file CSV **hoặc XLSX** (nhận diện theo đuôi file gốc), tạo mỗi dòng thành
+ *       1 học sinh (`ClassID = NULL` — chưa xếp lớp, cần xếp lớp riêng qua
+ *       `POST /principal/assignments/students`).
+ *
+ *       Nếu dòng có cột `PackageID` hợp lệ (khớp với `PaymentPackages` đang có),
+ *       hệ thống tự động tạo `StudentTuitionPlans` cho học sinh đó — `MonthlyTuitionSnapshot`
+ *       lấy từ `BaseFees` của **năm học đang active** (vì học sinh mới import chưa có lớp,
+ *       không thể xác định năm học theo lớp như luồng đăng ký gói bình thường).
+ *       `StartMonth` = tháng/năm của `AdmissionDate` (định dạng `MM-YYYY`).
+ *
+ *       Dòng không có `PackageID`, hoặc `PackageID` không khớp gói nào đang có,
+ *       sẽ bỏ qua việc tạo gói học phí (học sinh vẫn được tạo bình thường).
+ *
+ *       **Định dạng file:** chỉ hỗ trợ đuôi `.csv` và `.xlsx`. XLSX chỉ đọc từ **sheet đầu
+ *       tiên**, dòng 1 là header (tên cột), các dòng sau là dữ liệu. Ô ngày tháng trong
+ *       XLSX có thể để dạng Date thật (Excel tự format) hoặc chuỗi `dd/mm/yyyy`.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Student"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [file]
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: |
+ *                   File `.csv` hoặc `.xlsx` với các cột: `FullName` (bắt buộc),
+ *                   `DateOfBirth` (dd/mm/yyyy), `Gender`, `Allergies`, `AdmissionDate` (dd/mm/yyyy),
+ *                   `PackageID` (tùy chọn, số nguyên).
+ *     responses:
+ *       201:
+ *         description: Import thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 message: { type: string, example: "Đã import thành công 20 học sinh (12 học sinh được đăng ký gói học phí)" }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     imported:
+ *                       type: integer
+ *                       description: Tổng số học sinh đã tạo
+ *                       example: 20
+ *                     tuitionPlansCreated:
+ *                       type: integer
+ *                       description: Số học sinh được đăng ký gói học phí (có PackageID hợp lệ trong file)
+ *                       example: 12
+ *       400:
+ *         description: Bad Request - thiếu file, hoặc đuôi file không phải .csv/.xlsx
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ */
+
+/**
+ * @swagger
  * /principal/accounts/{id}/reset-password:
  *   patch:
  *     summary: Khôi phục mật khẩu tài khoản về mặc định
@@ -2154,4 +2225,459 @@
  *         description: Forbidden - không phải role hiệu trưởng
  *       404:
  *         description: Not Found - không tìm thấy ngày nghỉ lễ
+ */
+
+/**
+ * @swagger
+ * /principal/schedules/monthly:
+ *   get:
+ *     summary: Lấy danh sách tổng quan thời khóa biểu tháng
+ *     description: |
+ *       Trả về danh sách `MonthlySchedules` (mỗi item là 1 tháng/1 lớp), kèm tên lớp và
+ *       tên khối (join `Classes`/`Grades`). Dùng cho màn hình sidebar "Yêu cầu duyệt".
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền truy cập.
+ *     tags: ["Principal - Schedules"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: year
+ *         required: false
+ *         schema: { type: integer }
+ *         example: 2026
+ *       - in: query
+ *         name: month
+ *         required: false
+ *         schema: { type: integer, minimum: 1, maximum: 12 }
+ *         example: 8
+ *       - in: query
+ *         name: approvedStatus
+ *         required: false
+ *         schema: { type: integer, enum: [0, 1] }
+ *         description: "0 = Chưa duyệt, 1 = Đã duyệt"
+ *         example: 0
+ *       - in: query
+ *         name: classId
+ *         required: false
+ *         schema: { type: integer }
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Lấy danh sách thời khóa biểu tháng thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Lấy danh sách thời khóa biểu tháng thành công }
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: integer, description: "MonthlyScheduleID", example: 2 }
+ *                       classId: { type: integer, example: 1 }
+ *                       className: { type: string, example: "Mầm 1" }
+ *                       gradeName: { type: string, nullable: true, example: "Khối Mầm" }
+ *                       month: { type: integer, example: 8 }
+ *                       year: { type: integer, example: 2026 }
+ *                       monthTheme: { type: string, example: "Tháng 8 Bứt Phá - Bé Khám Phá Thế Giới Xung Quanh" }
+ *                       approvedStatus: { type: integer, enum: [0, 1], example: 0 }
+ *                       isActive: { type: integer, example: 1 }
+ *                       createdAt: { type: integer, description: "Unix timestamp (seconds)", example: 1783617978 }
+ *                       updatedAt: { type: integer, description: "Unix timestamp (seconds)", example: 1783617978 }
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ */
+
+/**
+ * @swagger
+ * /principal/schedules/monthly/{id}:
+ *   get:
+ *     summary: Lấy chi tiết đầy đủ 1 thời khóa biểu tháng
+ *     description: |
+ *       Trả về thông tin `MonthlySchedule` kèm toàn bộ `WeeklySchedules` của tháng đó,
+ *       mỗi tuần kèm `items[]` là các hoạt động (`WeeklyScheduleDetails`) đã sort theo
+ *       thứ tự ngày trong tuần rồi giờ bắt đầu.
+ *
+ *       Dùng cho màn hình chi tiết khi hiệu trưởng bấm vào 1 tháng trong danh sách
+ *       "Yêu cầu duyệt".
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền truy cập.
+ *     tags: ["Principal - Schedules"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer, minimum: 1 }
+ *         description: MonthlyScheduleID
+ *         example: 2
+ *     responses:
+ *       200:
+ *         description: Lấy chi tiết thời khóa biểu tháng thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Lấy chi tiết thời khóa biểu tháng thành công }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer, example: 2 }
+ *                     classId: { type: integer, example: 1 }
+ *                     className: { type: string, example: "Mầm 1" }
+ *                     gradeName: { type: string, nullable: true, example: "Khối Mầm" }
+ *                     month: { type: integer, example: 8 }
+ *                     year: { type: integer, example: 2026 }
+ *                     monthTheme: { type: string, example: "Tháng 8 Bứt Phá" }
+ *                     approvedStatus: { type: integer, enum: [0, 1], example: 0 }
+ *                     isActive: { type: integer, example: 1 }
+ *                     createdAt: { type: integer, example: 1783617978 }
+ *                     updatedAt: { type: integer, example: 1783617978 }
+ *                     weeks:
+ *                       type: array
+ *                       description: Danh sách tuần trong tháng, đã sort theo weekOrder
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           weeklyScheduleId: { type: integer, example: 5 }
+ *                           monthlyScheduleId: { type: integer, example: 2 }
+ *                           weekOrder: { type: integer, example: 1 }
+ *                           weekTheme: { type: string, example: "Tuần 1: Làm quen với biển cả" }
+ *                           createdAt: { type: integer, example: 1783012594 }
+ *                           updatedAt: { type: integer, example: 1783012594 }
+ *                           items:
+ *                             type: array
+ *                             description: Các hoạt động trong tuần, đã sort theo ngày rồi giờ bắt đầu
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 scheduleDetailId: { type: integer, example: 10 }
+ *                                 weeklyScheduleId: { type: integer, example: 5 }
+ *                                 dayOfWeek: { type: string, enum: [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday], example: "Monday" }
+ *                                 startTime: { type: string, example: "07:30:00" }
+ *                                 endTime: { type: string, example: "08:00:00" }
+ *                                 activityName: { type: string, example: "Đón trẻ" }
+ *                                 details: { type: string, nullable: true, example: null }
+ *                                 location: { type: string, nullable: true, example: "Sân trường" }
+ *                                 activityType: { type: string, enum: [pickup, meal, study, nap, play, dropoff, other], example: "pickup" }
+ *       400:
+ *         description: Bad Request - id không hợp lệ
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy thời khóa biểu tháng
+ */
+
+/**
+ * @swagger
+ * /principal/schedules/monthly/{id}/approve:
+ *   patch:
+ *     summary: Duyệt/từ chối thời khóa biểu tháng
+ *     description: |
+ *       Cập nhật `ApprovedStatus` của 1 `MonthlySchedule` (0 = Chưa duyệt, 1 = Đã duyệt).
+ *       Sau khi cập nhật, tự động gửi push notification cho các giáo viên phụ trách lớp
+ *       đó (chạy nền, không ảnh hưởng response).
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Schedules"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer, minimum: 1 }
+ *         description: MonthlyScheduleID
+ *         example: 2
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [approvedStatus]
+ *             properties:
+ *               approvedStatus:
+ *                 type: integer
+ *                 enum: [0, 1]
+ *                 description: "0 = Chưa duyệt/Từ chối, 1 = Đã duyệt"
+ *                 example: 1
+ *     responses:
+ *       200:
+ *         description: Cập nhật trạng thái duyệt thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Đã duyệt thời khóa biểu tháng }
+ *                 data: { nullable: true, example: null }
+ *       400:
+ *         description: Bad Request - id không hợp lệ, hoặc approvedStatus không phải 0/1
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy thời khóa biểu tháng
+ */
+
+/**
+ * @swagger
+ * /principal/menus:
+ *   get:
+ *     summary: Lấy danh sách thực đơn
+ *     description: |
+ *       Trả về danh sách `Menus` (thực đơn theo tuần/lớp), kèm tên lớp (join `Classes`).
+ *       Dùng cho trang danh sách thực đơn.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền truy cập.
+ *     tags: ["Principal - Menus"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: classId
+ *         required: false
+ *         schema: { type: integer }
+ *         example: 1
+ *       - in: query
+ *         name: year
+ *         required: false
+ *         schema: { type: integer }
+ *         example: 2026
+ *       - in: query
+ *         name: weekNumber
+ *         required: false
+ *         schema: { type: integer }
+ *         example: 32
+ *     responses:
+ *       200:
+ *         description: Lấy danh sách thực đơn thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Lấy danh sách thực đơn thành công }
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: integer, description: "MenuID", example: 1 }
+ *                       classId: { type: integer, example: 1 }
+ *                       className: { type: string, example: "Mầm 1" }
+ *                       weekNumber: { type: integer, example: 32 }
+ *                       year: { type: integer, example: 2026 }
+ *                       menuName: { type: string, nullable: true, example: "Thực đơn Tuần 32 - Ngày hè năng động (Mầm 1)" }
+ *                       createdAt: { type: integer, example: 1783745949 }
+ *                       updatedAt: { type: integer, example: 1783745949 }
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ */
+
+/**
+ * @swagger
+ * /principal/menus/{id}:
+ *   get:
+ *     summary: Lấy chi tiết một thực đơn
+ *     description: |
+ *       Trả về thông tin `Menu` kèm toàn bộ `MenuDetails` (7 ngày x 3 bữa), đã sort theo
+ *       thứ tự ngày trong tuần rồi loại bữa (Breakfast → Lunch → Snack). FE tự group
+ *       `menuDetails[]` theo `dayOfWeek` nếu cần hiển thị dạng bảng.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền truy cập.
+ *     tags: ["Principal - Menus"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer, minimum: 1 }
+ *         description: MenuID
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Lấy chi tiết thực đơn thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Lấy chi tiết thực đơn thành công }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer, example: 1 }
+ *                     classId: { type: integer, example: 1 }
+ *                     className: { type: string, example: "Mầm 1" }
+ *                     weekNumber: { type: integer, example: 32 }
+ *                     year: { type: integer, example: 2026 }
+ *                     menuName: { type: string, nullable: true, example: "Thực đơn Tuần 32 - Ngày hè năng động (Mầm 1)" }
+ *                     createdAt: { type: integer, example: 1783745949 }
+ *                     updatedAt: { type: integer, example: 1783745949 }
+ *                     menuDetails:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id: { type: integer, description: "MenuDetailID", example: 16 }
+ *                           menuId: { type: integer, example: 1 }
+ *                           dayOfWeek: { type: string, enum: [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday], example: "Monday" }
+ *                           mealType: { type: string, enum: [Breakfast, Lunch, Snack], example: "Breakfast" }
+ *                           dishName: { type: string, example: "Bún bò Huế" }
+ *                           calories: { type: integer, nullable: true, example: 300 }
+ *                           nutritionalDetails: { type: string, nullable: true, example: "Nước dùng đậm đà, bún dai sợi. Bổ sung sắt." }
+ *       400:
+ *         description: Bad Request - id không hợp lệ
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy thực đơn
+ *   delete:
+ *     summary: Xóa một thực đơn
+ *     description: |
+ *       Xóa `Menu` khỏi hệ thống. Toàn bộ `MenuDetails` liên quan tự động bị xóa theo
+ *       (`ON DELETE CASCADE`).
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Menus"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer, minimum: 1 }
+ *         description: MenuID cần xóa
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Xóa thực đơn thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Xóa thực đơn thành công }
+ *                 data: { nullable: true, example: null }
+ *       400:
+ *         description: Bad Request - id không hợp lệ
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy thực đơn
+ */
+
+/**
+ * @swagger
+ * /principal/menus/import:
+ *   post:
+ *     summary: Import thực đơn từ 1 hoặc nhiều file CSV/XLSX
+ *     description: |
+ *       Nhận **nhiều file cùng lúc** (field `files`, tối đa 10 file/lần), mỗi file là 1
+ *       thực đơn tuần cho 1 lớp. Mỗi file phải theo layout 2 vùng:
+ *       - Hàng 1: header vùng thông tin — `ClassID,WeekNumber,Year,MenuName`
+ *       - Hàng 2: dữ liệu vùng thông tin (đúng 1 hàng)
+ *       - Hàng 3: để trống
+ *       - Hàng 4: header vùng chi tiết — `DayOfWeek,MealType,DishName,Calories,NutritionalDetails`
+ *       - Hàng 5 trở đi: dữ liệu chi tiết (mỗi hàng là 1 món ăn của 1 bữa/1 ngày)
+ *
+ *       **Xử lý all-or-nothing:** toàn bộ file được xử lý trong 1 transaction. Nếu BẤT KỲ
+ *       file nào lỗi (sai format, `ClassID` không tồn tại, hoặc đã có thực đơn cho
+ *       lớp/tuần/năm đó), **toàn bộ lô bị hủy** — không file nào được lưu. Response luôn
+ *       trả về mảng kết quả cho từng file để FE biết chính xác file nào gây lỗi.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Menus"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [files]
+ *             properties:
+ *               files:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: 1 hoặc nhiều file .csv/.xlsx, mỗi file là 1 thực đơn tuần cho 1 lớp
+ *     responses:
+ *       201:
+ *         description: Tất cả file import thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 201 }
+ *                 message: { type: string, example: Import thực đơn thành công }
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       filename: { type: string, example: "menu_mam1_tuan32.xlsx" }
+ *                       success: { type: boolean, example: true }
+ *                       menuId: { type: integer, example: 14 }
+ *       400:
+ *         description: |
+ *           Bad Request - thiếu file, hoặc có ít nhất 1 file lỗi (toàn bộ lô bị hủy).
+ *           Response body vẫn trả `data` là mảng kết quả từng file, `success: false` kèm
+ *           `message` lỗi cụ thể cho file gây lỗi; các file khác được đánh dấu không xử lý
+ *           được vì lô import bị hủy.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: false }
+ *                 statusCode: { type: integer, example: 400 }
+ *                 message: { type: string, example: Import thất bại — xem chi tiết lỗi từng file }
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       filename: { type: string, example: "menu_mam1_tuan32.xlsx" }
+ *                       success: { type: boolean, example: false }
+ *                       message: { type: string, example: "File \"menu_mam1_tuan32.xlsx\": đã tồn tại thực đơn cho lớp này ở tuần 32/2026" }
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
  */

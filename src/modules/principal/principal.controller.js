@@ -629,6 +629,130 @@ const deleteHoliday = async (req, res, next) => {
   }
 };
 
+const getMonthlySchedules = async (req, res, next) => {
+  try {
+    const { year, month, approvedStatus, classId } = req.query;
+    const data = await principalService.getMonthlySchedules({
+      year: year !== undefined ? parseInt(year, 10) : undefined,
+      month: month !== undefined ? parseInt(month, 10) : undefined,
+      approvedStatus: approvedStatus !== undefined ? parseInt(approvedStatus, 10) : undefined,
+      classId: classId !== undefined ? parseInt(classId, 10) : undefined,
+    });
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, data, 'Lấy danh sách thời khóa biểu tháng thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getMonthlyScheduleDetail = async (req, res, next) => {
+  try {
+    const id = parsePositiveIntId(req.params.id);
+    const data = await principalService.getMonthlyScheduleDetail(id);
+
+    if (!data) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy thời khóa biểu tháng với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, data, 'Lấy chi tiết thời khóa biểu tháng thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const approveMonthlySchedule = async (req, res, next) => {
+  try {
+    const id = parsePositiveIntId(req.params.id);
+    const { approvedStatus } = req.body;
+
+    if (approvedStatus !== 0 && approvedStatus !== 1) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'approvedStatus phải là 0 (chưa duyệt) hoặc 1 (đã duyệt)');
+    }
+
+    const result = await principalService.approveMonthlySchedule(id, approvedStatus);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, result.message)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getMenus = async (req, res, next) => {
+  try {
+    const { classId, year, weekNumber } = req.query;
+    const data = await principalService.getMenus({
+      classId: classId !== undefined ? parseInt(classId, 10) : undefined,
+      year: year !== undefined ? parseInt(year, 10) : undefined,
+      weekNumber: weekNumber !== undefined ? parseInt(weekNumber, 10) : undefined,
+    });
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, data, 'Lấy danh sách thực đơn thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getMenuDetail = async (req, res, next) => {
+  try {
+    const id = parsePositiveIntId(req.params.id);
+    const data = await principalService.getMenuDetail(id);
+
+    if (!data) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy thực đơn với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, data, 'Lấy chi tiết thực đơn thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteMenu = async (req, res, next) => {
+  try {
+    const id = parsePositiveIntId(req.params.id);
+    const success = await principalService.deleteMenu(id);
+
+    if (!success) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy thực đơn với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Xóa thực đơn thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const importMenus = async (req, res, next) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng upload ít nhất 1 file CSV/XLSX thực đơn');
+    }
+
+    const results = await principalService.importMenus(req.files);
+    const allSuccess = results.every((r) => r.success);
+
+    res.status(allSuccess ? httpStatus.CREATED : httpStatus.BAD_REQUEST).json(
+      new ApiResponse(
+        allSuccess ? httpStatus.CREATED : httpStatus.BAD_REQUEST,
+        results,
+        allSuccess ? 'Import thực đơn thành công' : 'Import thất bại — xem chi tiết lỗi từng file'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 const searchParentsByPhone = async (req, res, next) => {
   try {
     const { phone } = req.query;
@@ -834,12 +958,13 @@ const addParentToStudent = async (req, res, next) => {
 const importStudents = async (req, res, next) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'Vui lòng upload file CSV' });
+      return res.status(400).json({ success: false, message: 'Vui lòng upload file CSV hoặc XLSX' });
     }
-    const count = await principalService.importStudentsFromCSV(req.file.buffer);
+    const { imported, tuitionPlansCreated } = await principalService.importStudentsFromCSV(req.file.buffer, req.file.originalname);
     res.status(201).json({
       success: true,
-      message: `Đã import thành công ${count} học sinh`
+      message: `Đã import thành công ${imported} học sinh (${tuitionPlansCreated} học sinh được đăng ký gói học phí)`,
+      data: { imported, tuitionPlansCreated },
     });
   } catch (error) {
     next(error);
@@ -891,4 +1016,11 @@ export default {
   createHoliday,
   updateHoliday,
   deleteHoliday,
+  getMonthlySchedules,
+  getMonthlyScheduleDetail,
+  approveMonthlySchedule,
+  getMenus,
+  getMenuDetail,
+  deleteMenu,
+  importMenus,
 };
