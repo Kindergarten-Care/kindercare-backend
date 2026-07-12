@@ -1236,7 +1236,54 @@ export const awardWeeklyRewards = async (req, res, next) => {
   }
 };
 
+/**
+ * Get pending proxy approvals
+ */
+export const getProxyApprovals = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
 
+    const activeClass = await teacherService.getTeacherActiveClass(teacherId);
+    if (!activeClass) {
+      return res.status(httpStatus.OK).json(
+        new ApiResponse(httpStatus.OK, [], 'Giáo viên chưa được phân lớp')
+      );
+    }
+
+    const approvals = await teacherService.getPendingProxyApprovals(activeClass.classId);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, approvals, 'Lấy danh sách đơn đón hộ thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Approve a proxy authorization
+ */
+export const updateProxyApproval = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { authorizationId } = req.body;
+
+    if (!authorizationId) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'authorizationId là bắt buộc');
+    }
+
+    const success = await teacherService.approveProxyAuthorization(authorizationId, teacherId);
+    if (!success) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy đơn đón hộ hoặc đơn không ở trạng thái Pending');
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Duyệt đơn đón hộ thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
 
 /**
  * Update daily schedule status
