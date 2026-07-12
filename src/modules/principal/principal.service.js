@@ -1324,6 +1324,41 @@ export const getEvents = async ({ eventType } = {}) => {
   }));
 };
 
+const getEventById = async (eventId, connection = pool) => {
+  const [rows] = await connection.query(`
+    SELECT
+      e.EventID as id,
+      e.Title as title,
+      e.Description as description,
+      e.StartTime as startTime,
+      e.EndTime as endTime,
+      e.Location as location,
+      e.Status as status,
+      e.EventType as eventType,
+      e.CreatedBy as createdBy,
+      e.CreatedAt as createdAt,
+      (
+        SELECT COALESCE(JSON_ARRAYAGG(ec.ClassID), '[]')
+        FROM EventClasses ec WHERE ec.EventID = e.EventID
+      ) as classIds,
+      (
+        SELECT COALESCE(JSON_ARRAYAGG(es.StudentID), '[]')
+        FROM EventStudents es WHERE es.EventID = e.EventID
+      ) as studentIds
+    FROM Events e
+    WHERE e.EventID = ?
+  `, [eventId]);
+
+  if (rows.length === 0) return null;
+
+  const row = rows[0];
+  return {
+    ...row,
+    classIds: typeof row.classIds === 'string' ? JSON.parse(row.classIds) : row.classIds,
+    studentIds: typeof row.studentIds === 'string' ? JSON.parse(row.studentIds) : row.studentIds,
+  };
+};
+
 export const createEvent = async ({
   title,
   description,
@@ -1386,7 +1421,7 @@ export const createEvent = async ({
 
     // Gửi thông báo sau khi đã commit thành công — lỗi gửi push không được
     // làm hỏng việc tạo sự kiện đã xong (giống pattern notifyParentsOfInvoice).
-    notifyParentsOfEvent(event).catch((error) => {
+    notifyParentsOfEvent(event, 'created').catch((error) => {
       logger.error(`[Event Notification] Lỗi khi gửi thông báo cho EventID ${eventId}: ${error.message}`);
     });
 
@@ -1399,13 +1434,116 @@ export const createEvent = async ({
   }
 };
 
+export const updateEvent = async (eventId, {
+  title,
+  description,
+  startTime,
+  endTime,
+  location,
+  status,
+  eventType,
+  classIds,
+  studentIds,
+}) => {
+  const existing = await getEventById(eventId);
+  if (!existing) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy sự kiện');
+  }
+
+  const resolvedEventType = eventType || existing.eventType;
+  if (!EVENT_TYPES.includes(resolvedEventType)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, `eventType không hợp lệ, phải là một trong: ${EVENT_TYPES.join(', ')}`);
+  }
+
+  const resolvedClassIds = classIds !== undefined ? classIds : existing.classIds;
+  const resolvedStudentIds = studentIds !== undefined ? studentIds : existing.studentIds;
+
+  if (resolvedEventType === 'Class' && resolvedClassIds.length === 0) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'eventType "Class" cần truyền ít nhất 1 classId trong classIds');
+  }
+  if (resolvedEventType === 'Student' && resolvedStudentIds.length === 0) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'eventType "Student" cần truyền ít nhất 1 studentId trong studentIds');
+  }
+
+  const fields = [];
+  const params = [];
+  if (title !== undefined) { fields.push('Title = ?'); params.push(title); }
+  if (description !== undefined) { fields.push('Description = ?'); params.push(description); }
+  if (startTime !== undefined) { fields.push('StartTime = ?'); params.push(startTime); }
+  if (endTime !== undefined) { fields.push('EndTime = ?'); params.push(endTime); }
+  if (location !== undefined) { fields.push('Location = ?'); params.push(location); }
+  if (status !== undefined) { fields.push('Status = ?'); params.push(status); }
+  if (eventType !== undefined) { fields.push('EventType = ?'); params.push(eventType); }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    if (fields.length > 0) {
+      params.push(eventId);
+      await connection.query(`UPDATE Events SET ${fields.join(', ')} WHERE EventID = ?`, params);
+    }
+
+    // Nếu eventType hoặc classIds/studentIds được truyền, làm mới lại toàn bộ liên kết
+    if (classIds !== undefined || eventType !== undefined) {
+      await connection.query('DELETE FROM EventClasses WHERE EventID = ?', [eventId]);
+      if (resolvedEventType === 'Class' && resolvedClassIds.length > 0) {
+        const values = resolvedClassIds.map((classId) => [eventId, classId]);
+        await connection.query('INSERT INTO EventClasses (EventID, ClassID) VALUES ?', [values]);
+      }
+    }
+    if (studentIds !== undefined || eventType !== undefined) {
+      await connection.query('DELETE FROM EventStudents WHERE EventID = ?', [eventId]);
+      if (resolvedEventType === 'Student' && resolvedStudentIds.length > 0) {
+        const values = resolvedStudentIds.map((studentId) => [eventId, studentId]);
+        await connection.query('INSERT INTO EventStudents (EventID, StudentID) VALUES ?', [values]);
+      }
+    }
+
+    await connection.commit();
+
+    const updated = await getEventById(eventId);
+
+    notifyParentsOfEvent(updated, 'updated').catch((error) => {
+      logger.error(`[Event Notification] Lỗi khi gửi thông báo cập nhật cho EventID ${eventId}: ${error.message}`);
+    });
+
+    return updated;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+export const deleteEvent = async (eventId) => {
+  const existing = await getEventById(eventId);
+  if (!existing) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy sự kiện');
+  }
+
+  // Gửi thông báo hủy TRƯỚC khi xóa — sau khi xóa, EventClasses/EventStudents
+  // đã mất theo cascade nên sẽ không còn xác định được ai cần nhận thông báo.
+  await notifyParentsOfEvent(existing, 'cancelled').catch((error) => {
+    logger.error(`[Event Notification] Lỗi khi gửi thông báo hủy cho EventID ${eventId}: ${error.message}`);
+  });
+
+  // ON DELETE CASCADE trên EventClasses/EventStudents tự dọn theo Events
+  await pool.query('DELETE FROM Events WHERE EventID = ?', [eventId]);
+
+  return { message: 'Đã xóa sự kiện thành công' };
+};
+
 /**
- * Gửi thông báo cho phụ huynh liên quan tới 1 sự kiện vừa tạo.
+ * Gửi thông báo cho phụ huynh liên quan tới 1 sự kiện (tạo mới / cập nhật / hủy).
  * - Class: phụ huynh của học sinh đang học trong các lớp classIds.
  * - Student: phụ huynh của các học sinh studentIds.
  * - School / Holiday: toàn bộ phụ huynh trong trường.
+ * @param {object} event
+ * @param {'created'|'updated'|'cancelled'} kind
  */
-const notifyParentsOfEvent = async (event) => {
+const notifyParentsOfEvent = async (event, kind = 'created') => {
   let parentIds = [];
 
   if (event.eventType === 'Class') {
@@ -1431,16 +1569,30 @@ const notifyParentsOfEvent = async (event) => {
   if (parentIds.length === 0) return;
 
   const startDate = new Date(event.startTime * 1000).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
-  const title = 'Sự kiện mới';
-  const body = `${event.title} — bắt đầu lúc ${startDate}${event.location ? ` tại ${event.location}` : ''}`;
+
+  const titleByKind = {
+    created: 'Sự kiện mới',
+    updated: 'Sự kiện đã được cập nhật',
+    cancelled: 'Sự kiện đã bị hủy',
+  };
+  const bodyByKind = {
+    created: `${event.title} — bắt đầu lúc ${startDate}${event.location ? ` tại ${event.location}` : ''}`,
+    updated: `${event.title} vừa được cập nhật — bắt đầu lúc ${startDate}${event.location ? ` tại ${event.location}` : ''}`,
+    cancelled: `Sự kiện "${event.title}" (dự kiến lúc ${startDate}) đã bị hủy`,
+  };
+  const typeByKind = {
+    created: 'EVENT_CREATED',
+    updated: 'EVENT_UPDATED',
+    cancelled: 'EVENT_CANCELLED',
+  };
 
   const results = await Promise.allSettled(
     parentIds.map((parentId) =>
       sendPushToUser(
         parentId,
-        title,
-        body,
-        { type: 'EVENT_CREATED', eventId: String(event.id), eventType: event.eventType }
+        titleByKind[kind],
+        bodyByKind[kind],
+        { type: typeByKind[kind], eventId: String(event.id), eventType: event.eventType }
       )
     )
   );
@@ -1498,4 +1650,38 @@ export const createHoliday = async ({ holidayDate, holidayName, yearId }) => {
     holidayName: holidayName || null,
     yearId: yearId || null,
   };
+};
+
+export const updateHoliday = async (holidayId, { holidayDate, holidayName, yearId }) => {
+  const [existing] = await pool.query('SELECT HolidayID FROM Holidays WHERE HolidayID = ?', [holidayId]);
+  if (existing.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy ngày nghỉ lễ');
+  }
+
+  if (yearId !== undefined && yearId !== null) {
+    const [yearRows] = await pool.query('SELECT YearID FROM AcademicYears WHERE YearID = ?', [yearId]);
+    if (yearRows.length === 0) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy năm học');
+    }
+  }
+
+  const fields = [];
+  const params = [];
+  if (holidayDate !== undefined) { fields.push('HolidayDate = ?'); params.push(holidayDate); }
+  if (holidayName !== undefined) { fields.push('HolidayName = ?'); params.push(holidayName); }
+  if (yearId !== undefined) { fields.push('YearID = ?'); params.push(yearId); }
+
+  if (fields.length === 0) {
+    return false;
+  }
+
+  params.push(holidayId);
+  await pool.query(`UPDATE Holidays SET ${fields.join(', ')} WHERE HolidayID = ?`, params);
+
+  return true;
+};
+
+export const deleteHoliday = async (holidayId) => {
+  const [result] = await pool.query('DELETE FROM Holidays WHERE HolidayID = ?', [holidayId]);
+  return result.affectedRows > 0;
 };

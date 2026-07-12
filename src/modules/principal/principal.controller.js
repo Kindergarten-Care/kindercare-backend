@@ -517,6 +517,48 @@ const createEvent = async (req, res, next) => {
   }
 };
 
+const updateEvent = async (req, res, next) => {
+  try {
+    const id = parsePositiveIntId(req.params.id);
+    const { title, description, startTime, endTime, location, status, eventType, classIds, studentIds } = req.body;
+
+    if ([title, description, startTime, endTime, location, status, eventType, classIds, studentIds].every((v) => v === undefined)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Cần ít nhất một trường để cập nhật');
+    }
+
+    const data = await principalService.updateEvent(id, {
+      title,
+      description,
+      startTime,
+      endTime,
+      location,
+      status,
+      eventType,
+      classIds,
+      studentIds,
+    });
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, data, 'Cập nhật sự kiện thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteEvent = async (req, res, next) => {
+  try {
+    const id = parsePositiveIntId(req.params.id);
+    const result = await principalService.deleteEvent(id);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, result.message)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getHolidays = async (req, res, next) => {
   try {
     const { yearId } = req.query;
@@ -541,6 +583,46 @@ const createHoliday = async (req, res, next) => {
 
     res.status(httpStatus.CREATED).json(
       new ApiResponse(httpStatus.CREATED, data, 'Tạo ngày nghỉ lễ thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateHoliday = async (req, res, next) => {
+  try {
+    const id = parsePositiveIntId(req.params.id);
+    const { holidayDate, holidayName, yearId } = req.body;
+
+    if (holidayDate === undefined && holidayName === undefined && yearId === undefined) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Cần ít nhất một trong các trường: holidayDate, holidayName, yearId');
+    }
+
+    const success = await principalService.updateHoliday(id, { holidayDate, holidayName, yearId });
+
+    if (!success) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy ngày nghỉ lễ với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Cập nhật ngày nghỉ lễ thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteHoliday = async (req, res, next) => {
+  try {
+    const id = parsePositiveIntId(req.params.id);
+    const success = await principalService.deleteHoliday(id);
+
+    if (!success) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy ngày nghỉ lễ với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Xóa ngày nghỉ lễ thành công')
     );
   } catch (error) {
     next(error);
@@ -803,6 +885,10 @@ export default {
   activateAcademicYear,
   getEvents,
   createEvent,
+  updateEvent,
+  deleteEvent,
   getHolidays,
   createHoliday,
+  updateHoliday,
+  deleteHoliday,
 };
