@@ -1797,6 +1797,159 @@
 
 /**
  * @swagger
+ * /principal/events/{id}:
+ *   patch:
+ *     summary: Sửa thông tin sự kiện
+ *     description: |
+ *       Cập nhật một hoặc nhiều trường của sự kiện. Chỉ cần truyền field muốn sửa.
+ *
+ *       Nếu truyền `eventType` hoặc `classIds`/`studentIds`, toàn bộ liên kết cũ trong
+ *       `EventClasses`/`EventStudents` sẽ bị xóa và tạo lại theo giá trị mới truyền vào
+ *       (không truyền `classIds`/`studentIds` khi đổi sang `eventType` khác sẽ xóa hết liên kết cũ).
+ *
+ *       Sau khi cập nhật thành công, tự động gửi thông báo "Sự kiện đã được cập nhật"
+ *       cho các phụ huynh liên quan (theo `eventType` mới).
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Events"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: EventID của sự kiện cần sửa
+ *         example: 5
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: "Họp phụ huynh lớp Mầm 1 (dời lịch)"
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: null
+ *               startTime:
+ *                 type: integer
+ *                 description: Unix timestamp (seconds)
+ *                 example: 1787890200
+ *               endTime:
+ *                 type: integer
+ *                 description: Unix timestamp (seconds)
+ *                 example: 1787897400
+ *               location:
+ *                 type: string
+ *                 nullable: true
+ *                 example: null
+ *               status:
+ *                 type: string
+ *                 example: "Upcoming"
+ *               eventType:
+ *                 type: string
+ *                 enum: [Class, School, Holiday, Student]
+ *                 example: "Class"
+ *               classIds:
+ *                 type: array
+ *                 items: { type: integer }
+ *                 example: [1, 2]
+ *               studentIds:
+ *                 type: array
+ *                 items: { type: integer }
+ *                 example: []
+ *     responses:
+ *       200:
+ *         description: Cập nhật sự kiện thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Cập nhật sự kiện thành công }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer, example: 5 }
+ *                     title: { type: string, example: "Họp phụ huynh lớp Mầm 1 (dời lịch)" }
+ *                     description: { type: string, nullable: true, example: null }
+ *                     startTime: { type: integer, example: 1787890200 }
+ *                     endTime: { type: integer, example: 1787897400 }
+ *                     location: { type: string, nullable: true, example: null }
+ *                     status: { type: string, example: "Upcoming" }
+ *                     eventType: { type: string, example: "Class" }
+ *                     createdBy: { type: integer, nullable: true, example: 2 }
+ *                     createdAt: { type: integer, example: 1783564680 }
+ *                     classIds:
+ *                       type: array
+ *                       items: { type: integer }
+ *                       example: [1, 2]
+ *                     studentIds:
+ *                       type: array
+ *                       items: { type: integer }
+ *                       example: []
+ *       400:
+ *         description: Bad Request - id không hợp lệ, không truyền field nào để sửa, eventType không hợp lệ, hoặc thiếu classIds/studentIds tương ứng
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy sự kiện
+ *   delete:
+ *     summary: Xóa sự kiện
+ *     description: |
+ *       Xóa sự kiện khỏi hệ thống. Các liên kết trong `EventClasses`/`EventStudents` tự
+ *       động bị xóa theo (`ON DELETE CASCADE`).
+ *
+ *       Trước khi xóa, hệ thống gửi thông báo "Sự kiện đã bị hủy" cho các phụ huynh
+ *       liên quan (theo `eventType` hiện tại của sự kiện).
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Events"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: EventID của sự kiện cần xóa
+ *         example: 5
+ *     responses:
+ *       200:
+ *         description: Xóa sự kiện thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Đã xóa sự kiện thành công }
+ *                 data: { nullable: true, example: null }
+ *       400:
+ *         description: Bad Request - id không hợp lệ
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy sự kiện
+ */
+
+/**
+ * @swagger
  * /principal/holidays:
  *   get:
  *     summary: Lấy danh sách ngày nghỉ lễ
@@ -1898,4 +2051,107 @@
  *         description: Forbidden - không phải role hiệu trưởng
  *       404:
  *         description: Not Found - không tìm thấy năm học (nếu truyền yearId)
+ */
+
+/**
+ * @swagger
+ * /principal/holidays/{id}:
+ *   patch:
+ *     summary: Sửa thông tin một ngày nghỉ lễ
+ *     description: |
+ *       Cập nhật một hoặc nhiều trường (`holidayDate`, `holidayName`, `yearId`) của ngày
+ *       nghỉ lễ (`Holidays`) theo `HolidayID`. Chỉ cần truyền field muốn sửa.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Events"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: HolidayID của ngày nghỉ lễ cần sửa
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               holidayDate:
+ *                 type: integer
+ *                 description: Unix timestamp (seconds)
+ *                 example: 1787971200
+ *               holidayName:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Quốc khánh 2/9 (nghỉ bù)"
+ *               yearId:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 1
+ *     responses:
+ *       200:
+ *         description: Cập nhật ngày nghỉ lễ thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Cập nhật ngày nghỉ lễ thành công }
+ *                 data: { nullable: true, example: null }
+ *       400:
+ *         description: Bad Request - id không hợp lệ, hoặc không truyền field nào để sửa
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy ngày nghỉ lễ, hoặc không tìm thấy năm học (nếu truyền yearId)
+ *   delete:
+ *     summary: Xóa một ngày nghỉ lễ
+ *     description: |
+ *       Xóa ngày nghỉ lễ khỏi hệ thống. Lưu ý: xóa ngày nghỉ lễ sẽ ảnh hưởng tới số ngày
+ *       công dùng để tính `expectedMealFee` của billing cron cho các tháng liên quan
+ *       (nếu hóa đơn tháng đó đã được tạo trước khi xóa, hóa đơn cũ sẽ không tự động tính lại).
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Events"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: HolidayID của ngày nghỉ lễ cần xóa
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Xóa ngày nghỉ lễ thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Xóa ngày nghỉ lễ thành công }
+ *                 data: { nullable: true, example: null }
+ *       400:
+ *         description: Bad Request - id không hợp lệ
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy ngày nghỉ lễ
  */

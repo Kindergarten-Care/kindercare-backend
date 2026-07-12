@@ -117,10 +117,22 @@ router.get('/events', authenticate, authorize(2), principalController.getEvents)
 // Tạo sự kiện mới theo eventType
 router.post('/events', authenticate, authorize(2), principalController.createEvent);
 
+// Sửa thông tin sự kiện (title, description, startTime, endTime, location, status, eventType, classIds, studentIds)
+router.patch('/events/:id', authenticate, authorize(2), principalController.updateEvent);
+
+// Xóa sự kiện
+router.delete('/events/:id', authenticate, authorize(2), principalController.deleteEvent);
+
 // Lấy danh sách ngày nghỉ lễ, hỗ trợ filter qua query: yearId
 router.get('/holidays', authenticate, authorize(2), principalController.getHolidays);
 
 // Tạo ngày nghỉ lễ mới
 router.post('/holidays', authenticate, authorize(2), principalController.createHoliday);
+
+// Sửa thông tin một ngày nghỉ lễ (holidayDate, holidayName, yearId)
+router.patch('/holidays/:id', authenticate, authorize(2), principalController.updateHoliday);
+
+// Xóa một ngày nghỉ lễ
+router.delete('/holidays/:id', authenticate, authorize(2), principalController.deleteHoliday);
 
 export default router;
