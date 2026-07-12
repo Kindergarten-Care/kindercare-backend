@@ -144,6 +144,9 @@ router.get('/schedules/monthly/:id', authenticate, authorize(2), principalContro
 // Duyệt/từ chối 1 thời khóa biểu tháng
 router.patch('/schedules/monthly/:id/approve', authenticate, authorize(2), principalController.approveMonthlySchedule);
 
+// Kích hoạt/Vô hiệu hóa thời khóa biểu tháng
+router.patch('/schedules/monthly/:id/active', authenticate, authorize(2), principalController.activeMonthlySchedule);
+
 // Lấy danh sách thực đơn, hỗ trợ filter qua query: classId, year, weekNumber
 router.get('/menus', authenticate, authorize(2), principalController.getMenus);
 
