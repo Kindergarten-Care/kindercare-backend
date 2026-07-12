@@ -1564,17 +1564,17 @@ export const getProxyApprovals = async (classId) => {
 };
 
 /**
- * Approve a proxy authorization
+ * Update proxy authorization status
  * @param {number} authorizationId
- * @param {number} teacherId
+ * @param {string} status
  * @returns {Promise<boolean>} Success
  */
-export const approveProxyAuthorization = async (authorizationId, teacherId) => {
+export const updateProxyAuthorizationStatus = async (authorizationId, status) => {
   const [result] = await pool.query(
     `UPDATE ProxyAuthorizations 
-     SET Status = 'Approved' 
-     WHERE AuthorizationID = ? AND Status = 'Pending'`,
-    [authorizationId]
+     SET Status = ? 
+     WHERE AuthorizationID = ?`,
+    [status, authorizationId]
   );
   return result.affectedRows > 0;
 };

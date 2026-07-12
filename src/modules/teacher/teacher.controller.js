@@ -1261,24 +1261,39 @@ export const getProxyApprovals = async (req, res, next) => {
 };
 
 /**
- * Approve a proxy authorization
+ * Update proxy authorization status
  */
 export const updateProxyApproval = async (req, res, next) => {
   try {
     const teacherId = req.user.userId;
-    const { authorizationId } = req.body;
+    const { authorizationId, status } = req.body;
 
     if (!authorizationId) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'authorizationId là bắt buộc');
     }
+    
+    if (!status) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'status là bắt buộc (Pending, Approved, Rejected)');
+    }
 
-    const success = await teacherService.approveProxyAuthorization(authorizationId, teacherId);
+    // Map status from potential frontend/vietnamese values to DB standard values
+    let dbStatus = status;
+    if (status === 'Đã duyệt' || status === 'Approved') dbStatus = 'Approved';
+    if (status === 'Không duyệt' || status === 'Từ chối' || status === 'Rejected') dbStatus = 'Rejected';
+    if (status === 'Chờ duyệt' || status === 'Pending') dbStatus = 'Pending';
+
+    const validStatuses = ['Approved', 'Rejected', 'Pending'];
+    if (!validStatuses.includes(dbStatus)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Trạng thái không hợp lệ (hỗ trợ: Pending, Approved, Rejected)');
+    }
+
+    const success = await teacherService.updateProxyAuthorizationStatus(authorizationId, dbStatus);
     if (!success) {
-      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy đơn đón hộ hoặc đơn không ở trạng thái Pending');
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy đơn đón hộ');
     }
 
     res.status(httpStatus.OK).json(
-      new ApiResponse(httpStatus.OK, null, 'Duyệt đơn đón hộ thành công')
+      new ApiResponse(httpStatus.OK, { authorizationId, status: dbStatus }, 'Cập nhật trạng thái đơn đón hộ thành công')
     );
   } catch (error) {
     next(error);
