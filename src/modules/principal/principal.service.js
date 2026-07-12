@@ -3,9 +3,11 @@ import bcrypt from 'bcryptjs';
 import ApiError from '../../utils/ApiError.js';
 import httpStatus from 'http-status';
 import csvParser from 'csv-parser';
+import ExcelJS from 'exceljs';
 import { Readable } from 'stream';
 import { sendPushToUser } from '../notification/notification.service.js';
 import logger from '../../config/logger.js';
+import { getWeeksByMonthly } from '../teacher/sub/weeklySchedule.service.js';
 
 /**
  * Lấy thông tin profile của hiệu trưởng theo PrincipalID.
@@ -1089,58 +1091,145 @@ export const addParentToStudent = async (studentId, { parentId, isNewParent, par
   }
 };
 
-export const importStudentsFromCSV = async (fileBuffer) => {
+const parseCsvRows = (fileBuffer) => {
   return new Promise((resolve, reject) => {
     const results = [];
-    const stream = Readable.from(fileBuffer);
-
-    stream
+    Readable.from(fileBuffer)
       .pipe(csvParser())
       .on('data', (data) => results.push(data))
-      .on('end', async () => {
-        const connection = await pool.getConnection();
-        try {
-          await connection.beginTransaction();
-
-          let count = 0;
-          for (const row of results) {
-            if (!row.FullName) continue;
-            
-            // Format dates from DD/MM/YYYY to timestamp
-            let dateOfBirth = null;
-            if (row.DateOfBirth) {
-              const parts = row.DateOfBirth.split('/');
-              if (parts.length === 3) {
-                dateOfBirth = Math.floor(new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00Z`).getTime() / 1000);
-              }
-            }
-
-            let admissionDate = Math.floor(Date.now() / 1000);
-            if (row.AdmissionDate) {
-               const parts = row.AdmissionDate.split('/');
-               if (parts.length === 3) {
-                 admissionDate = Math.floor(new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00Z`).getTime() / 1000);
-               }
-            }
-
-            await connection.query(
-              'INSERT INTO Students (FullName, DateOfBirth, Gender, Allergies, AdmissionDate, EnrollmentStatus, ClassID) VALUES (?, ?, ?, ?, ?, "Active", NULL)',
-              [row.FullName, dateOfBirth, row.Gender, row.Allergies, admissionDate]
-            );
-            count++;
-          }
-
-          await connection.commit();
-          resolve(count);
-        } catch (error) {
-          await connection.rollback();
-          reject(error);
-        } finally {
-          connection.release();
-        }
-      })
+      .on('end', () => resolve(results))
       .on('error', (error) => reject(error));
   });
+};
+
+const parseXlsxRows = async (fileBuffer) => {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(fileBuffer);
+  const worksheet = workbook.worksheets[0];
+  if (!worksheet) return [];
+
+  const headerRow = worksheet.getRow(1);
+  const headers = [];
+  headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+    headers[colNumber] = String(cell.value ?? '').trim();
+  });
+
+  const rows = [];
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return; // skip header
+
+    const rowData = {};
+    row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+      const header = headers[colNumber];
+      if (!header) return;
+
+      let value = cell.value;
+      // ExcelJS trả Date object nếu ô được format là ngày tháng — chuẩn hóa về dd/mm/yyyy
+      // để dùng chung logic parse ngày với CSV bên dưới.
+      if (value instanceof Date) {
+        const d = String(value.getUTCDate()).padStart(2, '0');
+        const m = String(value.getUTCMonth() + 1).padStart(2, '0');
+        const y = value.getUTCFullYear();
+        value = `${d}/${m}/${y}`;
+      } else if (value && typeof value === 'object' && 'result' in value) {
+        // Formula cell — dùng giá trị đã tính sẵn
+        value = value.result;
+      }
+
+      rowData[header] = value !== null && value !== undefined ? String(value).trim() : '';
+    });
+
+    if (Object.keys(rowData).length > 0) rows.push(rowData);
+  });
+
+  return rows;
+};
+
+const SUPPORTED_IMPORT_EXTENSIONS = ['.csv', '.xlsx'];
+
+export const importStudentsFromCSV = async (fileBuffer, originalFilename = '') => {
+  const extension = originalFilename.toLowerCase().slice(originalFilename.lastIndexOf('.'));
+
+  let results;
+  if (extension === '.xlsx') {
+    results = await parseXlsxRows(fileBuffer);
+  } else if (extension === '.csv' || !SUPPORTED_IMPORT_EXTENSIONS.includes(extension)) {
+    // Mặc định coi là CSV nếu không xác định được đuôi file (giữ hành vi cũ khi
+    // FE không gửi kèm tên file gốc).
+    results = await parseCsvRows(fileBuffer);
+  } else {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Chỉ hỗ trợ file .csv hoặc .xlsx');
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Snapshot học phí của năm học đang active — dùng chung cho mọi học sinh
+    // có PackageID trong file (học sinh mới import chưa có lớp nên không thể
+    // join Students → Classes → BaseFees như registerTuitionPlan bình thường).
+    const [activeFeeRows] = await connection.query(`
+      SELECT bf.MonthlyTuition
+      FROM BaseFees bf
+      JOIN AcademicYears ay ON bf.YearID = ay.YearID
+      WHERE ay.IsActive = 1
+      LIMIT 1
+    `);
+    const monthlyTuitionSnapshot = activeFeeRows.length > 0 ? activeFeeRows[0].MonthlyTuition : 0;
+
+    const [packageRows] = await connection.query('SELECT PackageID FROM PaymentPackages');
+    const validPackageIds = new Set(packageRows.map((p) => p.PackageID));
+
+    let count = 0;
+    let tuitionPlansCreated = 0;
+    for (const row of results) {
+      if (!row.FullName) continue;
+
+      // Format dates from DD/MM/YYYY to timestamp
+      let dateOfBirth = null;
+      if (row.DateOfBirth) {
+        const parts = row.DateOfBirth.split('/');
+        if (parts.length === 3) {
+          dateOfBirth = Math.floor(new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00Z`).getTime() / 1000);
+        }
+      }
+
+      let admissionDate = Math.floor(Date.now() / 1000);
+      if (row.AdmissionDate) {
+         const parts = row.AdmissionDate.split('/');
+         if (parts.length === 3) {
+           admissionDate = Math.floor(new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00Z`).getTime() / 1000);
+         }
+      }
+
+      const [studentResult] = await connection.query(
+        'INSERT INTO Students (FullName, DateOfBirth, Gender, Allergies, AdmissionDate, EnrollmentStatus, ClassID) VALUES (?, ?, ?, ?, ?, "Active", NULL)',
+        [row.FullName, dateOfBirth, row.Gender, row.Allergies, admissionDate]
+      );
+      count++;
+
+      // Đăng ký gói học phí nếu file có cột PackageID hợp lệ
+      const packageId = row.PackageID ? parseInt(row.PackageID, 10) : null;
+      if (packageId && validPackageIds.has(packageId)) {
+        const admissionDateObj = new Date(admissionDate * 1000);
+        const startMonth = `${String(admissionDateObj.getUTCMonth() + 1).padStart(2, '0')}-${admissionDateObj.getUTCFullYear()}`;
+
+        await connection.query(
+          'INSERT INTO StudentTuitionPlans (StudentID, PackageID, StartMonth, MonthlyTuitionSnapshot, Status) VALUES (?, ?, ?, ?, "Active")',
+          [studentResult.insertId, packageId, startMonth, monthlyTuitionSnapshot]
+        );
+        tuitionPlansCreated++;
+      }
+    }
+
+    await connection.commit();
+    return { imported: count, tuitionPlansCreated };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 };
 
 export const assignStudentsToClass = async (studentIds, classId) => {
@@ -1684,4 +1773,364 @@ export const updateHoliday = async (holidayId, { holidayDate, holidayName, yearI
 export const deleteHoliday = async (holidayId) => {
   const [result] = await pool.query('DELETE FROM Holidays WHERE HolidayID = ?', [holidayId]);
   return result.affectedRows > 0;
+};
+
+// ── Monthly Schedule Approval ───────────────────────────────────────────────
+
+export const getMonthlySchedules = async ({ year, month, approvedStatus, classId } = {}) => {
+  const conditions = [];
+  const params = [];
+
+  if (year !== undefined) { conditions.push('ms.Year = ?'); params.push(year); }
+  if (month !== undefined) { conditions.push('ms.Month = ?'); params.push(month); }
+  if (approvedStatus !== undefined) { conditions.push('ms.ApprovedStatus = ?'); params.push(approvedStatus); }
+  if (classId !== undefined) { conditions.push('ms.ClassID = ?'); params.push(classId); }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const [rows] = await pool.query(`
+    SELECT
+      ms.MonthlyScheduleID as id,
+      ms.ClassID as classId,
+      c.ClassName as className,
+      g.GradeName as gradeName,
+      ms.Month as month,
+      ms.Year as year,
+      ms.MonthTheme as monthTheme,
+      ms.ApprovedStatus as approvedStatus,
+      ms.IsActive as isActive,
+      ms.CreatedAt as createdAt,
+      ms.UpdatedAt as updatedAt
+    FROM MonthlySchedules ms
+    JOIN Classes c ON ms.ClassID = c.ClassID
+    LEFT JOIN Grades g ON c.GradeID = g.GradeID
+    ${whereClause}
+    ORDER BY ms.Year DESC, ms.Month DESC, ms.CreatedAt DESC
+  `, params);
+
+  return rows;
+};
+
+export const getMonthlyScheduleDetail = async (monthlyScheduleId) => {
+  const [rows] = await pool.query(`
+    SELECT
+      ms.MonthlyScheduleID as id,
+      ms.ClassID as classId,
+      c.ClassName as className,
+      g.GradeName as gradeName,
+      ms.Month as month,
+      ms.Year as year,
+      ms.MonthTheme as monthTheme,
+      ms.ApprovedStatus as approvedStatus,
+      ms.IsActive as isActive,
+      ms.CreatedAt as createdAt,
+      ms.UpdatedAt as updatedAt
+    FROM MonthlySchedules ms
+    JOIN Classes c ON ms.ClassID = c.ClassID
+    LEFT JOIN Grades g ON c.GradeID = g.GradeID
+    WHERE ms.MonthlyScheduleID = ?
+  `, [monthlyScheduleId]);
+
+  if (rows.length === 0) return null;
+
+  const weeks = await getWeeksByMonthly(monthlyScheduleId);
+
+  return { ...rows[0], weeks };
+};
+
+export const approveMonthlySchedule = async (monthlyScheduleId, approvedStatus) => {
+  const [existing] = await pool.query(
+    'SELECT MonthlyScheduleID, ClassID, Month, Year FROM MonthlySchedules WHERE MonthlyScheduleID = ?',
+    [monthlyScheduleId]
+  );
+  if (existing.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy thời khóa biểu tháng');
+  }
+
+  await pool.query(
+    'UPDATE MonthlySchedules SET ApprovedStatus = ?, UpdatedAt = ? WHERE MonthlyScheduleID = ?',
+    [approvedStatus, Math.floor(Date.now() / 1000), monthlyScheduleId]
+  );
+
+  const schedule = existing[0];
+  notifyTeachersOfScheduleApproval(schedule, approvedStatus).catch((error) => {
+    logger.error(`[Schedule Notification] Lỗi khi gửi thông báo duyệt cho MonthlyScheduleID ${monthlyScheduleId}: ${error.message}`);
+  });
+
+  return { message: approvedStatus === 1 ? 'Đã duyệt thời khóa biểu tháng' : 'Đã từ chối thời khóa biểu tháng' };
+};
+
+const notifyTeachersOfScheduleApproval = async (schedule, approvedStatus) => {
+  const [rows] = await pool.query(
+    'SELECT DISTINCT TeacherID FROM ClassTeachers WHERE ClassID = ?',
+    [schedule.ClassID]
+  );
+  const teacherIds = rows.map((r) => r.TeacherID);
+  if (teacherIds.length === 0) return;
+
+  const title = approvedStatus === 1 ? 'Thời khóa biểu đã được duyệt' : 'Thời khóa biểu bị từ chối';
+  const body = approvedStatus === 1
+    ? `Thời khóa biểu tháng ${schedule.Month}/${schedule.Year} đã được hiệu trưởng duyệt.`
+    : `Thời khóa biểu tháng ${schedule.Month}/${schedule.Year} đã bị từ chối, vui lòng chỉnh sửa lại.`;
+
+  const results = await Promise.allSettled(
+    teacherIds.map((teacherId) =>
+      sendPushToUser(
+        teacherId,
+        title,
+        body,
+        { type: 'MONTHLY_SCHEDULE_APPROVAL', monthlyScheduleId: String(schedule.MonthlyScheduleID), approvedStatus: String(approvedStatus) }
+      )
+    )
+  );
+
+  results.forEach((result, i) => {
+    if (result.status === 'rejected') {
+      logger.error(`[Schedule Notification] Lỗi gửi push TeacherID ${teacherIds[i]} cho MonthlyScheduleID ${schedule.MonthlyScheduleID}: ${result.reason?.message}`);
+    }
+  });
+};
+
+// ── Menus ────────────────────────────────────────────────────────────────
+
+export const getMenus = async ({ classId, year, weekNumber } = {}) => {
+  const conditions = [];
+  const params = [];
+
+  if (classId !== undefined) { conditions.push('m.ClassID = ?'); params.push(classId); }
+  if (year !== undefined) { conditions.push('m.Year = ?'); params.push(year); }
+  if (weekNumber !== undefined) { conditions.push('m.WeekNumber = ?'); params.push(weekNumber); }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const [rows] = await pool.query(`
+    SELECT
+      m.MenuID as id,
+      m.ClassID as classId,
+      c.ClassName as className,
+      m.WeekNumber as weekNumber,
+      m.Year as year,
+      m.MenuName as menuName,
+      m.CreatedAt as createdAt,
+      m.UpdatedAt as updatedAt
+    FROM Menus m
+    JOIN Classes c ON m.ClassID = c.ClassID
+    ${whereClause}
+    ORDER BY m.Year DESC, m.WeekNumber DESC
+  `, params);
+
+  return rows;
+};
+
+const DAY_OF_WEEK_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const MEAL_TYPE_ORDER = ['Breakfast', 'Lunch', 'Snack'];
+
+export const getMenuDetail = async (menuId) => {
+  const [rows] = await pool.query(`
+    SELECT
+      m.MenuID as id,
+      m.ClassID as classId,
+      c.ClassName as className,
+      m.WeekNumber as weekNumber,
+      m.Year as year,
+      m.MenuName as menuName,
+      m.CreatedAt as createdAt,
+      m.UpdatedAt as updatedAt
+    FROM Menus m
+    JOIN Classes c ON m.ClassID = c.ClassID
+    WHERE m.MenuID = ?
+  `, [menuId]);
+
+  if (rows.length === 0) return null;
+
+  const [detailRows] = await pool.query(`
+    SELECT
+      MenuDetailID as id,
+      MenuID as menuId,
+      DayOfWeek as dayOfWeek,
+      MealType as mealType,
+      DishName as dishName,
+      Calories as calories,
+      NutritionalDetails as nutritionalDetails
+    FROM MenuDetails
+    WHERE MenuID = ?
+    ORDER BY FIELD(DayOfWeek, ${DAY_OF_WEEK_ORDER.map(() => '?').join(',')}),
+             FIELD(MealType, ${MEAL_TYPE_ORDER.map(() => '?').join(',')})
+  `, [menuId, ...DAY_OF_WEEK_ORDER, ...MEAL_TYPE_ORDER]);
+
+  return { ...rows[0], menuDetails: detailRows };
+};
+
+export const deleteMenu = async (menuId) => {
+  // ON DELETE CASCADE trên MenuDetails.MenuID tự dọn theo Menus
+  const [result] = await pool.query('DELETE FROM Menus WHERE MenuID = ?', [menuId]);
+  return result.affectedRows > 0;
+};
+
+/**
+ * Đọc toàn bộ file (CSV hoặc XLSX) thành lưới 2 chiều các chuỗi thô (raw grid),
+ * không giả định vị trí header — dùng cho các file có nhiều vùng dữ liệu như menu import.
+ */
+const parseRawGrid = async (fileBuffer, extension) => {
+  if (extension === '.xlsx') {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(fileBuffer);
+    const worksheet = workbook.worksheets[0];
+    if (!worksheet) return [];
+
+    const grid = [];
+    worksheet.eachRow({ includeEmpty: true }, (row) => {
+      const rowValues = [];
+      row.eachCell({ includeEmpty: true }, (cell) => {
+        let value = cell.value;
+        if (value && typeof value === 'object' && 'result' in value) value = value.result;
+        rowValues.push(value !== null && value !== undefined ? String(value).trim() : '');
+      });
+      grid.push(rowValues);
+    });
+    return grid;
+  }
+
+  // CSV: đọc raw text, tự tách dòng/cột (không dùng csv-parser vì nó giả định
+  // 1 header cố định cho toàn bộ file, không phù hợp layout nhiều vùng).
+  const text = fileBuffer.toString('utf-8');
+  return text
+    .split(/\r?\n/)
+    .filter((line) => line.length > 0)
+    .map((line) => line.split(',').map((cell) => cell.trim()));
+};
+
+/**
+ * Parse 1 file menu theo layout 2 vùng:
+ * - Hàng 1: header vùng info (ClassID,WeekNumber,Year,MenuName)
+ * - Hàng 2: data vùng info
+ * - Hàng 3: dòng trống (bỏ qua)
+ * - Hàng 4: header vùng chi tiết (DayOfWeek,MealType,DishName,Calories,NutritionalDetails)
+ * - Hàng 5+: data vùng chi tiết
+ */
+const parseMenuFile = async (fileBuffer, originalFilename) => {
+  const extension = originalFilename.toLowerCase().slice(originalFilename.lastIndexOf('.'));
+  if (!['.csv', '.xlsx'].includes(extension)) {
+    throw new Error(`Chỉ hỗ trợ file .csv hoặc .xlsx (file "${originalFilename}" không hợp lệ)`);
+  }
+
+  const grid = await parseRawGrid(fileBuffer, extension);
+  const nonEmptyRows = grid.filter((row) => row.some((cell) => cell !== ''));
+
+  if (nonEmptyRows.length < 4) {
+    throw new Error('File không đúng định dạng — cần ít nhất: hàng header info, hàng data info, hàng header chi tiết, và 1 hàng chi tiết');
+  }
+
+  const infoHeader = nonEmptyRows[0].map((h) => h.trim());
+  const infoData = nonEmptyRows[1];
+  const infoRow = {};
+  infoHeader.forEach((h, i) => { infoRow[h] = infoData[i] !== undefined ? infoData[i].trim() : ''; });
+
+  const classId = parseInt(infoRow.ClassID, 10);
+  const weekNumber = parseInt(infoRow.WeekNumber, 10);
+  const year = parseInt(infoRow.Year, 10);
+  const menuName = infoRow.MenuName || null;
+
+  if (!classId || !weekNumber || !year) {
+    throw new Error('Vùng thông tin (hàng 1-2) thiếu hoặc sai ClassID/WeekNumber/Year');
+  }
+
+  const detailHeader = nonEmptyRows[2].map((h) => h.trim());
+  const detailRows = nonEmptyRows.slice(3);
+
+  const details = detailRows.map((row) => {
+    const item = {};
+    detailHeader.forEach((h, i) => { item[h] = row[i] !== undefined ? row[i].trim() : ''; });
+    return item;
+  }).filter((item) => item.DayOfWeek || item.DishName);
+
+  for (const item of details) {
+    if (!DAY_OF_WEEK_ORDER.includes(item.DayOfWeek)) {
+      throw new Error(`DayOfWeek "${item.DayOfWeek}" không hợp lệ (phải là: ${DAY_OF_WEEK_ORDER.join(', ')})`);
+    }
+    if (!MEAL_TYPE_ORDER.includes(item.MealType)) {
+      throw new Error(`MealType "${item.MealType}" không hợp lệ (phải là: ${MEAL_TYPE_ORDER.join(', ')})`);
+    }
+    if (!item.DishName) {
+      throw new Error(`Thiếu DishName cho dòng ${item.DayOfWeek}/${item.MealType}`);
+    }
+  }
+
+  return { classId, weekNumber, year, menuName, details };
+};
+
+export const importMenus = async (files) => {
+  const parsed = [];
+
+  // Bước 1: parse + validate cấu trúc từng file TRƯỚC khi đụng vào DB —
+  // đảm bảo lỗi format không để lại thay đổi nửa vời trong transaction.
+  for (const file of files) {
+    try {
+      const menuData = await parseMenuFile(file.buffer, file.originalname);
+      parsed.push({ filename: file.originalname, menuData, error: null });
+    } catch (error) {
+      parsed.push({ filename: file.originalname, menuData: null, error: error.message });
+    }
+  }
+
+  const parseErrors = parsed.filter((p) => p.error);
+  if (parseErrors.length > 0) {
+    return parsed.map((p) => ({
+      filename: p.filename,
+      success: false,
+      message: p.error || 'Không được xử lý do có file khác trong lô bị lỗi',
+    }));
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const results = [];
+    for (const { filename, menuData } of parsed) {
+      const [classRows] = await connection.query('SELECT ClassID FROM Classes WHERE ClassID = ?', [menuData.classId]);
+      if (classRows.length === 0) {
+        throw new Error(`File "${filename}": không tìm thấy lớp với ClassID = ${menuData.classId}`);
+      }
+
+      const [existing] = await connection.query(
+        'SELECT MenuID FROM Menus WHERE ClassID = ? AND WeekNumber = ? AND Year = ?',
+        [menuData.classId, menuData.weekNumber, menuData.year]
+      );
+      if (existing.length > 0) {
+        throw new Error(`File "${filename}": đã tồn tại thực đơn cho lớp này ở tuần ${menuData.weekNumber}/${menuData.year}`);
+      }
+
+      const [menuResult] = await connection.query(
+        'INSERT INTO Menus (ClassID, WeekNumber, Year, MenuName) VALUES (?, ?, ?, ?)',
+        [menuData.classId, menuData.weekNumber, menuData.year, menuData.menuName]
+      );
+      const menuId = menuResult.insertId;
+
+      for (const item of menuData.details) {
+        await connection.query(
+          'INSERT INTO MenuDetails (MenuID, DayOfWeek, MealType, DishName, Calories, NutritionalDetails) VALUES (?, ?, ?, ?, ?, ?)',
+          [menuId, item.DayOfWeek, item.MealType, item.DishName, item.Calories || null, item.NutritionalDetails || null]
+        );
+      }
+
+      results.push({ filename, success: true, menuId });
+    }
+
+    await connection.commit();
+    return results;
+  } catch (error) {
+    await connection.rollback();
+    // 1 file lỗi ở bước DB → rollback toàn bộ (all-or-nothing), nhưng vẫn chỉ rõ
+    // file nào gây lỗi; các file khác được đánh dấu không xử lý được vì lô bị hủy.
+    return parsed.map(({ filename }) => ({
+      filename,
+      success: false,
+      message: error.message.startsWith(`File "${filename}"`)
+        ? error.message
+        : `Không được xử lý do lô import bị hủy (lỗi: ${error.message})`,
+    }));
+  } finally {
+    connection.release();
+  }
 };
