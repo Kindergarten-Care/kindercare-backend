@@ -831,7 +831,7 @@ export const createProxyAuthorization = async (
   const createdAt = Math.floor(Date.now() / 1000);
   const insertQuery = `
     INSERT INTO ProxyAuthorizations (StudentID, ParentID, AuthorizationDate, Type, ProxyName, ProxyPhone, ProxyIDCard, ProxyPhotoURL, Notes, Status, CreatedAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Approved', ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?)
   `;
   const [result] = await pool.query(insertQuery, [
     studentId,
@@ -1014,7 +1014,10 @@ const getScheduleConfigFromDate = (date) => {
  * @returns {Promise<Object|null>} Daily menu with details
  */
 export const getStudentMenu = async (studentId, targetDate, dayFilter = null) => {
-  const dateObj = new Date(targetDate * 1000);
+  // targetDate là UTC-midnight của ngày lịch VN (GMT+7) — vd 00:00 VN Thứ Hai được
+  // biểu diễn là 17:00 UTC Chủ Nhật. Cộng lại 7h để getISOWeekAndYear (dùng getUTC*)
+  // đọc đúng ngày lịch thật, tránh Thứ Hai bị lùi sang Chủ Nhật của tuần trước.
+  const dateObj = new Date((targetDate + 7 * 3600) * 1000);
   const { week, year } = getISOWeekAndYear(dateObj);
 
   const menuQuery = `
