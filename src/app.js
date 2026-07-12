@@ -6,6 +6,7 @@ import morgan from 'morgan';
 import http from 'http';
 import routes from './routes/index.js';
 import { errorConverter, errorHandler } from './middlewares/error.middleware.js';
+import { serverTimeout } from './middlewares/timeout.middleware.js';
 import ApiError from './utils/ApiError.js';
 import httpStatus from 'http-status';
 import logger from './config/logger.js';
@@ -16,6 +17,9 @@ import { startMonthlyBillingCron } from './jobs/monthlyBilling.cron.js';
 import { startPaymentReminderCron } from './jobs/paymentReminder.cron.js';
 import { startExtracurricularExpiryCron } from './jobs/extracurricularExpiry.cron.js';
 import { startPaymentReconciliationCron } from './jobs/paymentReconciliation.cron.js';
+import './jobs/attendanceCron.js';
+import './jobs/leaveRequestAttendanceCron.js';
+import './socket.js';
 
 dotenv.config({
     path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env'
@@ -25,10 +29,28 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middlewares
-app.use(helmet());
-app.use(cors());
+app.use(
+  helmet({
+    // Cho phép FE gọi cross-origin API mà không bị browser block ở CORP layer.
+    crossOriginResourcePolicy: false,
+  })
+);
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
+    'http://localhost:3005',
+    'https://web-test.kindercare.app',
+    'https://web.kindercare.app',
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(serverTimeout());
 
 if (process.env.NODE_ENV !== 'production') {
     app.use(morgan('dev'));

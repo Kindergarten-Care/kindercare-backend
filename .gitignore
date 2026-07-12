@@ -27,3 +27,15 @@ lerna-debug.log*
 kindercare-adminsdk-test.json
 kindercare-adminsdk.json
 
+
+# Database, CSV, and helper scripts
+*.sql
+*.csv
+import_db.js
+test_db.js
+/sql/
+/scratch/
+
+# Local BMI test docs (giữ local cho dev, không push)
+src/modules/teacher/sub/health.bmi.tests.md
+
