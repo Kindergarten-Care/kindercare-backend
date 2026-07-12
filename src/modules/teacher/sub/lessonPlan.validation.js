@@ -17,14 +17,28 @@ export const upsertLessonPlan = {
       Joi.object().keys({
         dayOfWeek: Joi.string().valid('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday').required(),
         subject: Joi.string().valid('lang', 'math', 'art', 'music', 'world', 'phys', 'other').required(),
-        startTime: Joi.string().allow('', null).optional(),
-        endTime: Joi.string().allow('', null).optional(),
-        title: Joi.string().required(),
+        startTime: Joi.string().pattern(/^([01]\d|2[0-3]):[0-5]\d$/).allow('', null).optional()
+          .messages({ 'string.pattern.base': 'startTime phải đúng định dạng HH:mm' }),
+        endTime: Joi.string().pattern(/^([01]\d|2[0-3]):[0-5]\d$/).allow('', null).optional()
+          .messages({ 'string.pattern.base': 'endTime phải đúng định dạng HH:mm' }),
+        title: Joi.string().max(255).required(),
         objective: Joi.string().allow('', null).optional(),
         activityDetails: Joi.string().allow('', null).optional(),
         materials: Joi.string().allow('', null).optional(),
         teacherNote: Joi.string().allow('', null).optional(),
         orderIndex: Joi.number().integer().required()
+      }).custom((value, helpers) => {
+        const { startTime, endTime } = value;
+        if (startTime && endTime) {
+          const [startH, startM] = startTime.split(':').map(Number);
+          const [endH, endM] = endTime.split(':').map(Number);
+          const startVal = startH * 60 + startM;
+          const endVal = endH * 60 + endM;
+          if (endVal <= startVal) {
+            return helpers.message('Thời gian kết thúc (endTime) phải lớn hơn thời gian bắt đầu (startTime)');
+          }
+        }
+        return value;
       })
     ).required()
   })
