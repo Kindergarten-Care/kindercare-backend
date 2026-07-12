@@ -41,6 +41,10 @@ router.put(
   teacherController.updateLeaveRequestStatus
 );
 
+// Proxy Approvals
+router.get('/proxy-approvals', teacherController.getProxyApprovals);
+router.patch('/proxy-approvals', teacherController.updateProxyApproval);
+
 // Classes
 router.get('/classes', teacherController.getClasses);
 router.get(

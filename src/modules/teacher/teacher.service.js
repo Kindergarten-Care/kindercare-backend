@@ -1527,3 +1527,49 @@ export const processQRAttendance = async (
     } : null
   };
 };
+
+/**
+ * Get pending proxy authorizations for a teacher's class
+ * @param {number} classId
+ * @returns {Promise<Array>} Proxy authorizations
+ */
+export const getPendingProxyApprovals = async (classId) => {
+  const query = `
+    SELECT 
+      pa.AuthorizationID as authorizationId,
+      pa.StudentID as studentId,
+      s.FullName as studentName,
+      s.AvatarURL as studentAvatar,
+      pa.ProxyName as proxyName,
+      pa.ProxyPhone as proxyPhone,
+      pa.ProxyIDCard as proxyIdCard,
+      pa.ProxyPhotoURL as proxyPhotoUrl,
+      pa.AuthorizationDate as authorizationDate,
+      pa.Type as type,
+      pa.Notes as notes,
+      pa.Status as status,
+      pa.CreatedAt as createdAt
+    FROM ProxyAuthorizations pa
+    JOIN Students s ON pa.StudentID = s.StudentID
+    WHERE s.ClassID = ? AND pa.Status = 'Pending'
+    ORDER BY pa.CreatedAt DESC
+  `;
+  const [rows] = await pool.query(query, [classId]);
+  return rows;
+};
+
+/**
+ * Approve a proxy authorization
+ * @param {number} authorizationId
+ * @param {number} teacherId
+ * @returns {Promise<boolean>} Success
+ */
+export const approveProxyAuthorization = async (authorizationId, teacherId) => {
+  const [result] = await pool.query(
+    `UPDATE ProxyAuthorizations 
+     SET Status = 'Approved' 
+     WHERE AuthorizationID = ? AND Status = 'Pending'`,
+    [authorizationId]
+  );
+  return result.affectedRows > 0;
+};
