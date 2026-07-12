@@ -135,4 +135,25 @@ router.patch('/holidays/:id', authenticate, authorize(2), principalController.up
 // Xóa một ngày nghỉ lễ
 router.delete('/holidays/:id', authenticate, authorize(2), principalController.deleteHoliday);
 
+// Lấy danh sách tổng quan thời khóa biểu tháng, hỗ trợ filter qua query: year, month, approvedStatus, classId
+router.get('/schedules/monthly', authenticate, authorize(2), principalController.getMonthlySchedules);
+
+// Lấy chi tiết đầy đủ 1 thời khóa biểu tháng (kèm các tuần và hoạt động từng ngày)
+router.get('/schedules/monthly/:id', authenticate, authorize(2), principalController.getMonthlyScheduleDetail);
+
+// Duyệt/từ chối 1 thời khóa biểu tháng
+router.patch('/schedules/monthly/:id/approve', authenticate, authorize(2), principalController.approveMonthlySchedule);
+
+// Lấy danh sách thực đơn, hỗ trợ filter qua query: classId, year, weekNumber
+router.get('/menus', authenticate, authorize(2), principalController.getMenus);
+
+// Lấy chi tiết 1 thực đơn (đủ 7 ngày x 3 bữa)
+router.get('/menus/:id', authenticate, authorize(2), principalController.getMenuDetail);
+
+// Xóa 1 thực đơn (cascade xóa toàn bộ MenuDetails liên quan)
+router.delete('/menus/:id', authenticate, authorize(2), principalController.deleteMenu);
+
+// Import thực đơn từ 1 hoặc nhiều file CSV/XLSX (mỗi file = 1 lớp/1 tuần)
+router.post('/menus/import', authenticate, authorize(2), upload.array('files', 10), principalController.importMenus);
+
 export default router;
