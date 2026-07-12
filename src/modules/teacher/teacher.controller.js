@@ -1250,7 +1250,7 @@ export const getProxyApprovals = async (req, res, next) => {
       );
     }
 
-    const approvals = await teacherService.getPendingProxyApprovals(activeClass.classId);
+    const approvals = await teacherService.getProxyApprovals(activeClass.classId);
 
     res.status(httpStatus.OK).json(
       new ApiResponse(httpStatus.OK, approvals, 'Lấy danh sách đơn đón hộ thành công')
