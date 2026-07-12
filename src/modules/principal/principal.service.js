@@ -1860,6 +1860,49 @@ export const approveMonthlySchedule = async (monthlyScheduleId, approvedStatus) 
   return { message: approvedStatus === 1 ? 'Đã duyệt thời khóa biểu tháng' : 'Đã từ chối thời khóa biểu tháng' };
 };
 
+export const activeMonthlySchedule = async (monthlyScheduleId, isActive) => {
+  const [existing] = await pool.query(
+    'SELECT MonthlyScheduleID, ClassID, ApprovedStatus FROM MonthlySchedules WHERE MonthlyScheduleID = ?',
+    [monthlyScheduleId]
+  );
+  if (existing.length === 0) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy thời khóa biểu tháng');
+  }
+
+  const schedule = existing[0];
+
+  if (isActive && schedule.ApprovedStatus !== 1) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Chỉ có thể kích hoạt thời khóa biểu đã được duyệt');
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    if (isActive) {
+      // Vô hiệu hóa các thời khóa biểu tháng khác của CÙNG LỚP
+      await connection.query(
+        'UPDATE MonthlySchedules SET IsActive = 0 WHERE ClassID = ?',
+        [schedule.ClassID]
+      );
+    }
+
+    await connection.query(
+      'UPDATE MonthlySchedules SET IsActive = ?, UpdatedAt = ? WHERE MonthlyScheduleID = ?',
+      [isActive ? 1 : 0, Math.floor(Date.now() / 1000), monthlyScheduleId]
+    );
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+
+  return { message: isActive ? 'Đã kích hoạt thời khóa biểu' : 'Đã vô hiệu hóa thời khóa biểu' };
+};
+
 const notifyTeachersOfScheduleApproval = async (schedule, approvedStatus) => {
   const [rows] = await pool.query(
     'SELECT DISTINCT TeacherID FROM ClassTeachers WHERE ClassID = ?',

@@ -682,6 +682,21 @@ const approveMonthlySchedule = async (req, res, next) => {
   }
 };
 
+const activeMonthlySchedule = async (req, res, next) => {
+  try {
+    const id = parsePositiveIntId(req.params.id);
+    const isActive = req.body.isActive !== undefined ? req.body.isActive : true;
+
+    const result = await principalService.activeMonthlySchedule(id, isActive);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, result.message)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getMenus = async (req, res, next) => {
   try {
     const { classId, year, weekNumber } = req.query;
@@ -1019,6 +1034,7 @@ export default {
   getMonthlySchedules,
   getMonthlyScheduleDetail,
   approveMonthlySchedule,
+  activeMonthlySchedule,
   getMenus,
   getMenuDetail,
   deleteMenu,

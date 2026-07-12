@@ -2435,6 +2435,59 @@
  *         description: Forbidden - không phải role hiệu trưởng
  *       404:
  *         description: Not Found - không tìm thấy thời khóa biểu tháng
+ *
+ * /principal/schedules/monthly/{id}/active:
+ *   patch:
+ *     summary: Kích hoạt/Vô hiệu hóa thời khóa biểu tháng
+ *     description: |
+ *       Cập nhật `IsActive` của 1 `MonthlySchedule`.
+ *       Khi được kích hoạt (`isActive = true`), hệ thống sẽ tự động vô hiệu hóa (`IsActive = 0`)
+ *       các thời khóa biểu khác của CÙNG LỚP đó.
+ *       Yêu cầu bắt buộc: Thời khóa biểu phải ĐÃ ĐƯỢC DUYỆT (`ApprovedStatus = 1`) mới có thể kích hoạt.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Schedules"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer, minimum: 1 }
+ *         description: MonthlyScheduleID
+ *         example: 2
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [isActive]
+ *             properties:
+ *               isActive:
+ *                 type: boolean
+ *                 description: "Trạng thái kích hoạt (true/false)"
+ *                 example: true
+ *     responses:
+ *       200:
+ *         description: Đã kích hoạt/Vô hiệu hóa thời khóa biểu thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Đã kích hoạt thời khóa biểu }
+ *                 data: { nullable: true, example: null }
+ *       400:
+ *         description: Bad Request - id không hợp lệ, hoặc thời khóa biểu CHƯA ĐƯỢC DUYỆT
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy thời khóa biểu tháng
  */
 
 /**
