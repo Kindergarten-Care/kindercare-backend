@@ -205,6 +205,34 @@ const getStudentDetail = async (req, res, next) => {
   }
 };
 
+const updateStudent = async (req, res, next) => {
+  try {
+    const roleId = req.user.roleId;
+    if (roleId !== 2) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ hiệu trưởng mới có quyền sửa thông tin học sinh');
+    }
+
+    const id = parsePositiveIntId(req.params.id);
+    const { fullName, dateOfBirth, gender, allergies, avatarUrl } = req.body;
+
+    if ([fullName, dateOfBirth, gender, allergies, avatarUrl].every((v) => v === undefined)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Cần ít nhất một trong các trường: fullName, dateOfBirth, gender, allergies, avatarUrl');
+    }
+
+    const success = await principalService.updateStudent(id, { fullName, dateOfBirth, gender, allergies, avatarUrl });
+
+    if (!success) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy học sinh với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Cập nhật thông tin học sinh thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 const resetAccountPassword = async (req, res, next) => {
   try {
     const roleId = req.user.roleId;
@@ -447,6 +475,78 @@ const getAllStudents = async (req, res, next) => {
   }
 };
 
+const getEvents = async (req, res, next) => {
+  try {
+    const { eventType } = req.query;
+    const data = await principalService.getEvents({ eventType });
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, data, 'Lấy danh sách sự kiện thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createEvent = async (req, res, next) => {
+  try {
+    const { title, description, startTime, endTime, location, status, eventType, classIds, studentIds } = req.body;
+    const createdBy = req.user.userId;
+
+    if (!title || !startTime || !endTime || !eventType) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng cung cấp title, startTime, endTime và eventType');
+    }
+
+    const data = await principalService.createEvent({
+      title,
+      description,
+      startTime,
+      endTime,
+      location,
+      status,
+      eventType,
+      createdBy,
+      classIds,
+      studentIds,
+    });
+
+    res.status(httpStatus.CREATED).json(
+      new ApiResponse(httpStatus.CREATED, data, 'Tạo sự kiện thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getHolidays = async (req, res, next) => {
+  try {
+    const { yearId } = req.query;
+    const data = await principalService.getHolidays({ yearId });
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, data, 'Lấy danh sách ngày nghỉ lễ thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createHoliday = async (req, res, next) => {
+  try {
+    const { holidayDate, holidayName, yearId } = req.body;
+
+    if (!holidayDate) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng cung cấp holidayDate');
+    }
+
+    const data = await principalService.createHoliday({ holidayDate, holidayName, yearId });
+
+    res.status(httpStatus.CREATED).json(
+      new ApiResponse(httpStatus.CREATED, data, 'Tạo ngày nghỉ lễ thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 const searchParentsByPhone = async (req, res, next) => {
   try {
     const { phone } = req.query;
@@ -605,6 +705,23 @@ const getInvoices = async (req, res, next) => {
   }
 };
 
+const getInvoiceDetail = async (req, res, next) => {
+  try {
+    const id = parsePositiveIntId(req.params.id);
+    const invoice = await principalService.getInvoiceDetail(id);
+
+    if (!invoice) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Không tìm thấy hóa đơn với id = ${id}`);
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, invoice, 'Lấy thông tin chi tiết hóa đơn thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 const enrollStudent = async (req, res, next) => {
   try {
     const result = await principalService.enrollStudent(req.body);
@@ -661,6 +778,7 @@ export default {
   createPaymentPackage,
   updatePaymentPackage,
   getInvoices,
+  getInvoiceDetail,
   enrollStudent,
   addParentToStudent,
   importStudents,
@@ -668,6 +786,7 @@ export default {
   getTeacherDetail,
   getParentDetail,
   getStudentDetail,
+  updateStudent,
   getUnassignedStudents,
   resetAccountPassword,
   lockAccount,
@@ -682,4 +801,8 @@ export default {
   startAcademicYear,
   getAcademicYears,
   activateAcademicYear,
+  getEvents,
+  createEvent,
+  getHolidays,
+  createHoliday,
 };
