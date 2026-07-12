@@ -28,12 +28,11 @@ kindercare-adminsdk-test.json
 kindercare-adminsdk.json
 
 
-# Database, CSV, and helper scripts
-*.sql
+# Database dumps (full DB exports with real/test data — never commit)
+kindercare_db_test*.sql
 *.csv
 import_db.js
 test_db.js
-/sql/
 /scratch/
 
 # Local BMI test docs (giữ local cho dev, không push)

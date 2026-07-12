@@ -66,6 +66,9 @@ router.patch('/extracurriculars/:id', authenticate, authorize(2), principalContr
 // Lấy danh sách hóa đơn (invoices), hỗ trợ filter qua query: studentId, billingMonth, paymentStatus, invoiceType
 router.get('/invoices', authenticate, authorize(2), principalController.getInvoices);
 
+// Lấy thông tin chi tiết 1 hóa đơn kèm lịch sử giao dịch
+router.get('/invoices/:id', authenticate, authorize(2), principalController.getInvoiceDetail);
+
 // Thêm học sinh mới (Wizard Flow)
 router.post('/students/enroll', authenticate, authorize(2), principalController.enrollStudent);
 
@@ -107,5 +110,17 @@ router.get('/academic-years', authenticate, authorize(2), principalController.ge
 
 // Kích hoạt một năm học
 router.patch('/academic-year/:id/activate', authenticate, authorize(2), principalController.activateAcademicYear);
+
+// Lấy danh sách sự kiện, hỗ trợ filter qua query: eventType (Class, School, Holiday, Student)
+router.get('/events', authenticate, authorize(2), principalController.getEvents);
+
+// Tạo sự kiện mới theo eventType
+router.post('/events', authenticate, authorize(2), principalController.createEvent);
+
+// Lấy danh sách ngày nghỉ lễ, hỗ trợ filter qua query: yearId
+router.get('/holidays', authenticate, authorize(2), principalController.getHolidays);
+
+// Tạo ngày nghỉ lễ mới
+router.post('/holidays', authenticate, authorize(2), principalController.createHoliday);
 
 export default router;

@@ -1502,6 +1502,8 @@
  *                       id: { type: integer, description: "InvoiceID", example: 51 }
  *                       studentId: { type: integer, nullable: true, example: 19 }
  *                       studentFullName: { type: string, nullable: true, example: "Nguyễn Văn A" }
+ *                       classId: { type: integer, nullable: true, example: 1 }
+ *                       className: { type: string, nullable: true, example: "Mầm 1" }
  *                       packageId: { type: integer, nullable: true, example: null }
  *                       packageName: { type: string, nullable: true, example: null }
  *                       periodRange: { type: string, nullable: true, example: null }
@@ -1531,6 +1533,87 @@
 
 /**
  * @swagger
+ * /principal/invoices/{id}:
+ *   get:
+ *     summary: Lấy thông tin chi tiết một hóa đơn
+ *     description: |
+ *       Trả về đầy đủ thông tin của 1 hóa đơn (giống các field trong `GET /principal/invoices`),
+ *       kèm thêm `transactions[]` — lịch sử giao dịch thanh toán của hóa đơn đó (bảng `Transactions`),
+ *       sắp xếp theo `transactionDate` giảm dần.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền truy cập.
+ *     tags: ["Principal - Fees"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: InvoiceID của hóa đơn cần xem chi tiết
+ *         example: 51
+ *     responses:
+ *       200:
+ *         description: Lấy thông tin chi tiết hóa đơn thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Lấy thông tin chi tiết hóa đơn thành công }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer, description: "InvoiceID", example: 51 }
+ *                     studentId: { type: integer, nullable: true, example: 19 }
+ *                     studentFullName: { type: string, nullable: true, example: "Nguyễn Văn A" }
+ *                     classId: { type: integer, nullable: true, example: 1 }
+ *                     className: { type: string, nullable: true, example: "Mầm 1" }
+ *                     packageId: { type: integer, nullable: true, example: null }
+ *                     packageName: { type: string, nullable: true, example: null }
+ *                     periodRange: { type: string, nullable: true, example: null }
+ *                     billingMonth: { type: string, example: "07-2026" }
+ *                     tuitionFee: { type: number, format: float, example: 0.00 }
+ *                     expectedMealFee: { type: number, format: float, example: 0.00 }
+ *                     extracurricularFee: { type: number, format: float, example: 0.00 }
+ *                     surcharge: { type: number, format: float, example: 0.00 }
+ *                     refundAmount: { type: number, format: float, example: 0.00 }
+ *                     discountAmount: { type: number, format: float, example: 0.00 }
+ *                     totalAmount: { type: number, format: float, example: 0.00 }
+ *                     paymentStatus: { type: string, example: "Unpaid" }
+ *                     invoiceType: { type: string, example: "EXTRACURRICULAR" }
+ *                     createdAt: { type: integer, description: "Unix timestamp (seconds)", example: 1783564680 }
+ *                     dueDate: { type: integer, nullable: true, description: "Unix timestamp (seconds)", example: 1783616400 }
+ *                     reminderSentAt: { type: integer, nullable: true, example: null }
+ *                     overdueReminderSentAt: { type: integer, nullable: true, example: 1783645200 }
+ *                     transactions:
+ *                       type: array
+ *                       description: Lịch sử giao dịch thanh toán của hóa đơn
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id: { type: integer, description: "TransactionID", example: 5 }
+ *                           amountPaid: { type: number, format: float, example: 500000.00 }
+ *                           paymentMethod: { type: string, nullable: true, example: "MoMo" }
+ *                           transactionCode: { type: string, nullable: true, example: "MOMO123456" }
+ *                           transactionDate: { type: integer, description: "Unix timestamp (seconds)", example: 1783600000 }
+ *                           status: { type: string, example: "Success" }
+ *       400:
+ *         description: Bad Request - id không hợp lệ
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy hóa đơn
+ */
+
+/**
+ * @swagger
  * /principal/academic-year/{id}/activate:
  *   patch:
  *     summary: Kích hoạt một năm học
@@ -1550,4 +1633,269 @@
  *         description: Đặt trạng thái kích hoạt thành công
  *       404:
  *         description: Không tìm thấy năm học
+ */
+
+/**
+ * @swagger
+ * /principal/events:
+ *   get:
+ *     summary: Lấy danh sách sự kiện
+ *     description: |
+ *       Trả về danh sách sự kiện (`Events`), kèm `classIds[]`/`studentIds[]` (join từ
+ *       `EventClasses`/`EventStudents`). Hỗ trợ lọc theo `eventType`.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền truy cập.
+ *     tags: ["Principal - Events"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: eventType
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [Class, School, Holiday, Student]
+ *         description: Lọc theo loại sự kiện
+ *         example: School
+ *     responses:
+ *       200:
+ *         description: Lấy danh sách sự kiện thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Lấy danh sách sự kiện thành công }
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: integer, description: "EventID", example: 1 }
+ *                       title: { type: string, example: "Khai giảng năm học mới" }
+ *                       description: { type: string, nullable: true, example: "Lễ khai giảng toàn trường" }
+ *                       startTime: { type: integer, description: "Unix timestamp (seconds)", example: 1787886600 }
+ *                       endTime: { type: integer, description: "Unix timestamp (seconds)", example: 1787893800 }
+ *                       location: { type: string, nullable: true, example: "Sân trường" }
+ *                       status: { type: string, example: "Upcoming" }
+ *                       eventType: { type: string, enum: [Class, School, Holiday, Student], example: "School" }
+ *                       createdBy: { type: integer, nullable: true, description: "UserID người tạo", example: 2 }
+ *                       createdAt: { type: integer, description: "Unix timestamp (seconds)", example: 1783564680 }
+ *                       classIds:
+ *                         type: array
+ *                         description: "Chỉ có giá trị khi eventType = 'Class'"
+ *                         items: { type: integer }
+ *                         example: []
+ *                       studentIds:
+ *                         type: array
+ *                         description: "Chỉ có giá trị khi eventType = 'Student'"
+ *                         items: { type: integer }
+ *                         example: []
+ *       400:
+ *         description: Bad Request - eventType không hợp lệ
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *   post:
+ *     summary: Tạo sự kiện mới
+ *     description: |
+ *       Tạo 1 sự kiện theo `eventType`:
+ *       - `Class`: bắt buộc truyền `classIds[]` — sự kiện chỉ hiển thị cho các lớp đó.
+ *       - `Student`: bắt buộc truyền `studentIds[]` — sự kiện chỉ hiển thị cho các học sinh đó.
+ *       - `School`/`Holiday`: không cần `classIds`/`studentIds` — hiển thị cho toàn trường.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Events"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [title, startTime, endTime, eventType]
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: "Khai giảng năm học mới"
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Lễ khai giảng toàn trường"
+ *               startTime:
+ *                 type: integer
+ *                 description: Unix timestamp (seconds)
+ *                 example: 1787886600
+ *               endTime:
+ *                 type: integer
+ *                 description: Unix timestamp (seconds)
+ *                 example: 1787893800
+ *               location:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Sân trường"
+ *               status:
+ *                 type: string
+ *                 description: "Default 'Upcoming'"
+ *                 example: "Upcoming"
+ *               eventType:
+ *                 type: string
+ *                 enum: [Class, School, Holiday, Student]
+ *                 example: "Class"
+ *               classIds:
+ *                 type: array
+ *                 description: "Bắt buộc khi eventType = 'Class'"
+ *                 items: { type: integer }
+ *                 example: [1, 2]
+ *               studentIds:
+ *                 type: array
+ *                 description: "Bắt buộc khi eventType = 'Student'"
+ *                 items: { type: integer }
+ *                 example: []
+ *     responses:
+ *       201:
+ *         description: Tạo sự kiện thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 201 }
+ *                 message: { type: string, example: Tạo sự kiện thành công }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer, example: 5 }
+ *                     title: { type: string, example: "Họp phụ huynh lớp Mầm 1" }
+ *                     description: { type: string, nullable: true, example: null }
+ *                     startTime: { type: integer, example: 1787886600 }
+ *                     endTime: { type: integer, example: 1787893800 }
+ *                     location: { type: string, nullable: true, example: null }
+ *                     status: { type: string, example: "Upcoming" }
+ *                     eventType: { type: string, example: "Class" }
+ *                     createdBy: { type: integer, nullable: true, example: 2 }
+ *                     classIds:
+ *                       type: array
+ *                       items: { type: integer }
+ *                       example: [1]
+ *                     studentIds:
+ *                       type: array
+ *                       items: { type: integer }
+ *                       example: []
+ *       400:
+ *         description: Bad Request - thiếu title/startTime/endTime/eventType, eventType không hợp lệ, hoặc thiếu classIds/studentIds tương ứng
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ */
+
+/**
+ * @swagger
+ * /principal/holidays:
+ *   get:
+ *     summary: Lấy danh sách ngày nghỉ lễ
+ *     description: |
+ *       Trả về danh sách ngày nghỉ lễ (`Holidays`), kèm tên năm học (join `AcademicYears`).
+ *       Hỗ trợ lọc theo `yearId`.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền truy cập.
+ *     tags: ["Principal - Events"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: yearId
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Lọc theo năm học
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Lấy danh sách ngày nghỉ lễ thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: Lấy danh sách ngày nghỉ lễ thành công }
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: integer, description: "HolidayID", example: 1 }
+ *                       holidayDate: { type: integer, description: "Unix timestamp (seconds)", example: 1787884800 }
+ *                       holidayName: { type: string, nullable: true, example: "Quốc khánh 2/9" }
+ *                       yearId: { type: integer, nullable: true, example: 1 }
+ *                       yearName: { type: string, nullable: true, example: "Niên khóa 2026-2027" }
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *   post:
+ *     summary: Tạo ngày nghỉ lễ mới
+ *     description: |
+ *       Tạo mới 1 ngày nghỉ lễ (`Holidays`), dùng bởi hệ thống để loại trừ khỏi số ngày công
+ *       khi tính `expectedMealFee` trong billing cron.
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Events"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [holidayDate]
+ *             properties:
+ *               holidayDate:
+ *                 type: integer
+ *                 description: Unix timestamp (seconds)
+ *                 example: 1787884800
+ *               holidayName:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Quốc khánh 2/9"
+ *               yearId:
+ *                 type: integer
+ *                 nullable: true
+ *                 description: Năm học áp dụng (tùy chọn)
+ *                 example: 1
+ *     responses:
+ *       201:
+ *         description: Tạo ngày nghỉ lễ thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 201 }
+ *                 message: { type: string, example: Tạo ngày nghỉ lễ thành công }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer, example: 2 }
+ *                     holidayDate: { type: integer, example: 1787884800 }
+ *                     holidayName: { type: string, nullable: true, example: "Quốc khánh 2/9" }
+ *                     yearId: { type: integer, nullable: true, example: 1 }
+ *       400:
+ *         description: Bad Request - thiếu holidayDate
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       404:
+ *         description: Not Found - không tìm thấy năm học (nếu truyền yearId)
  */
