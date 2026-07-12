@@ -301,6 +301,44 @@ export const getStudentDetail = async (id) => {
   return { ...rows[0], parents };
 };
 
+export const updateStudent = async (studentId, { fullName, dateOfBirth, gender, allergies, avatarUrl }) => {
+  const fields = [];
+  const params = [];
+
+  if (fullName !== undefined) {
+    fields.push('FullName = ?');
+    params.push(fullName);
+  }
+  if (dateOfBirth !== undefined) {
+    fields.push('DateOfBirth = ?');
+    params.push(dateOfBirth);
+  }
+  if (gender !== undefined) {
+    fields.push('Gender = ?');
+    params.push(gender);
+  }
+  if (allergies !== undefined) {
+    fields.push('Allergies = ?');
+    params.push(allergies);
+  }
+  if (avatarUrl !== undefined) {
+    fields.push('AvatarURL = ?');
+    params.push(avatarUrl);
+  }
+
+  if (!fields.length) {
+    return false;
+  }
+
+  params.push(studentId);
+  const [result] = await pool.query(
+    `UPDATE Students SET ${fields.join(', ')} WHERE StudentID = ?`,
+    params
+  );
+
+  return result.affectedRows > 0;
+};
+
 /**
  * Đặt lại mật khẩu của tài khoản về mặc định (123456)
  *
@@ -855,6 +893,8 @@ export const getInvoices = async ({ studentId, billingMonth, paymentStatus, invo
       i.InvoiceID as id,
       i.StudentID as studentId,
       s.FullName as studentFullName,
+      s.ClassID as classId,
+      c.ClassName as className,
       i.PackageID as packageId,
       pp.PackageName as packageName,
       i.PeriodRange as periodRange,
@@ -874,12 +914,63 @@ export const getInvoices = async ({ studentId, billingMonth, paymentStatus, invo
       i.OverdueReminderSentAt as overdueReminderSentAt
     FROM Invoices i
     LEFT JOIN Students s ON i.StudentID = s.StudentID
+    LEFT JOIN Classes c ON s.ClassID = c.ClassID
     LEFT JOIN PaymentPackages pp ON i.PackageID = pp.PackageID
     ${whereClause}
     ORDER BY i.CreatedAt DESC
   `, params);
 
   return rows;
+};
+
+export const getInvoiceDetail = async (invoiceId) => {
+  const [rows] = await pool.query(`
+    SELECT
+      i.InvoiceID as id,
+      i.StudentID as studentId,
+      s.FullName as studentFullName,
+      s.ClassID as classId,
+      c.ClassName as className,
+      i.PackageID as packageId,
+      pp.PackageName as packageName,
+      i.PeriodRange as periodRange,
+      i.BillingMonth as billingMonth,
+      i.TuitionFee as tuitionFee,
+      i.ExpectedMealFee as expectedMealFee,
+      i.ExtracurricularFee as extracurricularFee,
+      i.Surcharge as surcharge,
+      i.RefundAmount as refundAmount,
+      i.DiscountAmount as discountAmount,
+      i.TotalAmount as totalAmount,
+      i.PaymentStatus as paymentStatus,
+      i.InvoiceType as invoiceType,
+      i.CreatedAt as createdAt,
+      i.DueDate as dueDate,
+      i.ReminderSentAt as reminderSentAt,
+      i.OverdueReminderSentAt as overdueReminderSentAt
+    FROM Invoices i
+    LEFT JOIN Students s ON i.StudentID = s.StudentID
+    LEFT JOIN Classes c ON s.ClassID = c.ClassID
+    LEFT JOIN PaymentPackages pp ON i.PackageID = pp.PackageID
+    WHERE i.InvoiceID = ?
+  `, [invoiceId]);
+
+  if (rows.length === 0) return null;
+
+  const [transactions] = await pool.query(`
+    SELECT
+      TransactionID as id,
+      AmountPaid as amountPaid,
+      PaymentMethod as paymentMethod,
+      TransactionCode as transactionCode,
+      TransactionDate as transactionDate,
+      Status as status
+    FROM Transactions
+    WHERE InvoiceID = ?
+    ORDER BY TransactionDate DESC
+  `, [invoiceId]);
+
+  return { ...rows[0], transactions };
 };
 
 export const enrollStudent = async ({ student, parent, account, isNewParent, packageId }) => {
@@ -1167,12 +1258,12 @@ export const activateAcademicYear = async (yearId) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    
+
     // Set all to inactive
     await connection.query('UPDATE AcademicYears SET IsActive = 0');
     // Set the selected to active
     await connection.query('UPDATE AcademicYears SET IsActive = 1 WHERE YearID = ?', [yearId]);
-    
+
     await connection.commit();
     return { message: 'Đã kích hoạt năm học thành công' };
   } catch (error) {
@@ -1181,4 +1272,167 @@ export const activateAcademicYear = async (yearId) => {
   } finally {
     connection.release();
   }
+};
+
+const EVENT_TYPES = ['Class', 'School', 'Holiday', 'Student'];
+
+export const getEvents = async ({ eventType } = {}) => {
+  const conditions = [];
+  const params = [];
+
+  if (eventType) {
+    if (!EVENT_TYPES.includes(eventType)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, `eventType không hợp lệ, phải là một trong: ${EVENT_TYPES.join(', ')}`);
+    }
+    conditions.push('e.EventType = ?');
+    params.push(eventType);
+  }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const [rows] = await pool.query(`
+    SELECT
+      e.EventID as id,
+      e.Title as title,
+      e.Description as description,
+      e.StartTime as startTime,
+      e.EndTime as endTime,
+      e.Location as location,
+      e.Status as status,
+      e.EventType as eventType,
+      e.CreatedBy as createdBy,
+      e.CreatedAt as createdAt,
+      (
+        SELECT COALESCE(JSON_ARRAYAGG(ec.ClassID), '[]')
+        FROM EventClasses ec WHERE ec.EventID = e.EventID
+      ) as classIds,
+      (
+        SELECT COALESCE(JSON_ARRAYAGG(es.StudentID), '[]')
+        FROM EventStudents es WHERE es.EventID = e.EventID
+      ) as studentIds
+    FROM Events e
+    ${whereClause}
+    ORDER BY e.StartTime DESC
+  `, params);
+
+  return rows.map((row) => ({
+    ...row,
+    classIds: typeof row.classIds === 'string' ? JSON.parse(row.classIds) : row.classIds,
+    studentIds: typeof row.studentIds === 'string' ? JSON.parse(row.studentIds) : row.studentIds,
+  }));
+};
+
+export const createEvent = async ({
+  title,
+  description,
+  startTime,
+  endTime,
+  location,
+  status = 'Upcoming',
+  eventType,
+  createdBy,
+  classIds = [],
+  studentIds = [],
+}) => {
+  if (!EVENT_TYPES.includes(eventType)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, `eventType không hợp lệ, phải là một trong: ${EVENT_TYPES.join(', ')}`);
+  }
+
+  if (eventType === 'Class' && classIds.length === 0) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'eventType "Class" cần truyền ít nhất 1 classId trong classIds');
+  }
+  if (eventType === 'Student' && studentIds.length === 0) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'eventType "Student" cần truyền ít nhất 1 studentId trong studentIds');
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [result] = await connection.query(
+      `INSERT INTO Events (Title, Description, StartTime, EndTime, Location, Status, EventType, CreatedBy)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [title, description || null, startTime, endTime, location || null, status, eventType, createdBy || null]
+    );
+    const eventId = result.insertId;
+
+    if (eventType === 'Class' && classIds.length > 0) {
+      const values = classIds.map((classId) => [eventId, classId]);
+      await connection.query('INSERT INTO EventClasses (EventID, ClassID) VALUES ?', [values]);
+    }
+
+    if (eventType === 'Student' && studentIds.length > 0) {
+      const values = studentIds.map((studentId) => [eventId, studentId]);
+      await connection.query('INSERT INTO EventStudents (EventID, StudentID) VALUES ?', [values]);
+    }
+
+    await connection.commit();
+
+    return {
+      id: eventId,
+      title,
+      description: description || null,
+      startTime,
+      endTime,
+      location: location || null,
+      status,
+      eventType,
+      createdBy: createdBy || null,
+      classIds: eventType === 'Class' ? classIds : [],
+      studentIds: eventType === 'Student' ? studentIds : [],
+    };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+export const getHolidays = async ({ yearId } = {}) => {
+  const conditions = [];
+  const params = [];
+
+  if (yearId) {
+    conditions.push('h.YearID = ?');
+    params.push(yearId);
+  }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const [rows] = await pool.query(`
+    SELECT
+      h.HolidayID as id,
+      h.HolidayDate as holidayDate,
+      h.HolidayName as holidayName,
+      h.YearID as yearId,
+      ay.YearName as yearName
+    FROM Holidays h
+    LEFT JOIN AcademicYears ay ON h.YearID = ay.YearID
+    ${whereClause}
+    ORDER BY h.HolidayDate ASC
+  `, params);
+
+  return rows;
+};
+
+export const createHoliday = async ({ holidayDate, holidayName, yearId }) => {
+  if (yearId) {
+    const [yearRows] = await pool.query('SELECT YearID FROM AcademicYears WHERE YearID = ?', [yearId]);
+    if (yearRows.length === 0) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy năm học');
+    }
+  }
+
+  const [result] = await pool.query(
+    'INSERT INTO Holidays (HolidayDate, HolidayName, YearID) VALUES (?, ?, ?)',
+    [holidayDate, holidayName || null, yearId || null]
+  );
+
+  return {
+    id: result.insertId,
+    holidayDate,
+    holidayName: holidayName || null,
+    yearId: yearId || null,
+  };
 };

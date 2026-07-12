@@ -177,6 +177,8 @@ Không truyền param nào → trả về toàn bộ hóa đơn, sắp xếp the
       "id": 51,
       "studentId": 19,
       "studentFullName": "Nguyễn Văn A",
+      "classId": 1,
+      "className": "Mầm 1",
       "packageId": null,
       "packageName": null,
       "periodRange": null,
@@ -206,6 +208,8 @@ Không truyền param nào → trả về toàn bộ hóa đơn, sắp xếp the
 | `id` | number | `InvoiceID` |
 | `studentId` | number \| null | |
 | `studentFullName` | string \| null | Join từ bảng `Students` |
+| `classId` | number \| null | Join từ bảng `Students`/`Classes` |
+| `className` | string \| null | Join từ bảng `Classes` |
 | `packageId` | number \| null | |
 | `packageName` | string \| null | Join từ bảng `PaymentPackages` |
 | `periodRange` | string \| null | |
@@ -226,7 +230,86 @@ Không truyền param nào → trả về toàn bộ hóa đơn, sắp xếp the
 
 ---
 
-## 4. POST `/principal/payment-packages`
+## 4. GET `/principal/invoices/{id}`
+
+Lấy thông tin chi tiết một hóa đơn, kèm lịch sử giao dịch thanh toán (`transactions[]`).
+
+### Request
+
+```
+GET /principal/invoices/51
+Authorization: Bearer <token>
+```
+
+| Path param | Type | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `id` | number | Có | `InvoiceID` của hóa đơn cần xem chi tiết |
+
+### Response `200 OK`
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 51,
+    "studentId": 19,
+    "studentFullName": "Nguyễn Văn A",
+    "classId": 1,
+    "className": "Mầm 1",
+    "packageId": null,
+    "packageName": null,
+    "periodRange": null,
+    "billingMonth": "07-2026",
+    "tuitionFee": 0.00,
+    "expectedMealFee": 0.00,
+    "extracurricularFee": 0.00,
+    "surcharge": 0.00,
+    "refundAmount": 0.00,
+    "discountAmount": 0.00,
+    "totalAmount": 0.00,
+    "paymentStatus": "Unpaid",
+    "invoiceType": "EXTRACURRICULAR",
+    "createdAt": 1783564680,
+    "dueDate": 1783616400,
+    "reminderSentAt": null,
+    "overdueReminderSentAt": 1783645200,
+    "transactions": [
+      {
+        "id": 5,
+        "amountPaid": 500000.00,
+        "paymentMethod": "MoMo",
+        "transactionCode": "MOMO123456",
+        "transactionDate": 1783600000,
+        "status": "Success"
+      }
+    ]
+  }
+}
+```
+
+### Field description
+
+Giống hệt các field của `GET /principal/invoices` (mục 3), cộng thêm:
+
+| Field | Type | Ghi chú |
+|---|---|---|
+| `transactions[].id` | number | `TransactionID` |
+| `transactions[].amountPaid` | number | Số tiền đã thanh toán trong giao dịch |
+| `transactions[].paymentMethod` | string \| null | Phương thức thanh toán (vd `MoMo`, `VNPay`) |
+| `transactions[].transactionCode` | string \| null | Mã giao dịch từ cổng thanh toán |
+| `transactions[].transactionDate` | number (unix timestamp) | |
+| `transactions[].status` | string | Trạng thái giao dịch (vd `Success`) |
+
+### Error cases riêng
+
+| Status | Trường hợp |
+|---|---|
+| 400 | `id` không hợp lệ |
+| 404 | Không tìm thấy hóa đơn với `id` tương ứng |
+
+---
+
+## 5. POST `/principal/payment-packages`
 
 Thêm gói học phí mới.
 
@@ -273,7 +356,7 @@ Content-Type: application/json
 
 ---
 
-## 5. PATCH `/principal/payment-packages/{id}`
+## 6. PATCH `/principal/payment-packages/{id}`
 
 Sửa thông tin một gói học phí (`PaymentPackages`). Chỉ cần truyền field muốn sửa.
 
@@ -322,7 +405,7 @@ Content-Type: application/json
 
 ---
 
-## 6. POST `/principal/extracurriculars`
+## 7. POST `/principal/extracurriculars`
 
 Thêm hoạt động ngoại khóa mới.
 
@@ -369,7 +452,7 @@ Content-Type: application/json
 
 ---
 
-## 7. PATCH `/principal/extracurriculars/{id}`
+## 8. PATCH `/principal/extracurriculars/{id}`
 
 Sửa thông tin một hoạt động ngoại khóa. Chỉ cần truyền field muốn sửa.
 
