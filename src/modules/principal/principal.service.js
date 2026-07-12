@@ -4,6 +4,8 @@ import ApiError from '../../utils/ApiError.js';
 import httpStatus from 'http-status';
 import csvParser from 'csv-parser';
 import { Readable } from 'stream';
+import { sendPushToUser } from '../notification/notification.service.js';
+import logger from '../../config/logger.js';
 
 /**
  * Lấy thông tin profile của hiệu trưởng theo PrincipalID.
@@ -1368,7 +1370,7 @@ export const createEvent = async ({
 
     await connection.commit();
 
-    return {
+    const event = {
       id: eventId,
       title,
       description: description || null,
@@ -1381,12 +1383,73 @@ export const createEvent = async ({
       classIds: eventType === 'Class' ? classIds : [],
       studentIds: eventType === 'Student' ? studentIds : [],
     };
+
+    // Gửi thông báo sau khi đã commit thành công — lỗi gửi push không được
+    // làm hỏng việc tạo sự kiện đã xong (giống pattern notifyParentsOfInvoice).
+    notifyParentsOfEvent(event).catch((error) => {
+      logger.error(`[Event Notification] Lỗi khi gửi thông báo cho EventID ${eventId}: ${error.message}`);
+    });
+
+    return event;
   } catch (error) {
     await connection.rollback();
     throw error;
   } finally {
     connection.release();
   }
+};
+
+/**
+ * Gửi thông báo cho phụ huynh liên quan tới 1 sự kiện vừa tạo.
+ * - Class: phụ huynh của học sinh đang học trong các lớp classIds.
+ * - Student: phụ huynh của các học sinh studentIds.
+ * - School / Holiday: toàn bộ phụ huynh trong trường.
+ */
+const notifyParentsOfEvent = async (event) => {
+  let parentIds = [];
+
+  if (event.eventType === 'Class') {
+    const [rows] = await pool.query(
+      `SELECT DISTINCT sp.ParentID
+       FROM Students s
+       JOIN StudentParents sp ON sp.StudentID = s.StudentID
+       WHERE s.ClassID IN (?)`,
+      [event.classIds]
+    );
+    parentIds = rows.map((r) => r.ParentID);
+  } else if (event.eventType === 'Student') {
+    const [rows] = await pool.query(
+      'SELECT DISTINCT ParentID FROM StudentParents WHERE StudentID IN (?)',
+      [event.studentIds]
+    );
+    parentIds = rows.map((r) => r.ParentID);
+  } else {
+    const [rows] = await pool.query('SELECT ParentID FROM Parents');
+    parentIds = rows.map((r) => r.ParentID);
+  }
+
+  if (parentIds.length === 0) return;
+
+  const startDate = new Date(event.startTime * 1000).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+  const title = 'Sự kiện mới';
+  const body = `${event.title} — bắt đầu lúc ${startDate}${event.location ? ` tại ${event.location}` : ''}`;
+
+  const results = await Promise.allSettled(
+    parentIds.map((parentId) =>
+      sendPushToUser(
+        parentId,
+        title,
+        body,
+        { type: 'EVENT_CREATED', eventId: String(event.id), eventType: event.eventType }
+      )
+    )
+  );
+
+  results.forEach((result, i) => {
+    if (result.status === 'rejected') {
+      logger.error(`[Event Notification] Lỗi gửi push ParentID ${parentIds[i]} cho EventID ${event.id}: ${result.reason?.message}`);
+    }
+  });
 };
 
 export const getHolidays = async ({ yearId } = {}) => {
