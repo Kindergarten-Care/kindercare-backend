@@ -1530,17 +1530,20 @@ export const processQRAttendance = async (
 };
 
 /**
- * Get pending proxy authorizations for a teacher's class
+ * Get proxy authorizations for a teacher's class
  * @param {number} classId
  * @returns {Promise<Array>} Proxy authorizations
  */
-export const getPendingProxyApprovals = async (classId) => {
+export const getProxyApprovals = async (classId) => {
   const query = `
     SELECT 
       pa.AuthorizationID as authorizationId,
       pa.StudentID as studentId,
       s.FullName as studentName,
       s.AvatarURL as studentAvatar,
+      pa.ParentID as parentId,
+      p.FullName as parentName,
+      p.PhoneNumber as parentPhone,
       pa.ProxyName as proxyName,
       pa.ProxyPhone as proxyPhone,
       pa.ProxyIDCard as proxyIdCard,
@@ -1552,8 +1555,9 @@ export const getPendingProxyApprovals = async (classId) => {
       pa.CreatedAt as createdAt
     FROM ProxyAuthorizations pa
     JOIN Students s ON pa.StudentID = s.StudentID
-    WHERE s.ClassID = ? AND pa.Status = 'Pending'
-    ORDER BY pa.CreatedAt DESC
+    LEFT JOIN Parents p ON pa.ParentID = p.ParentID
+    WHERE s.ClassID = ?
+    ORDER BY CASE WHEN pa.Status = 'Pending' THEN 0 ELSE 1 END, pa.CreatedAt DESC
   `;
   const [rows] = await pool.query(query, [classId]);
   return rows;
