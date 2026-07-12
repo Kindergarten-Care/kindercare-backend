@@ -144,6 +144,31 @@
  *                         example: 1719532800
  *       401:
  *         description: Unauthorized
+ *   delete:
+ *     summary: Delete all notifications of the authenticated user
+ *     description: Permanently delete all notifications belonging to the currently logged-in user.
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully deleted all notifications
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Xóa tất cả thông báo thành công
+ *       401:
+ *         description: Unauthorized
  *
  * /notifications/read-all:
  *   put:
@@ -250,4 +275,44 @@
  *                     appId:
  *                       type: string
  *                       example: "1:1111111111:web:testabc123"
- */
+ * 
+ * /notifications/{id}:
+ *   delete:
+ *     summary: Delete a specific notification
+ *     description: Permanently delete a single notification by its ID for the authenticated user.
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the notification to delete (notifId)
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Successfully deleted the notification
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Xóa thông báo thành công
+ *       400:
+ *         description: Bad Request - invalid ID format
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Notification not found or does not belong to the user
+ * */
+

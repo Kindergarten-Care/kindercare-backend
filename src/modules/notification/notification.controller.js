@@ -108,3 +108,47 @@ export const markAllAsRead = async (req, res, next) => {
     next(error);
   }
 };
+
+export const deleteNotification = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const notifId = parseInt(req.params.id, 10);
+
+    if (isNaN(notifId)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'notifId không hợp lệ');
+    }
+
+    const [result] = await pool.query(
+      `DELETE FROM Notifications WHERE NotifID = ? AND UserID = ?`,
+      [notifId, userId]
+    );
+
+    if (result.affectedRows === 0) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy thông báo hoặc thông báo không thuộc về bạn');
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Xóa thông báo thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteAllNotifications = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+
+    await pool.query(
+      `DELETE FROM Notifications WHERE UserID = ?`,
+      [userId]
+    );
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, null, 'Xóa tất cả thông báo thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
