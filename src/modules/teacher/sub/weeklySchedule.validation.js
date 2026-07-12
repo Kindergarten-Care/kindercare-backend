@@ -8,9 +8,9 @@ export { VALID_WEEKDAYS, VALID_ACTIVITY_TYPES };
 
 const weeklyScheduleItemSchema = Joi.object({
   dayOfWeek: Joi.string().valid(...VALID_WEEKDAYS).required(),
-  startTime: Joi.string().pattern(/^([01]\d|2[0-3]):[0-5]\d$/).required()
+  startTime: Joi.string().pattern(/^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/).required()
     .messages({ 'string.pattern.base': 'startTime phải đúng định dạng HH:mm' }),
-  endTime: Joi.string().pattern(/^([01]\d|2[0-3]):[0-5]\d$/).required()
+  endTime: Joi.string().pattern(/^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/).required()
     .messages({ 'string.pattern.base': 'endTime phải đúng định dạng HH:mm' }),
   activityName: Joi.string().max(255).required(),
   activityType: Joi.string().valid(...VALID_ACTIVITY_TYPES).default('other'),
