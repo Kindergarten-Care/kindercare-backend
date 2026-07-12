@@ -16,8 +16,8 @@ const bmiMeasurementSchema = Joi.object({
     .optional(),
   height: Joi.number().min(50).max(200).required()
     .messages({ 'number.min': 'height phải ≥ 50cm', 'number.max': 'height phải ≤ 200cm' }),
-  weight: Joi.number().min(3).max(100).required()
-    .messages({ 'number.min': 'weight phải ≥ 3kg', 'number.max': 'weight phải ≤ 100kg' }),
+  weight: Joi.number().min(5).max(150).required()
+    .messages({ 'number.min': 'weight phải ≥ 5kg', 'number.max': 'weight phải ≤ 150kg' }),
   notes: Joi.string().trim().max(1000).allow('', null).optional(),
   measuredAt: Joi.number().integer().positive().optional()
     .messages({ 'number.integer': 'measuredAt phải là epoch seconds' }),
@@ -36,7 +36,7 @@ const bmiBatchSchema = Joi.object({
 
 const bmiUpdateSchema = Joi.object({
   height: Joi.number().min(50).max(200).optional(),
-  weight: Joi.number().min(3).max(100).optional(),
+  weight: Joi.number().min(5).max(150).optional(),
   notes: Joi.string().trim().max(1000).allow('', null).optional()
 }).min(1).messages({ 'object.min': 'Cần ít nhất 1 trường để cập nhật' });
 
@@ -94,6 +94,8 @@ const developmentAssessmentItemSchema = Joi.object({
   socialScore: Joi.number().integer().min(1).max(10).allow(null).optional(),
   languageScore: Joi.number().integer().min(1).max(10).allow(null).optional(),
   cognitiveScore: Joi.number().integer().min(1).max(10).allow(null).optional(),
+  aestheticScore: Joi.number().integer().min(1).max(10).allow(null).optional(),
+  lifeSkillScore: Joi.number().integer().min(1).max(10).allow(null).optional(),
   overallNote: Joi.string().trim().allow('', null).max(500).optional()
 });
 
@@ -234,8 +236,8 @@ export const validateCreateBmiLog = (req, _res, next) => {
 
   if (raw.weight !== undefined) {
     const parsed = parseFloat(raw.weight);
-    if (isNaN(parsed) || parsed < 3 || parsed > 100) {
-      return next(new ApiError(httpStatus.BAD_REQUEST, 'weight phải là số từ 3-100 (kg)'));
+    if (isNaN(parsed) || parsed < 5 || parsed > 150) {
+      return next(new ApiError(httpStatus.BAD_REQUEST, 'weight phải là số từ 5-150 (kg)'));
     }
     req.body = { ...req.body, weight: parsed };
   }

@@ -396,6 +396,8 @@ export const getDevelopmentAssessmentHistory = async (studentId, monthsBack = 6)
        da.SocialScore     AS socialScore,
        da.LanguageScore   AS languageScore,
        da.CognitiveScore  AS cognitiveScore,
+       da.AestheticScore  AS aestheticScore,
+       da.LifeSkillScore  AS lifeSkillScore,
        da.OverallNote     AS overallNote,
        da.AssessedBy      AS assessedBy,
        da.CreatedAt       AS createdAt,
@@ -418,6 +420,8 @@ export const getDevelopmentAssessments = async (classId, termPeriod) => {
             da.SocialScore AS socialScore,
             da.LanguageScore AS languageScore,
             da.CognitiveScore AS cognitiveScore,
+            da.AestheticScore AS aestheticScore,
+            da.LifeSkillScore AS lifeSkillScore,
             da.OverallNote AS overallNote,
             da.AssessedBy AS assessedBy
        FROM Students s
@@ -444,14 +448,17 @@ export const upsertDevelopmentAssessments = async (teacherId, termPeriod, items)
       const social = clampScore(item.socialScore);
       const language = clampScore(item.languageScore);
       const cognitive = clampScore(item.cognitiveScore);
+      const aesthetic = clampScore(item.aestheticScore);
+      const lifeSkill = clampScore(item.lifeSkillScore);
       const note = item.overallNote ?? null;
       const now = unixNow();
 
       await connection.query(
         `INSERT INTO DevelopmentAssessments
            (StudentID, TermPeriod, PhysicalScore, EmotionalScore, SocialScore,
-            LanguageScore, CognitiveScore, OverallNote, AssessedBy, CreatedAt, UpdatedAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            LanguageScore, CognitiveScore, OverallNote, AssessedBy, CreatedAt, UpdatedAt,
+            AestheticScore, LifeSkillScore)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
             PhysicalScore  = VALUES(PhysicalScore),
             EmotionalScore = VALUES(EmotionalScore),
@@ -460,8 +467,10 @@ export const upsertDevelopmentAssessments = async (teacherId, termPeriod, items)
             CognitiveScore = VALUES(CognitiveScore),
             OverallNote    = VALUES(OverallNote),
             AssessedBy     = VALUES(AssessedBy),
-            UpdatedAt      = VALUES(UpdatedAt)`,
-        [studentId, termPeriod, physical, emotional, social, language, cognitive, note, teacherId, now, now]
+            UpdatedAt      = VALUES(UpdatedAt),
+            AestheticScore = VALUES(AestheticScore),
+            LifeSkillScore = VALUES(LifeSkillScore)`,
+        [studentId, termPeriod, physical, emotional, social, language, cognitive, note, teacherId, now, now, aesthetic, lifeSkill]
       );
     }
     await connection.commit();
