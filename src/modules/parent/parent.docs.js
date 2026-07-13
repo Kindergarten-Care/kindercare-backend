@@ -987,6 +987,16 @@
  *                         type: integer
  *                         nullable: true
  *                         example: 12
+ *                       dropoffImage:
+ *                         type: string
+ *                         nullable: true
+ *                         description: URL ảnh giáo viên chụp lúc nhận trẻ (điểm danh bằng ảnh)
+ *                         example: https://media.kindercare.app/attendance/dropoff-19-20260713.jpg
+ *                       pickupImage:
+ *                         type: string
+ *                         nullable: true
+ *                         description: URL ảnh giáo viên chụp lúc trả trẻ (điểm danh bằng ảnh)
+ *                         example: https://media.kindercare.app/attendance/pickup-19-20260713.jpg
  *       400:
  *         description: Bad Request - invalid parameters
  *       401:
