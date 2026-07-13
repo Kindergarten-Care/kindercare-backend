@@ -1935,9 +1935,33 @@ export const cancelExtracurricular = async (enrollmentId, studentId) => {
       'UPDATE Invoices SET ExtracurricularFee = GREATEST(ExtracurricularFee - ?, 0) WHERE InvoiceID = ?',
       [activity.MonthlyFee, enrollment.InvoiceID]
     );
-    // ExtracurricularFee vừa giảm kéo TotalAmount (generated column) giảm theo — số tiền
-    // đã trả trước đó có thể giờ đã đủ/dư cho TotalAmount mới, phải tính lại PaymentStatus
-    // (vd: 2 hoạt động 900k đã Paid, hủy 1 hoạt động 400k -> còn 500k, đã trả 900k -> Paid).
+
+    // Enrollment đang Active nghĩa là đã có 1 Transaction Success trả đúng MonthlyFee này
+    // trước đó — tiền đó vừa được hoàn (shouldRefund=true) nên KHÔNG được tính là "đã trả"
+    // nữa, nếu không SUM(AmountPaid Success) sẽ vẫn cộng khoản đã hoàn vào, khiến lần đăng ký
+    // lại sau này bị tính sai thành Partial thay vì Unpaid. Không có cách liên kết trực tiếp
+    // 1 Transaction với 1 enrollment cụ thể (invoice có thể gộp nhiều hoạt động), nên khớp
+    // gần đúng nhất có thể: đúng InvoiceID + đúng số tiền + Success + giao dịch gần nhất.
+    if (enrollment.Status === 'Active') {
+      await pool.query(
+        `UPDATE Transactions
+         SET Status = 'Refunded'
+         WHERE TransactionID = (
+           SELECT TransactionID FROM (
+             SELECT TransactionID FROM Transactions
+             WHERE InvoiceID = ? AND AmountPaid = ? AND Status = 'Success'
+             ORDER BY TransactionDate DESC
+             LIMIT 1
+           ) AS t
+         )`,
+        [enrollment.InvoiceID, activity.MonthlyFee]
+      );
+    }
+
+    // ExtracurricularFee vừa giảm kéo TotalAmount (generated column) giảm theo, và Transaction
+    // hoàn tiền (nếu có) vừa bị loại khỏi SUM — số đã trả thực tế có thể giờ đã đủ/dư/thiếu cho
+    // TotalAmount mới (vd: 2 hoạt động 900k đã Paid, hủy 1 hoạt động 400k -> còn 500k, đã trả
+    // 900k -> Paid), phải tính lại PaymentStatus.
     await recalculateInvoicePaymentStatus(enrollment.InvoiceID);
   }
 
