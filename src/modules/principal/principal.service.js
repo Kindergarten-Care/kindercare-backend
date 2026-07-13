@@ -294,6 +294,7 @@ export const getStudentDetail = async (id) => {
       p.FullName       AS fullName,
       p.PhoneNumber    AS phoneNumber,
       p.Email          AS email,
+      p.AvatarURL      AS avatarUrl,
       sp.Relationship  AS relationship,
       sp.IsPrimary     AS isPrimary
     FROM StudentParents sp
@@ -1012,8 +1013,8 @@ export const enrollStudent = async ({ student, parent, account, isNewParent, pac
 
     // 3. Create Student
     const [studentResult] = await connection.query(
-      'INSERT INTO Students (FullName, DateOfBirth, Gender, Allergies, AdmissionDate, EnrollmentStatus, ClassID) VALUES (?, ?, ?, ?, ?, "Active", NULL)',
-      [student.fullName, student.dateOfBirth, student.gender, student.allergies, student.admissionDate]
+      'INSERT INTO Students (FullName, DateOfBirth, Gender, Allergies, AdmissionDate, EnrollmentStatus, AvatarURL, ClassID) VALUES (?, ?, ?, ?, ?, "Active", ?, NULL)',
+      [student.fullName, student.dateOfBirth, student.gender, student.allergies, student.admissionDate, student.avatarUrl || null]
     );
     const studentId = studentResult.insertId;
 

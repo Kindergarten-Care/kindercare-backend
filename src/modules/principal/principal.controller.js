@@ -2,6 +2,7 @@ import * as principalService from './principal.service.js';
 import ApiResponse from '../../utils/ApiResponse.js';
 import ApiError from '../../utils/ApiError.js';
 import httpStatus from 'http-status';
+import { uploadToSpace } from '../../utils/s3Upload.js';
 
 const getMyProfile = async (req, res, next) => {
   try {
@@ -953,6 +954,22 @@ const getInvoiceDetail = async (req, res, next) => {
   }
 };
 
+const uploadStudentAvatar = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng chọn một file ảnh');
+    }
+
+    const avatarUrl = await uploadToSpace(req.file, 'students/avatar');
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, { avatarUrl }, 'Upload ảnh đại diện học sinh thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 const enrollStudent = async (req, res, next) => {
   try {
     const result = await principalService.enrollStudent(req.body);
@@ -1011,6 +1028,7 @@ export default {
   updatePaymentPackage,
   getInvoices,
   getInvoiceDetail,
+  uploadStudentAvatar,
   enrollStudent,
   addParentToStudent,
   importStudents,
