@@ -493,6 +493,8 @@ export const getClassStudentsAttendance = async (classId, dateTimestamp) => {
       )) AS status,
       a.CheckInTime AS checkInTime,
       a.CheckOutTime AS checkOutTime,
+      a.dropoffImage AS dropoffImage,
+      a.pickupImage AS pickupImage,
       (
         SELECT lr.RequestID
         FROM LeaveRequests lr
@@ -593,6 +595,8 @@ export const getClassStudentsAttendance = async (classId, dateTimestamp) => {
     status: row.status || null,
     checkInTime: row.checkInTime ? Number(row.checkInTime) : null,
     checkOutTime: row.checkOutTime ? Number(row.checkOutTime) : null,
+    dropoffImage: row.dropoffImage || null,
+    pickupImage: row.pickupImage || null,
     healthNote: row.healthNote || null,
     breakfastStatus: row.breakfastStatus || null,
     lunchStatus: row.lunchStatus || null,

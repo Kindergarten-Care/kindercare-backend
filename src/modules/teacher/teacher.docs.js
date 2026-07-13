@@ -1000,6 +1000,14 @@
  *                         type: integer
  *                         nullable: true
  *                         example: 1784221200
+ *                       dropoffImage:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "https://example.com/dropoff.jpg"
+ *                       pickupImage:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "https://example.com/pickup.jpg"
  *                       healthNote:
  *                         type: string
  *                         nullable: true
