@@ -359,8 +359,8 @@ const createAccount = async (req, res, next) => {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Tham số ?role= phải là teacher hoặc parent');
     }
 
-    let { username, fullName, phoneNumber, email } = req.body;
-    
+    let { username, fullName, phoneNumber, email, gender } = req.body;
+
     if (role === 'parent') {
       if (!phoneNumber) {
         throw new ApiError(httpStatus.BAD_REQUEST, 'phoneNumber là bắt buộc đối với phụ huynh');
@@ -372,7 +372,11 @@ const createAccount = async (req, res, next) => {
       throw new ApiError(httpStatus.BAD_REQUEST, 'username và fullName là bắt buộc');
     }
 
-    const userId = await principalService.createAccount(role, { username, fullName, phoneNumber, email });
+    if (gender !== undefined && !['Nam', 'Nữ', 'Khác'].includes(gender)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'gender phải là một trong: Nam, Nữ, Khác');
+    }
+
+    const userId = await principalService.createAccount(role, { username, fullName, phoneNumber, email, gender });
 
     res.status(httpStatus.CREATED).json(
       new ApiResponse(httpStatus.CREATED, { userId, role }, 'Tạo tài khoản thành công')

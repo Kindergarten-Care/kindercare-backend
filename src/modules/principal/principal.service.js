@@ -495,7 +495,7 @@ export const createGradeAndClasses = async (gradeName, classes) => {
 };
 
 export const createAccount = async (role, payload) => {
-  const { username, fullName, phoneNumber, email } = payload;
+  const { username, fullName, phoneNumber, email, gender } = payload;
 
   const connection = await pool.getConnection();
   try {
@@ -528,8 +528,8 @@ export const createAccount = async (role, payload) => {
     // 5. Tạo Teacher hoặc Parent
     if (role === 'teacher') {
       await connection.query(
-        'INSERT INTO Teachers (TeacherID, FullName, PhoneNumber, Email) VALUES (?, ?, ?, ?)',
-        [userId, fullName, phoneNumber || null, email || null]
+        'INSERT INTO Teachers (TeacherID, FullName, PhoneNumber, Email, Gender) VALUES (?, ?, ?, ?, ?)',
+        [userId, fullName, phoneNumber || null, email || null, gender || null]
       );
     } else if (role === 'parent') {
       await connection.query(
