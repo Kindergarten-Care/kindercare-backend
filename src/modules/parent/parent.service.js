@@ -1161,7 +1161,7 @@ export const getStudentWeeklyTimetable = async (studentId, dateParam = null) => 
   let monthlyQuery = `
     SELECT MonthlyScheduleID AS monthlyScheduleId, MonthTheme AS monthTheme, Month AS month, Year AS year
     FROM MonthlySchedules
-    WHERE ClassID = ? AND Month = ? AND Year = ? AND IsActive = 1
+    WHERE ClassID = ? AND Month = ? AND Year = ? AND IsActive = 1 AND ApprovedStatus = 1
   `;
   let [monthlyRows] = await pool.query(monthlyQuery, [classId, month, year]);
   
