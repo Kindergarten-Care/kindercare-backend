@@ -15,7 +15,7 @@ router.get('/profile', authenticate, authorize(2), principalController.getMyProf
 router.get('/accounts', authenticate, authorize(2), principalController.getAccountsByRole);
 
 // Tạo tài khoản (giáo viên, phụ huynh)
-//   POST /principal/accounts?role=teacher
+//   POST /principal/accounts?role=teacher  (body có thể kèm gender: Nam/Nữ/Khác - chỉ áp dụng cho giáo viên)
 router.post('/accounts', authenticate, authorize(2), principalController.createAccount);
 
 // Lấy danh sách khối và lớp
