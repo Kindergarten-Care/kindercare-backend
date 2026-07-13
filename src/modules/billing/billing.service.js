@@ -155,25 +155,28 @@ export const registerTuitionPlan = async (studentId, packageId, startMonth) => {
 };
 
 /**
- * Số ngày công (T2–T6, trừ ngày lễ) trong 1 tháng.
+ * Số ngày công (T2–T6, trừ ngày lễ) trong 1 tháng, hoặc chỉ tính đến 1 ngày
+ * mốc (dùng cho chế độ demo/test giữa tháng — xem `partialUntilDay`).
  * @param {string} billingMonth - 'MM-YYYY'
+ * @param {number} [partialUntilDay] - nếu có, chỉ tính ngày 1 → ngày này (bao gồm), thay vì cả tháng
  * @returns {Promise<number>}
  */
-export const workingDays = async (billingMonth) => {
+export const workingDays = async (billingMonth, partialUntilDay) => {
   const { month, year, daysInMonth } = parseMonthKeyToRange(billingMonth);
+  const lastDay = partialUntilDay ? Math.min(partialUntilDay, daysInMonth) : daysInMonth;
 
   let weekdayCount = 0;
-  for (let d = 1; d <= daysInMonth; d++) {
+  for (let d = 1; d <= lastDay; d++) {
     const dayOfWeek = new Date(year, month - 1, d).getDay(); // 0=Sun..6=Sat
     if (dayOfWeek >= 1 && dayOfWeek <= 5) weekdayCount++;
   }
 
   const monthStartSec = Math.floor(new Date(year, month - 1, 1).getTime() / 1000) - TZ_OFFSET_SECONDS;
-  const monthEndSec = Math.floor(new Date(year, month - 1, daysInMonth, 23, 59, 59).getTime() / 1000) - TZ_OFFSET_SECONDS;
+  const rangeEndSec = Math.floor(new Date(year, month - 1, lastDay, 23, 59, 59).getTime() / 1000) - TZ_OFFSET_SECONDS;
 
   const [holidayRows] = await pool.query(
     'SELECT HolidayDate FROM Holidays WHERE HolidayDate BETWEEN ? AND ?',
-    [monthStartSec, monthEndSec]
+    [monthStartSec, rangeEndSec]
   );
 
   let holidayWeekdayCount = 0;
@@ -206,29 +209,38 @@ const getDailyMealFeeForStudent = async (studentId) => {
 };
 
 /**
- * Tiền ăn dự kiến (thu trước) cho 1 học sinh trong 1 tháng.
+ * Tiền ăn dự kiến cho 1 học sinh trong 1 tháng.
+ * - Chế độ bình thường (bỏ `partialUntilDay`): thu trước cả tháng (hành vi cron thật, ngày 1).
+ * - Chế độ partial (`partialUntilDay` = ngày trong tháng, dùng khi demo/test trigger giữa
+ *   tháng): chỉ tính (ngày công từ ngày 1 → partialUntilDay) trừ (ngày nghỉ có phép cùng
+ *   khoảng đó) — tức thu theo thực tế đã diễn ra tính đến lúc chạy, không thu trước nữa.
  * @param {number} studentId
  * @param {string} billingMonth - 'MM-YYYY'
+ * @param {number} [partialUntilDay]
  */
-export const expectedMealFee = async (studentId, billingMonth) => {
-  const [days, dailyFee] = await Promise.all([
-    workingDays(billingMonth),
+export const expectedMealFee = async (studentId, billingMonth, partialUntilDay) => {
+  const [days, deductedDays, dailyFee] = await Promise.all([
+    workingDays(billingMonth, partialUntilDay),
+    partialUntilDay ? deductedMealDaysForMonth(studentId, billingMonth, partialUntilDay) : Promise.resolve(0),
     getDailyMealFeeForStudent(studentId),
   ]);
-  return days * dailyFee;
+  return Math.max(days - deductedDays, 0) * dailyFee;
 };
 
 /**
- * Số ngày công bị trừ tiền ăn của 1 tháng do nghỉ có phép (IsMealFeeDeducted=1).
+ * Số ngày công bị trừ tiền ăn do nghỉ có phép (IsMealFeeDeducted=1), trong
+ * khoảng ngày 1 → hết tháng (mặc định) hoặc ngày 1 → `untilDay` (nếu có).
  * Đơn nghỉ đã auto-Approved sẵn — chỉ cần lọc theo cờ này.
  * @param {number} studentId
  * @param {string} monthKey - 'MM-YYYY'
+ * @param {number} [untilDay] - giới hạn khoảng tính đến ngày này trong tháng (bao gồm)
  * @returns {Promise<number>}
  */
-const deductedMealDaysForMonth = async (studentId, monthKey) => {
+const deductedMealDaysForMonth = async (studentId, monthKey, untilDay) => {
   const { month, year, daysInMonth } = parseMonthKeyToRange(monthKey);
+  const lastDay = untilDay ? Math.min(untilDay, daysInMonth) : daysInMonth;
   const monthStartSec = Math.floor(new Date(year, month - 1, 1).getTime() / 1000) - TZ_OFFSET_SECONDS;
-  const monthEndSec = Math.floor(new Date(year, month - 1, daysInMonth, 23, 59, 59).getTime() / 1000) - TZ_OFFSET_SECONDS;
+  const monthEndSec = Math.floor(new Date(year, month - 1, lastDay, 23, 59, 59).getTime() / 1000) - TZ_OFFSET_SECONDS;
 
   const [rows] = await pool.query(
     `SELECT FromDate, ToDate
@@ -289,13 +301,14 @@ export const getMealRefundBreakdown = async (studentId, prevMonth) => {
  * Tạo 1 phiếu thu HÀNG THÁNG cho 1 học sinh (idempotent — bỏ qua nếu đã tồn tại).
  * @param {number} studentId
  * @param {string} billingMonth - 'MM-YYYY'
+ * @param {number} [partialUntilDay] - chế độ demo/test: chỉ tính tiền ăn ngày 1 → ngày này
  * @returns {Promise<object|null>} invoice đã tạo, hoặc null nếu đã tồn tại
  */
-export const generateMonthlyInvoice = async (studentId, billingMonth) => {
+export const generateMonthlyInvoice = async (studentId, billingMonth, partialUntilDay) => {
   const prevMonth = addMonths(billingMonth, -1);
 
   const [meal, refund] = await Promise.all([
-    expectedMealFee(studentId, billingMonth),
+    expectedMealFee(studentId, billingMonth, partialUntilDay),
     refundForPrevMonth(studentId, prevMonth),
   ]);
 
@@ -324,10 +337,26 @@ export const generateMonthlyInvoice = async (studentId, billingMonth) => {
  * Cron đầu tháng — chạy cho toàn trường. Với mỗi học sinh có plan Active:
  * tới kỳ → tạo hóa đơn TUITION; luôn tạo phiếu MONTHLY. Idempotent nhờ
  * UNIQUE(StudentID, BillingMonth, InvoiceType) — chạy lại không tạo trùng.
+ *
+ * `partialMonth=true` là chế độ demo/test khi trigger thủ công giữa tháng
+ * (không phải hành vi của cron thật): ExpectedMealFee sẽ tính theo số ngày
+ * công đã thực sự trôi qua từ ngày 1 đến HÔM NAY (trừ ngày nghỉ có phép cùng
+ * khoảng đó), thay vì thu trước cả tháng như bình thường. Chỉ có tác dụng khi
+ * `billingMonth` trùng đúng tháng/năm hiện tại của server — nếu billingMonth
+ * là tháng khác (quá khứ/tương lai), "ngày hôm nay" không có ý nghĩa trong
+ * tháng đó nên vẫn tính cả tháng như hành vi gốc, cờ này bị bỏ qua.
  * @param {string} [billingMonth] - 'MM-YYYY', default = tháng hiện tại
+ * @param {boolean} [partialMonth] - true = demo/test tính theo ngày đã trôi qua
  */
-export const runMonthlyBilling = async (billingMonth) => {
-  const resolvedBillingMonth = billingMonth || getMonthKey(Math.floor(Date.now() / 1000));
+export const runMonthlyBilling = async (billingMonth, partialMonth = false) => {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const localNow = new Date((nowSec + TZ_OFFSET_SECONDS) * 1000);
+  const currentMonthKey = getMonthKey(nowSec + TZ_OFFSET_SECONDS);
+  const resolvedBillingMonth = billingMonth || currentMonthKey;
+
+  const partialUntilDay = (partialMonth && resolvedBillingMonth === currentMonthKey)
+    ? localNow.getUTCDate()
+    : undefined;
 
   const [plans] = await pool.query(
     `SELECT stp.PlanID, stp.StudentID, stp.PackageID, stp.StartMonth, stp.MonthlyTuitionSnapshot,
@@ -364,7 +393,7 @@ export const runMonthlyBilling = async (billingMonth) => {
         else skipped++;
       }
 
-      const monthlyInvoice = await generateMonthlyInvoice(row.StudentID, resolvedBillingMonth);
+      const monthlyInvoice = await generateMonthlyInvoice(row.StudentID, resolvedBillingMonth, partialUntilDay);
       if (monthlyInvoice) monthlyCount++;
       else skipped++;
     } catch (error) {
@@ -387,6 +416,8 @@ export const runMonthlyBilling = async (billingMonth) => {
     generated: { tuition: tuitionCount, monthly: monthlyCount, extracurricular: extracurricularCount },
     skipped,
     failedStudentIds,
+    partialMonth: partialUntilDay !== undefined,
+    partialUntilDay: partialUntilDay ?? null,
   };
 };
 

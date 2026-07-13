@@ -25,9 +25,9 @@ const registerTuitionPlan = async (req, res, next) => {
 
 const runMonthlyBilling = async (req, res, next) => {
   try {
-    const { billingMonth } = req.body;
+    const { billingMonth, partialMonth } = req.body;
 
-    const result = await billingService.runMonthlyBilling(billingMonth);
+    const result = await billingService.runMonthlyBilling(billingMonth, Boolean(partialMonth));
 
     res.status(httpStatus.OK).json(
       new ApiResponse(httpStatus.OK, result, 'Chạy hóa đơn hàng tháng thành công')
