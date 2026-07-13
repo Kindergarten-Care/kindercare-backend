@@ -1,4 +1,8 @@
 import pool from '../../config/db.js';
+import { uploadToSpace } from '../../utils/s3Upload.js';
+import { emitNotificationToUser } from '../../config/socket.js';
+import ApiError from '../../utils/ApiError.js';
+
 
 /**
  * Get the single active class assigned to a teacher (only AcademicYears with IsActive = 1).
@@ -382,6 +386,17 @@ export const isTeacherAssignedToClass = async (teacherId, classId) => {
  * @returns {Promise<boolean>} True if updated
  */
 export const updateLeaveRequestStatus = async (requestId, status, teacherId) => {
+  if (status === 'Approved') {
+    const [reqRows] = await pool.query('SELECT FromDate, ToDate, StudentID FROM LeaveRequests WHERE RequestID = ?', [requestId]);
+    if (reqRows.length > 0) {
+      const { FromDate, ToDate, StudentID } = reqRows[0];
+      const [attRows] = await pool.query('SELECT AttendanceID FROM Attendances WHERE StudentID = ? AND AttendanceDate BETWEEN ? AND ? AND (Status = "Present" OR dropoffImage IS NOT NULL OR pickupImage IS NOT NULL)', [StudentID, FromDate, ToDate]);
+      if (attRows.length > 0) {
+        throw new ApiError(400, 'Học sinh đã được điểm danh trong ngày này, không thể duyệt đơn nghỉ phép.');
+      }
+    }
+  }
+
   const query = `
     UPDATE LeaveRequests
     SET Status = ?, ApproverID = ?
@@ -412,6 +427,16 @@ export const upsertAttendance = async (
   checkedOutByTeacherId = null,
   proxyAuthorizationId = null
 ) => {
+  if (status === 'Present') {
+    const [leaveRows] = await pool.query(
+      `SELECT RequestID FROM LeaveRequests WHERE StudentID = ? AND ? BETWEEN FromDate AND ToDate AND Status = 'Approved'`,
+      [studentId, date]
+    );
+    if (leaveRows.length > 0) {
+      throw new ApiError(400, 'Học sinh đã được duyệt đơn nghỉ phép trong ngày hôm nay, không thể điểm danh.');
+    }
+  }
+
   const checkQuery = 'SELECT AttendanceID FROM Attendances WHERE StudentID = ? AND AttendanceDate = ?';
   const [rows] = await pool.query(checkQuery, [studentId, date]);
 
@@ -490,6 +515,8 @@ export const getClassStudentsAttendance = async (classId, dateTimestamp) => {
       )) AS status,
       a.CheckInTime AS checkInTime,
       a.CheckOutTime AS checkOutTime,
+      a.dropoffImage AS dropoffImage,
+      a.pickupImage AS pickupImage,
       (
         SELECT lr.RequestID
         FROM LeaveRequests lr
@@ -590,6 +617,8 @@ export const getClassStudentsAttendance = async (classId, dateTimestamp) => {
     status: row.status || null,
     checkInTime: row.checkInTime ? Number(row.checkInTime) : null,
     checkOutTime: row.checkOutTime ? Number(row.checkOutTime) : null,
+    dropoffImage: row.dropoffImage || null,
+    pickupImage: row.pickupImage || null,
     healthNote: row.healthNote || null,
     breakfastStatus: row.breakfastStatus || null,
     lunchStatus: row.lunchStatus || null,
@@ -623,7 +652,7 @@ export const getClassStudentsAttendance = async (classId, dateTimestamp) => {
  */
 export const getClassMenu = async (classId, dateTimestamp) => {
   const query = `
-    SELECT 
+    SELECT
       md.MenuDetailID AS menuDetailId,
       md.MenuID AS menuId,
       md.DayOfWeek AS dayOfWeek,
@@ -633,13 +662,44 @@ export const getClassMenu = async (classId, dateTimestamp) => {
       md.NutritionalDetails AS nutritionalDetails
     FROM Menus m
     JOIN MenuDetails md ON m.MenuID = md.MenuID
-    WHERE m.ClassID = ? 
+    WHERE m.ClassID = ?
       AND m.Year = YEAR(FROM_UNIXTIME(?))
       AND m.WeekNumber = WEEK(FROM_UNIXTIME(?), 1)
       AND md.DayOfWeek = DAYNAME(FROM_UNIXTIME(?))
     ORDER BY FIELD(md.MealType, 'Breakfast', 'Lunch', 'Snack')
   `;
   const [rows] = await pool.query(query, [classId, dateTimestamp, dateTimestamp, dateTimestamp]);
+  return rows;
+};
+
+/**
+ * Get class meal menu for an entire week (Mon-Sun)
+ * @param {number} classId
+ * @param {number} dateTimestamp Unix timestamp (seconds) for any day inside the target week
+ * @returns {Promise<Array>} Flat list of menu items for all days in the week
+ */
+export const getWeeklyMenu = async (classId, dateTimestamp) => {
+  const query = `
+    SELECT
+      md.MenuDetailID AS menuDetailId,
+      md.MenuID AS menuId,
+      md.DayOfWeek AS dayOfWeek,
+      md.MealType AS mealType,
+      md.DishName AS dishName,
+      md.Calories AS calories,
+      md.NutritionalDetails AS nutritionalDetails,
+      m.MenuName AS menuName,
+      m.WeekNumber AS weekNumber,
+      m.Year AS year
+    FROM Menus m
+    JOIN MenuDetails md ON m.MenuID = md.MenuID
+    WHERE m.ClassID = ?
+      AND m.Year = YEAR(FROM_UNIXTIME(?))
+      AND m.WeekNumber = WEEK(FROM_UNIXTIME(?), 1)
+    ORDER BY FIELD(md.DayOfWeek, 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'),
+             FIELD(md.MealType, 'Breakfast', 'Lunch', 'Snack')
+  `;
+  const [rows] = await pool.query(query, [classId, dateTimestamp, dateTimestamp]);
   return rows;
 };
 
@@ -1496,4 +1556,169 @@ export const processQRAttendance = async (
       notes: activeProxy.Notes
     } : null
   };
+};
+
+/**
+ * Get proxy authorizations for a teacher's class
+ * @param {number} classId
+ * @returns {Promise<Array>} Proxy authorizations
+ */
+export const getProxyApprovals = async (classId) => {
+  const query = `
+    SELECT 
+      pa.AuthorizationID as authorizationId,
+      pa.StudentID as studentId,
+      s.FullName as studentName,
+      s.AvatarURL as studentAvatar,
+      pa.ParentID as parentId,
+      p.FullName as parentName,
+      p.PhoneNumber as parentPhone,
+      pa.ProxyName as proxyName,
+      pa.ProxyPhone as proxyPhone,
+      pa.ProxyIDCard as proxyIdCard,
+      pa.ProxyPhotoURL as proxyPhotoUrl,
+      pa.AuthorizationDate as authorizationDate,
+      pa.Type as type,
+      pa.Notes as notes,
+      pa.Status as status,
+      pa.CreatedAt as createdAt
+    FROM ProxyAuthorizations pa
+    JOIN Students s ON pa.StudentID = s.StudentID
+    LEFT JOIN Parents p ON pa.ParentID = p.ParentID
+    WHERE s.ClassID = ?
+    ORDER BY CASE WHEN pa.Status = 'Pending' THEN 0 ELSE 1 END, pa.CreatedAt DESC
+  `;
+  const [rows] = await pool.query(query, [classId]);
+  return rows;
+};
+
+/**
+ * Update proxy authorization status
+ * @param {number} authorizationId
+ * @param {string} status
+ * @returns {Promise<boolean>} Success
+ */
+export const updateProxyAuthorizationStatus = async (authorizationId, status) => {
+  const [result] = await pool.query(
+    `UPDATE ProxyAuthorizations 
+     SET Status = ? 
+     WHERE AuthorizationID = ?`,
+    [status, authorizationId]
+  );
+  return result.affectedRows > 0;
+};
+
+/**
+ * Submit Photo Attendance
+ */
+export const submitPhotoAttendance = async (file, studentId, classId, teacherId) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // 1. Upload photo to DigitalOcean Space
+    const photoUrl = await uploadToSpace(file, 'attendance');
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const vnDate = new Date(timestamp * 1000 + 7 * 60 * 60 * 1000);
+    const dateTimestamp = Math.floor(Date.UTC(vnDate.getUTCFullYear(), vnDate.getUTCMonth(), vnDate.getUTCDate()) / 1000);
+
+    // 2. Query today's attendance record
+    const [attRows] = await connection.query(
+      `SELECT AttendanceID, dropoffImage, pickupImage FROM Attendances WHERE StudentID = ? AND AttendanceDate = ?`,
+      [studentId, dateTimestamp]
+    );
+
+    let timeStr = `${String(vnDate.getUTCHours()).padStart(2, '0')}:${String(vnDate.getUTCMinutes()).padStart(2, '0')}`;
+    let title = '';
+    let bodyTemplate = '';
+    let attendanceType = '';
+
+    // Check if student has an APPROVED leave request today
+    const [leaveRows] = await connection.query(
+      `SELECT RequestID FROM LeaveRequests WHERE StudentID = ? AND ? BETWEEN FromDate AND ToDate AND Status = 'Approved'`,
+      [studentId, dateTimestamp]
+    );
+
+    if (leaveRows.length > 0) {
+      throw new ApiError(400, 'Học sinh đã được duyệt đơn nghỉ phép trong ngày hôm nay, không thể điểm danh.');
+    }
+
+    if (attRows.length === 0 || !attRows[0].dropoffImage) {
+      // Logic 1: Nhận trẻ (Dropoff)
+      attendanceType = 'dropoff';
+      if (attRows.length === 0) {
+        await connection.query(
+          `INSERT INTO Attendances (StudentID, AttendanceDate, CheckInTime, Status, CheckedInByTeacherID, dropoffImage)
+           VALUES (?, ?, ?, 'Present', ?, ?)`,
+          [studentId, dateTimestamp, timestamp, teacherId, photoUrl]
+        );
+      } else {
+        await connection.query(
+          `UPDATE Attendances SET CheckInTime = IFNULL(CheckInTime, ?), Status = 'Present', CheckedInByTeacherID = ?, dropoffImage = ? WHERE AttendanceID = ?`,
+          [timestamp, teacherId, photoUrl, attRows[0].AttendanceID]
+        );
+      }
+      title = 'Điểm danh bằng hình ảnh';
+      bodyTemplate = `Đã nhận trẻ {name} tại lớp lúc ${timeStr}.`;
+    } else if (!attRows[0].pickupImage) {
+      // Logic 2: Trả trẻ (Pickup)
+      attendanceType = 'pickup';
+      await connection.query(
+        `UPDATE Attendances SET CheckOutTime = IFNULL(CheckOutTime, ?), pickupImage = ? WHERE AttendanceID = ?`,
+        [timestamp, photoUrl, attRows[0].AttendanceID]
+      );
+      title = 'Điểm danh bằng hình ảnh';
+      bodyTemplate = `Phụ huynh đã đón trẻ {name} về lúc ${timeStr}.`;
+    } else {
+      // Logic 3: Đã đủ 2 lần
+      throw new ApiError(400, 'Học sinh đã điểm danh đủ 2 lần trong ngày, không thể chụp thêm');
+    }
+
+    // 3. Get student details and parent
+    const [studentRows] = await connection.query(
+      `SELECT FullName FROM Students WHERE StudentID = ?`, [studentId]
+    );
+    const studentName = studentRows[0]?.FullName || 'Học sinh';
+    const body = bodyTemplate.replace('{name}', studentName);
+
+    const [parentRows] = await connection.query(
+      `SELECT ParentID FROM StudentParents WHERE StudentID = ?`, [studentId]
+    );
+
+    // 4. Insert notification and emit socket
+    for (const parent of parentRows) {
+      const parentId = parent.ParentID;
+      const dataPayload = JSON.stringify({ referenceId: studentId, photoUrl, type: attendanceType });
+      
+      const [notifResult] = await connection.query(
+        `INSERT INTO Notifications (UserID, Title, Message, Type, IsRead, IsCritical, DataPayload, CreatedAt, UpdatedAt) VALUES (?, ?, ?, 'ATTENDANCE', 0, 0, ?, ?, ?)`,
+        [parentId, title, body, dataPayload, timestamp, timestamp]
+      );
+
+      // 5. Socket push
+      emitNotificationToUser(parentId, {
+        notificationId: notifResult.insertId,
+        title,
+        body,
+        type: 'ATTENDANCE',
+        dataPayload,
+        createdAt: timestamp,
+      });
+    }
+
+    await connection.commit();
+
+    return {
+      photoUrl,
+      studentId,
+      time: timeStr,
+      type: attendanceType
+    };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 };

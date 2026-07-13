@@ -1000,6 +1000,14 @@
  *                         type: integer
  *                         nullable: true
  *                         example: 1784221200
+ *                       dropoffImage:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "https://example.com/dropoff.jpg"
+ *                       pickupImage:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "https://example.com/pickup.jpg"
  *                       healthNote:
  *                         type: string
  *                         nullable: true
@@ -1324,4 +1332,388 @@
  *         description: Conflict (Token already used, or student already fully attended today)
  *       500:
  *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /teacher/proxy-approvals:
+ *   get:
+ *     summary: Get Proxy Approvals
+ *     description: Retrieve all proxy authorizations for students in the active class assigned to the teacher. Results include parent details.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved the list of proxy approvals
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách đơn đón hộ thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       authorizationId:
+ *                         type: integer
+ *                         example: 15
+ *                       studentId:
+ *                         type: integer
+ *                         example: 120
+ *                       studentName:
+ *                         type: string
+ *                         example: Nguyễn Văn A
+ *                       studentAvatar:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://example.com/avatar.jpg
+ *                       parentId:
+ *                         type: integer
+ *                         example: 56
+ *                       parentName:
+ *                         type: string
+ *                         example: Nguyễn Văn B
+ *                       parentPhone:
+ *                         type: string
+ *                         example: "0987654321"
+ *                       proxyName:
+ *                         type: string
+ *                         example: Lê Thị C
+ *                       proxyPhone:
+ *                         type: string
+ *                         example: "0123456789"
+ *                       proxyIdCard:
+ *                         type: string
+ *                         example: "012345678912"
+ *                       proxyPhotoUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://example.com/proxy.jpg
+ *                       authorizationDate:
+ *                         type: string
+ *                         example: "2026-07-13"
+ *                       type:
+ *                         type: string
+ *                         example: Temporary
+ *                       notes:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Đón hộ vì đi công tác
+ *                       status:
+ *                         type: string
+ *                         example: Pending
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Internal Server Error
+ * 
+ *   patch:
+ *     summary: Approve Proxy Authorization
+ *     description: Approve a pending proxy authorization for a student.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - authorizationId
+ *             properties:
+ *               authorizationId:
+ *                 type: integer
+ *                 example: 15
+ *     responses:
+ *       200:
+ *         description: Successfully approved proxy authorization
+ *       400:
+ *         description: Bad Request (Missing or invalid authorizationId)
+ *       401:
+ * /teacher/attendance/scan:
+ *   post:
+ *     summary: Scan QR Code for Attendance
+ *     description: Teacher scans a parent's QR code to automatically check-in or check-out a student.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - qrToken
+ *             properties:
+ *               qrToken:
+ *                 type: string
+ *                 example: "eyJhbGciOiJIUzI1NiJ9..."
+ *     responses:
+ *       200:
+ *         description: Successfully recorded attendance (Auto check-in or check-out).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: "Điểm danh thành công (Đón bé về)"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     studentId:
+ *                       type: integer
+ *                       example: 19
+ *                     fullName:
+ *                       type: string
+ *                       example: "Nguyễn Bảo Châu"
+ *                     attendanceType:
+ *                       type: string
+ *                       enum: [checkin, checkout]
+ *                       example: checkout
+ *                     hasProxy:
+ *                       type: boolean
+ *                       description: Indicates if child is picked up or dropped off by an authorized proxy today.
+ *                       example: true
+ *                     proxyInfo:
+ *                       type: object
+ *                       nullable: true
+ *                       properties:
+ *                         proxyName:
+ *                           type: string
+ *                           example: "Nguyễn Văn B"
+ *                         proxyPhone:
+ *                           type: string
+ *                           example: "0901234567"
+ *                         proxyIDCard:
+ *                           type: string
+ *                           example: "079123456789"
+ *                         proxyPhotoUrl:
+ *                           type: string
+ *                           example: "https://example.com/parents/proxy-photos/168910291.jpg"
+ *                         notes:
+ *                           type: string
+ *                           example: "Chú của bé, đi xe Lead đỏ"
+ *       400:
+ *         description: Bad Request (Invalid or expired token)
+ *       401:
+ *         description: Unauthorized
+ *       409:
+ *         description: Conflict (Token already used, or student already fully attended today)
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /teacher/proxy-approvals:
+ *   get:
+ *     summary: Get Proxy Approvals
+ *     description: Retrieve all proxy authorizations for students in the active class assigned to the teacher. Results include parent details.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved the list of proxy approvals
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách đơn đón hộ thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       authorizationId:
+ *                         type: integer
+ *                         example: 15
+ *                       studentId:
+ *                         type: integer
+ *                         example: 120
+ *                       studentName:
+ *                         type: string
+ *                         example: Nguyễn Văn A
+ *                       studentAvatar:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://example.com/avatar.jpg
+ *                       parentId:
+ *                         type: integer
+ *                         example: 56
+ *                       parentName:
+ *                         type: string
+ *                         example: Nguyễn Văn B
+ *                       parentPhone:
+ *                         type: string
+ *                         example: "0987654321"
+ *                       proxyName:
+ *                         type: string
+ *                         example: Lê Thị C
+ *                       proxyPhone:
+ *                         type: string
+ *                         example: "0123456789"
+ *                       proxyIdCard:
+ *                         type: string
+ *                         example: "012345678912"
+ *                       proxyPhotoUrl:
+ *                         type: string
+ *                         nullable: true
+ *                         example: https://example.com/proxy.jpg
+ *                       authorizationDate:
+ *                         type: string
+ *                         example: "2026-07-13"
+ *                       type:
+ *                         type: string
+ *                         example: Temporary
+ *                       notes:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Đón hộ vì đi công tác
+ *                       status:
+ *                         type: string
+ *                         example: Pending
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Internal Server Error
+ * 
+ *   patch:
+ *     summary: Approve Proxy Authorization
+ *     description: Approve a pending proxy authorization for a student.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - authorizationId
+ *             properties:
+ *               authorizationId:
+ *                 type: integer
+ *                 example: 15
+ *     responses:
+ *       200:
+ *         description: Successfully approved proxy authorization
+ *       400:
+ *         description: Bad Request (Missing or invalid authorizationId)
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Proxy authorization not found or not in Pending status
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /teacher/attendance/upload-photo:
+ *   post:
+ *     summary: Upload Photo Attendance
+ *     description: Tải ảnh lên để điểm danh học sinh (2 chiều). Nếu chưa điểm danh hoặc chưa có ảnh đầu ngày, hệ thống lưu vào `dropoffImage`. Nếu đã có `dropoffImage`, hệ thống lưu vào `pickupImage`. Nếu đã điểm danh cả 2 lần, hệ thống trả về lỗi 400.
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - photo
+ *               - studentId
+ *               - classId
+ *             properties:
+ *               photo:
+ *                 type: string
+ *                 format: binary
+ *                 description: File ảnh chụp
+ *               studentId:
+ *                 type: integer
+ *                 description: ID của học sinh
+ *               classId:
+ *                 type: integer
+ *                 description: ID của lớp học
+ *     responses:
+ *       201:
+ *         description: Successfully uploaded photo attendance (dropoff or pickup)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 201
+ *                 message:
+ *                   type: string
+ *                   example: Điểm danh bằng hình ảnh thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     photoUrl:
+ *                       type: string
+ *                     studentId:
+ *                       type: integer
+ *                     time:
+ *                       type: string
+ *                     type:
+ *                       type: string
+ *                       example: dropoff
+ *       400:
+ *         description: Bad request (missing file, invalid ids, or already attended twice today)
+ *       403:
+ *         description: Forbidden (teacher is not assigned to this class)
+ *       500:
+ *         description: Internal server error
  */

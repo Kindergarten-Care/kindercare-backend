@@ -159,6 +159,13 @@ router.get(
   healthController.listDevelopmentAssessments
 );
 
+router.get(
+  '/classes/:classId/student-health/assessments/history',
+  healthValidation.validateClassIdParam,
+  healthValidation.validateDevelopmentAssessmentHistory,
+  healthController.getDevelopmentAssessmentHistory
+);
+
 router.put(
   '/classes/:classId/student-health/assessments',
   healthValidation.validateClassIdParam,

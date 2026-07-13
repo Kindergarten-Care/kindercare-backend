@@ -35,15 +35,18 @@ app.use(
     crossOriginResourcePolicy: false,
   })
 );
+const allowedOrigins = [
+  /^http:\/\/localhost(:\d+)?$/,
+  /^https:\/\/[a-z0-9-]+\.kindercare\.app$/,
+];
+
+if (process.env.CLIENT_URL) {
+  const envOrigins = process.env.CLIENT_URL.split(',').map(o => o.trim()).filter(Boolean);
+  allowedOrigins.push(...envOrigins);
+}
+
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:3002',
-    'http://localhost:3005',
-    'https://web-test.kindercare.app',
-    'https://web.kindercare.app',
-  ],
+  origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],

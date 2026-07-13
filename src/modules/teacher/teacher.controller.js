@@ -467,6 +467,43 @@ export const getClassMenu = async (req, res, next) => {
 };
 
 /**
+ * Get class meal menu for an entire week
+ */
+export const getWeeklyMenu = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { classId } = req.params;
+    const { date } = req.query;
+
+    const numericClassId = Number(classId);
+
+    // Security check: teacher must be assigned to this class
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền xem thông tin thực đơn của lớp này');
+    }
+
+    // Calculate target date timestamp (seconds) at start of day in UTC
+    let targetTimestamp;
+    if (date) {
+      const d = new Date(Number(date) * 1000);
+      targetTimestamp = Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 1000);
+    } else {
+      const today = new Date();
+      targetTimestamp = Math.floor(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / 1000);
+    }
+
+    const menuData = await teacherService.getWeeklyMenu(numericClassId, targetTimestamp);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, menuData, 'Lấy thực đơn tuần thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Mass submit/update student meal logs for a class
  */
 export const submitQuickMealLogs = async (req, res, next) => {
@@ -1199,7 +1236,69 @@ export const awardWeeklyRewards = async (req, res, next) => {
   }
 };
 
+/**
+ * Get pending proxy approvals
+ */
+export const getProxyApprovals = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
 
+    const activeClass = await teacherService.getTeacherActiveClass(teacherId);
+    if (!activeClass) {
+      return res.status(httpStatus.OK).json(
+        new ApiResponse(httpStatus.OK, [], 'Giáo viên chưa được phân lớp')
+      );
+    }
+
+    const approvals = await teacherService.getProxyApprovals(activeClass.classId);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, approvals, 'Lấy danh sách đơn đón hộ thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Update proxy authorization status
+ */
+export const updateProxyApproval = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { authorizationId, status } = req.body;
+
+    if (!authorizationId) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'authorizationId là bắt buộc');
+    }
+    
+    if (!status) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'status là bắt buộc (Pending, Approved, Rejected)');
+    }
+
+    // Map status from potential frontend/vietnamese values to DB standard values
+    let dbStatus = status;
+    if (status === 'Đã duyệt' || status === 'Approved') dbStatus = 'Approved';
+    if (status === 'Không duyệt' || status === 'Từ chối' || status === 'Rejected') dbStatus = 'Rejected';
+    if (status === 'Chờ duyệt' || status === 'Pending') dbStatus = 'Pending';
+
+    const validStatuses = ['Approved', 'Rejected', 'Pending'];
+    if (!validStatuses.includes(dbStatus)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Trạng thái không hợp lệ (hỗ trợ: Pending, Approved, Rejected)');
+    }
+
+    const success = await teacherService.updateProxyAuthorizationStatus(authorizationId, dbStatus);
+    if (!success) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy đơn đón hộ');
+    }
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, { authorizationId, status: dbStatus }, 'Cập nhật trạng thái đơn đón hộ thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
 
 /**
  * Update daily schedule status
@@ -1347,4 +1446,33 @@ export const updateClassMenu = async (req, res, next) => {
   }
 };
 
+/**
+ * Upload Photo Attendance
+ */
+export const uploadPhotoAttendance = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { studentId, classId } = req.body;
 
+    if (!req.file) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng chọn một file ảnh');
+    }
+
+    const numericStudentId = Number(studentId);
+    const numericClassId = Number(classId);
+
+    // Security check
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền thực hiện điểm danh lớp này');
+    }
+
+    const result = await teacherService.submitPhotoAttendance(req.file, numericStudentId, numericClassId, teacherId);
+
+    res.status(httpStatus.CREATED).json(
+      new ApiResponse(httpStatus.CREATED, result, 'Điểm danh bằng hình ảnh thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
