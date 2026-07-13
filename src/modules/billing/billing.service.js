@@ -472,6 +472,49 @@ export const publishInvoicesForMonth = async (billingMonth) => {
 };
 
 /**
+ * Công khai 1 tập hóa đơn TUITION/MONTHLY nháp được chọn tùy ý (bulk-select
+ * trên UI) — không phải toàn bộ tháng, không phải chỉ 1 cái. ID nào không hợp
+ * lệ (không tồn tại, EXTRACURRICULAR, hoặc đã publish rồi) bị bỏ qua thay vì
+ * làm hỏng cả batch — trả về rõ đã công khai được gì và bỏ qua gì để FE báo
+ * lại cho hiệu trưởng.
+ * @param {number[]} invoiceIds
+ * @returns {Promise<{publishedCount: number, publishedIds: number[], skippedIds: number[]}>}
+ */
+export const publishSelectedInvoices = async (invoiceIds) => {
+  const uniqueIds = [...new Set(invoiceIds)];
+
+  const [rows] = await pool.query(
+    `SELECT InvoiceID, InvoiceType, Published FROM Invoices WHERE InvoiceID IN (?)`,
+    [uniqueIds]
+  );
+  const rowById = new Map(rows.map((r) => [r.InvoiceID, r]));
+
+  const publishableIds = [];
+  const skippedIds = [];
+  for (const id of uniqueIds) {
+    const row = rowById.get(id);
+    if (!row || row.InvoiceType === 'EXTRACURRICULAR' || row.Published) {
+      skippedIds.push(id);
+    } else {
+      publishableIds.push(id);
+    }
+  }
+
+  if (publishableIds.length === 0) {
+    return { publishedCount: 0, publishedIds: [], skippedIds };
+  }
+
+  await pool.query(
+    `UPDATE Invoices
+     SET Published = 1, PublishedAt = UNIX_TIMESTAMP(), DueDate = UNIX_TIMESTAMP() + 10 * 86400
+     WHERE InvoiceID IN (?)`,
+    [publishableIds]
+  );
+
+  return { publishedCount: publishableIds.length, publishedIds: publishableIds, skippedIds };
+};
+
+/**
  * Công khai 1 hóa đơn TUITION/MONTHLY nháp riêng lẻ (sau khi hiệu trưởng đã
  * sửa surcharge/due-date cho đúng). Không áp dụng cho EXTRACURRICULAR (luôn
  * Published=1 sẵn từ lúc tạo) hoặc hóa đơn đã publish trước đó.
