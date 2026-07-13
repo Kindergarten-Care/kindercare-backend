@@ -536,6 +536,8 @@
  *                           phoneNumber: { type: string, example: "0909090909" }
  *                           email: { type: string, nullable: true, example: "tuan.nguyen@gmail.com" }
  *                           avatarUrl: { type: string, nullable: true, example: "https://media.kindercare.app/parents/parents-profile-avatar/xxx.jpg" }
+ *                           occupation: { type: string, nullable: true, description: "Nghề nghiệp (Parents.Job)", example: "Kỹ sư" }
+ *                           address: { type: string, nullable: true, example: "65 Huỳnh Thúc Kháng, Q1" }
  *                           relationship: { type: string, example: "Bố" }
  *                           isPrimary: { type: integer, description: "1 = phụ huynh chính, 0 = phụ huynh phụ", example: 1 }
  *       400:
