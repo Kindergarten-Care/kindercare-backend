@@ -988,7 +988,6 @@ export const submitClassAssessments = async (req, res, next) => {
         languageScore,
         emotionalScore,
         aestheticScore,
-        lifeSkillsScore,
         notes,
       } = item;
 
@@ -1000,7 +999,7 @@ export const submitClassAssessments = async (req, res, next) => {
       await teacherService.upsertStudentAssessment(
         studentId, month,
         physicalScore, cognitiveScore, languageScore,
-        emotionalScore, aestheticScore, lifeSkillsScore, notes
+        emotionalScore, aestheticScore, notes
       );
 
       const [parentIds, studentInfo] = await Promise.all([
@@ -1037,7 +1036,6 @@ export const submitClassAssessments = async (req, res, next) => {
  *   languageScore: number,    // 1-10
  *   emotionalScore: number,   // 1-10
  *   aestheticScore: number,   // 1-10
- *   lifeSkillsScore: number, // 1-10
  *   notes?: string
  * }
  */
@@ -1052,7 +1050,6 @@ export const submitAssessments = async (req, res, next) => {
       languageScore,
       emotionalScore,
       aestheticScore,
-      lifeSkillsScore,
       notes,
     } = req.body;
     const classId = Number(req.body.classId);
@@ -1074,7 +1071,7 @@ export const submitAssessments = async (req, res, next) => {
     await teacherService.upsertStudentAssessment(
       studentId, month,
       physicalScore, cognitiveScore, languageScore,
-      emotionalScore, aestheticScore, lifeSkillsScore, notes
+      emotionalScore, aestheticScore, notes
     );
 
     const [parentIds, studentInfo] = await Promise.all([
