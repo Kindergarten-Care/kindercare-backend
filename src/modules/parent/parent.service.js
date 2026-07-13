@@ -1233,12 +1233,19 @@ export const getStudentWeeklyTimetable = async (studentId, dateParam = null) => 
  * @returns {Promise<Object>} Object containing classId and daily events array
  */
 export const getStudentDailyEvents = async (studentId, startDateStr, endDateStr = null) => {
-  // 1. Get ClassID of the student
-  const [studentRows] = await pool.query('SELECT ClassID FROM Students WHERE StudentID = ?', [studentId]);
+  // 1. Get ClassID (and its YearID, để lọc Holidays theo đúng năm học) của học sinh
+  const [studentRows] = await pool.query(
+    `SELECT s.ClassID, c.YearID
+     FROM Students s
+     LEFT JOIN Classes c ON s.ClassID = c.ClassID
+     WHERE s.StudentID = ?`,
+    [studentId]
+  );
   if (studentRows.length === 0) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy học sinh');
   }
   const classId = studentRows[0].ClassID;
+  const yearId = studentRows[0].YearID;
 
   // 2. Convert date string (YYYY-MM-DD) to startOfDay and endOfDay local (GMT+7) Unix timestamps in seconds
   const [startYear, startMonth, startDay] = startDateStr.split('-').map(Number);
@@ -1281,9 +1288,28 @@ export const getStudentDailyEvents = async (studentId, startDateStr, endDateStr 
 
   const [events] = await pool.query(query, [endOfDay, startOfDay, classId || null, studentId]);
 
+  // 4. Ngày nghỉ lễ (Holidays) trong khoảng ngày được chọn — bảng riêng, không liên kết
+  // với Events, nên lọc/trả về tách biệt. Học sinh chưa có lớp (yearId=null) thì không
+  // xác định được năm học nào để lọc, trả về mảng rỗng thay vì lấy Holidays của mọi năm.
+  let holidays = [];
+  if (yearId) {
+    const [holidayRows] = await pool.query(
+      `SELECT
+         HolidayID   AS holidayId,
+         HolidayDate AS holidayDate,
+         HolidayName AS holidayName
+       FROM Holidays
+       WHERE YearID = ? AND HolidayDate BETWEEN ? AND ?
+       ORDER BY HolidayDate ASC`,
+      [yearId, startOfDay, endOfDay]
+    );
+    holidays = holidayRows;
+  }
+
   return {
     classId,
-    events
+    events,
+    holidays
   };
 };
 
