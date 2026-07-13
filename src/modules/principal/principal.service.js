@@ -8,6 +8,8 @@ import { Readable } from 'stream';
 import { sendPushToUser } from '../notification/notification.service.js';
 import logger from '../../config/logger.js';
 import { getWeeksByMonthly } from '../teacher/sub/weeklySchedule.service.js';
+import { getMealRefundBreakdown } from '../billing/billing.service.js';
+import { addMonths } from '../../utils/dateHelpers.js';
 
 /**
  * Lấy thông tin profile của hiệu trưởng theo PrincipalID.
@@ -294,6 +296,9 @@ export const getStudentDetail = async (id) => {
       p.FullName       AS fullName,
       p.PhoneNumber    AS phoneNumber,
       p.Email          AS email,
+      p.AvatarURL      AS avatarUrl,
+      p.Job            AS occupation,
+      p.Address        AS address,
       sp.Relationship  AS relationship,
       sp.IsPrimary     AS isPrimary
     FROM StudentParents sp
@@ -869,7 +874,7 @@ export const updatePaymentPackage = async (packageId, { name, duration, discount
   return result.affectedRows > 0;
 };
 
-export const getInvoices = async ({ studentId, billingMonth, paymentStatus, invoiceType } = {}) => {
+export const getInvoices = async ({ studentId, billingMonth, paymentStatus, invoiceType, published } = {}) => {
   const conditions = [];
   const params = [];
 
@@ -888,6 +893,10 @@ export const getInvoices = async ({ studentId, billingMonth, paymentStatus, invo
   if (invoiceType) {
     conditions.push('i.InvoiceType = ?');
     params.push(invoiceType);
+  }
+  if (published !== undefined) {
+    conditions.push('i.Published = ?');
+    params.push(published ? 1 : 0);
   }
 
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -914,6 +923,8 @@ export const getInvoices = async ({ studentId, billingMonth, paymentStatus, invo
       i.InvoiceType as invoiceType,
       i.CreatedAt as createdAt,
       i.DueDate as dueDate,
+      i.Published as published,
+      i.PublishedAt as publishedAt,
       i.ReminderSentAt as reminderSentAt,
       i.OverdueReminderSentAt as overdueReminderSentAt
     FROM Invoices i
@@ -950,6 +961,8 @@ export const getInvoiceDetail = async (invoiceId) => {
       i.InvoiceType as invoiceType,
       i.CreatedAt as createdAt,
       i.DueDate as dueDate,
+      i.Published as published,
+      i.PublishedAt as publishedAt,
       i.ReminderSentAt as reminderSentAt,
       i.OverdueReminderSentAt as overdueReminderSentAt
     FROM Invoices i
@@ -974,7 +987,17 @@ export const getInvoiceDetail = async (invoiceId) => {
     ORDER BY TransactionDate DESC
   `, [invoiceId]);
 
-  return { ...rows[0], transactions };
+  const invoice = rows[0];
+
+  // Breakdown hoàn tiền ăn (nghỉ có phép) — chỉ có ý nghĩa với hóa đơn MONTHLY,
+  // vì đây là loại duy nhất có RefundAmount do trừ tiền ăn tháng trước.
+  let mealRefundBreakdown = null;
+  if (invoice.invoiceType === 'MONTHLY' && invoice.studentId) {
+    const prevMonth = addMonths(invoice.billingMonth, -1);
+    mealRefundBreakdown = await getMealRefundBreakdown(invoice.studentId, prevMonth);
+  }
+
+  return { ...invoice, mealRefundBreakdown, transactions };
 };
 
 export const enrollStudent = async ({ student, parent, account, isNewParent, packageId }) => {
@@ -1004,8 +1027,8 @@ export const enrollStudent = async ({ student, parent, account, isNewParent, pac
 
     // 3. Create Student
     const [studentResult] = await connection.query(
-      'INSERT INTO Students (FullName, DateOfBirth, Gender, Allergies, AdmissionDate, EnrollmentStatus, ClassID) VALUES (?, ?, ?, ?, ?, "Active", NULL)',
-      [student.fullName, student.dateOfBirth, student.gender, student.allergies, student.admissionDate]
+      'INSERT INTO Students (FullName, DateOfBirth, Gender, Allergies, AdmissionDate, EnrollmentStatus, AvatarURL, ClassID) VALUES (?, ?, ?, ?, ?, "Active", ?, NULL)',
+      [student.fullName, student.dateOfBirth, student.gender, student.allergies, student.admissionDate, student.avatarUrl || null]
     );
     const studentId = studentResult.insertId;
 

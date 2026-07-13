@@ -25,9 +25,9 @@ const registerTuitionPlan = async (req, res, next) => {
 
 const runMonthlyBilling = async (req, res, next) => {
   try {
-    const { billingMonth } = req.body;
+    const { billingMonth, partialMonth } = req.body;
 
-    const result = await billingService.runMonthlyBilling(billingMonth);
+    const result = await billingService.runMonthlyBilling(billingMonth, Boolean(partialMonth));
 
     res.status(httpStatus.OK).json(
       new ApiResponse(httpStatus.OK, result, 'Chạy hóa đơn hàng tháng thành công')
@@ -83,9 +83,68 @@ const updateDueDate = async (req, res, next) => {
   }
 };
 
+const publishInvoicesForMonth = async (req, res, next) => {
+  try {
+    const { billingMonth } = req.body;
+
+    if (!billingMonth) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng cung cấp billingMonth (định dạng MM-YYYY)');
+    }
+
+    const result = await billingService.publishInvoicesForMonth(billingMonth);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, result, `Đã công khai ${result.publishedCount} hóa đơn`)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const publishInvoice = async (req, res, next) => {
+  try {
+    const { invoiceId } = req.params;
+    const invoiceIdVal = parseInt(invoiceId, 10);
+
+    const invoice = await billingService.publishInvoice(invoiceIdVal);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, { invoice }, 'Công khai hóa đơn thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const publishSelectedInvoices = async (req, res, next) => {
+  try {
+    const { invoiceIds } = req.body;
+
+    if (!Array.isArray(invoiceIds) || invoiceIds.length === 0) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng chọn ít nhất 1 hóa đơn để công khai');
+    }
+
+    const parsedIds = invoiceIds.map((id) => parseInt(id, 10));
+    if (parsedIds.some((id) => Number.isNaN(id))) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'invoiceIds phải là mảng số nguyên');
+    }
+
+    const result = await billingService.publishSelectedInvoices(parsedIds);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, result, `Đã công khai ${result.publishedCount} hóa đơn`)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   registerTuitionPlan,
   runMonthlyBilling,
   addSurcharge,
   updateDueDate,
+  publishInvoicesForMonth,
+  publishInvoice,
+  publishSelectedInvoices,
 };

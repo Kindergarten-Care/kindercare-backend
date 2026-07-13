@@ -101,16 +101,15 @@ const getPackageById = async (packageId) => {
  */
 export const generateTuitionInvoice = async (plan, pkg, billingMonth) => {
   const { tuitionFee, discountAmount, periodRange } = tuitionForCycle(plan, pkg, billingMonth);
-  const dueDate = getDueDate(billingMonth);
 
   try {
     const [result] = await pool.query(
       `INSERT INTO Invoices
-         (StudentID, PackageID, PeriodRange, BillingMonth, TuitionFee, DiscountAmount, InvoiceType, DueDate)
-       VALUES (?, ?, ?, ?, ?, ?, 'TUITION', ?)`,
-      [plan.StudentID, plan.PackageID, periodRange, billingMonth, tuitionFee, discountAmount, dueDate]
+         (StudentID, PackageID, PeriodRange, BillingMonth, TuitionFee, DiscountAmount, InvoiceType, DueDate, Published)
+       VALUES (?, ?, ?, ?, ?, ?, 'TUITION', NULL, 0)`,
+      [plan.StudentID, plan.PackageID, periodRange, billingMonth, tuitionFee, discountAmount]
     );
-    return { invoiceId: result.insertId, tuitionFee, discountAmount, periodRange, billingMonth, dueDate };
+    return { invoiceId: result.insertId, tuitionFee, discountAmount, periodRange, billingMonth };
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') {
       return null;
@@ -156,25 +155,28 @@ export const registerTuitionPlan = async (studentId, packageId, startMonth) => {
 };
 
 /**
- * Số ngày công (T2–T6, trừ ngày lễ) trong 1 tháng.
+ * Số ngày công (T2–T6, trừ ngày lễ) trong 1 tháng, hoặc chỉ tính đến 1 ngày
+ * mốc (dùng cho chế độ demo/test giữa tháng — xem `partialUntilDay`).
  * @param {string} billingMonth - 'MM-YYYY'
+ * @param {number} [partialUntilDay] - nếu có, chỉ tính ngày 1 → ngày này (bao gồm), thay vì cả tháng
  * @returns {Promise<number>}
  */
-export const workingDays = async (billingMonth) => {
+export const workingDays = async (billingMonth, partialUntilDay) => {
   const { month, year, daysInMonth } = parseMonthKeyToRange(billingMonth);
+  const lastDay = partialUntilDay ? Math.min(partialUntilDay, daysInMonth) : daysInMonth;
 
   let weekdayCount = 0;
-  for (let d = 1; d <= daysInMonth; d++) {
+  for (let d = 1; d <= lastDay; d++) {
     const dayOfWeek = new Date(year, month - 1, d).getDay(); // 0=Sun..6=Sat
     if (dayOfWeek >= 1 && dayOfWeek <= 5) weekdayCount++;
   }
 
   const monthStartSec = Math.floor(new Date(year, month - 1, 1).getTime() / 1000) - TZ_OFFSET_SECONDS;
-  const monthEndSec = Math.floor(new Date(year, month - 1, daysInMonth, 23, 59, 59).getTime() / 1000) - TZ_OFFSET_SECONDS;
+  const rangeEndSec = Math.floor(new Date(year, month - 1, lastDay, 23, 59, 59).getTime() / 1000) - TZ_OFFSET_SECONDS;
 
   const [holidayRows] = await pool.query(
     'SELECT HolidayDate FROM Holidays WHERE HolidayDate BETWEEN ? AND ?',
-    [monthStartSec, monthEndSec]
+    [monthStartSec, rangeEndSec]
   );
 
   let holidayWeekdayCount = 0;
@@ -207,28 +209,38 @@ const getDailyMealFeeForStudent = async (studentId) => {
 };
 
 /**
- * Tiền ăn dự kiến (thu trước) cho 1 học sinh trong 1 tháng.
+ * Tiền ăn dự kiến cho 1 học sinh trong 1 tháng.
+ * - Chế độ bình thường (bỏ `partialUntilDay`): thu trước cả tháng (hành vi cron thật, ngày 1).
+ * - Chế độ partial (`partialUntilDay` = ngày trong tháng, dùng khi demo/test trigger giữa
+ *   tháng): chỉ tính (ngày công từ ngày 1 → partialUntilDay) trừ (ngày nghỉ có phép cùng
+ *   khoảng đó) — tức thu theo thực tế đã diễn ra tính đến lúc chạy, không thu trước nữa.
  * @param {number} studentId
  * @param {string} billingMonth - 'MM-YYYY'
+ * @param {number} [partialUntilDay]
  */
-export const expectedMealFee = async (studentId, billingMonth) => {
-  const [days, dailyFee] = await Promise.all([
-    workingDays(billingMonth),
+export const expectedMealFee = async (studentId, billingMonth, partialUntilDay) => {
+  const [days, deductedDays, dailyFee] = await Promise.all([
+    workingDays(billingMonth, partialUntilDay),
+    partialUntilDay ? deductedMealDaysForMonth(studentId, billingMonth, partialUntilDay) : Promise.resolve(0),
     getDailyMealFeeForStudent(studentId),
   ]);
-  return days * dailyFee;
+  return Math.max(days - deductedDays, 0) * dailyFee;
 };
 
 /**
- * Tiền hoàn tiền ăn của tháng trước (nghỉ có phép, được miễn tiền ăn).
- * Đơn nghỉ đã auto-Approved sẵn — chỉ cần lọc IsMealFeeDeducted=1.
+ * Số ngày công bị trừ tiền ăn do nghỉ có phép (IsMealFeeDeducted=1), trong
+ * khoảng ngày 1 → hết tháng (mặc định) hoặc ngày 1 → `untilDay` (nếu có).
+ * Đơn nghỉ đã auto-Approved sẵn — chỉ cần lọc theo cờ này.
  * @param {number} studentId
- * @param {string} prevMonth - 'MM-YYYY'
+ * @param {string} monthKey - 'MM-YYYY'
+ * @param {number} [untilDay] - giới hạn khoảng tính đến ngày này trong tháng (bao gồm)
+ * @returns {Promise<number>}
  */
-export const refundForPrevMonth = async (studentId, prevMonth) => {
-  const { month, year, daysInMonth } = parseMonthKeyToRange(prevMonth);
+const deductedMealDaysForMonth = async (studentId, monthKey, untilDay) => {
+  const { month, year, daysInMonth } = parseMonthKeyToRange(monthKey);
+  const lastDay = untilDay ? Math.min(untilDay, daysInMonth) : daysInMonth;
   const monthStartSec = Math.floor(new Date(year, month - 1, 1).getTime() / 1000) - TZ_OFFSET_SECONDS;
-  const monthEndSec = Math.floor(new Date(year, month - 1, daysInMonth, 23, 59, 59).getTime() / 1000) - TZ_OFFSET_SECONDS;
+  const monthEndSec = Math.floor(new Date(year, month - 1, lastDay, 23, 59, 59).getTime() / 1000) - TZ_OFFSET_SECONDS;
 
   const [rows] = await pool.query(
     `SELECT FromDate, ToDate
@@ -237,10 +249,6 @@ export const refundForPrevMonth = async (studentId, prevMonth) => {
        AND FromDate <= ? AND ToDate >= ?`,
     [studentId, monthEndSec, monthStartSec]
   );
-
-  if (rows.length === 0) return 0;
-
-  const dailyFee = await getDailyMealFeeForStudent(studentId);
 
   let deductedDays = 0;
   for (const row of rows) {
@@ -253,37 +261,69 @@ export const refundForPrevMonth = async (studentId, prevMonth) => {
     }
   }
 
+  return deductedDays;
+};
+
+/**
+ * Tiền hoàn tiền ăn của tháng trước (nghỉ có phép, được miễn tiền ăn).
+ * @param {number} studentId
+ * @param {string} prevMonth - 'MM-YYYY'
+ * @returns {Promise<number>}
+ */
+export const refundForPrevMonth = async (studentId, prevMonth) => {
+  const deductedDays = await deductedMealDaysForMonth(studentId, prevMonth);
+  if (deductedDays === 0) return 0;
+
+  const dailyFee = await getDailyMealFeeForStudent(studentId);
   return deductedDays * dailyFee;
+};
+
+/**
+ * Breakdown hoàn tiền ăn của tháng trước — dùng để hiển thị chi tiết hóa đơn
+ * (không phải để tạo hóa đơn). Tính lại real-time từ LeaveRequests hiện có +
+ * DailyMealFee HIỆN TẠI, nên nếu BaseFees đã đổi sau khi hóa đơn được tạo,
+ * `refundAmount` ở đây có thể lệch nhẹ so với `Invoices.RefundAmount` đã lưu
+ * (dùng giá tại thời điểm tạo) — deductedDays vẫn chính xác vì dữ liệu nghỉ
+ * không đổi theo thời gian.
+ * @param {number} studentId
+ * @param {string} prevMonth - 'MM-YYYY'
+ * @returns {Promise<{deductedDays: number, dailyFee: number, refundAmount: number}>}
+ */
+export const getMealRefundBreakdown = async (studentId, prevMonth) => {
+  const [deductedDays, dailyFee] = await Promise.all([
+    deductedMealDaysForMonth(studentId, prevMonth),
+    getDailyMealFeeForStudent(studentId),
+  ]);
+  return { deductedDays, dailyFee, refundAmount: deductedDays * dailyFee };
 };
 
 /**
  * Tạo 1 phiếu thu HÀNG THÁNG cho 1 học sinh (idempotent — bỏ qua nếu đã tồn tại).
  * @param {number} studentId
  * @param {string} billingMonth - 'MM-YYYY'
+ * @param {number} [partialUntilDay] - chế độ demo/test: chỉ tính tiền ăn ngày 1 → ngày này
  * @returns {Promise<object|null>} invoice đã tạo, hoặc null nếu đã tồn tại
  */
-export const generateMonthlyInvoice = async (studentId, billingMonth) => {
+export const generateMonthlyInvoice = async (studentId, billingMonth, partialUntilDay) => {
   const prevMonth = addMonths(billingMonth, -1);
 
   const [meal, refund] = await Promise.all([
-    expectedMealFee(studentId, billingMonth),
+    expectedMealFee(studentId, billingMonth, partialUntilDay),
     refundForPrevMonth(studentId, prevMonth),
   ]);
-  const dueDate = getDueDate(billingMonth);
 
   try {
     const [result] = await pool.query(
       `INSERT INTO Invoices
-         (StudentID, BillingMonth, ExpectedMealFee, Surcharge, RefundAmount, InvoiceType, DueDate)
-       VALUES (?, ?, ?, 0, ?, 'MONTHLY', ?)`,
-      [studentId, billingMonth, meal, refund, dueDate]
+         (StudentID, BillingMonth, ExpectedMealFee, Surcharge, RefundAmount, InvoiceType, DueDate, Published)
+       VALUES (?, ?, ?, 0, ?, 'MONTHLY', NULL, 0)`,
+      [studentId, billingMonth, meal, refund]
     );
     return {
       invoiceId: result.insertId,
       billingMonth,
       expectedMealFee: meal,
       refundAmount: refund,
-      dueDate,
     };
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') {
@@ -297,10 +337,26 @@ export const generateMonthlyInvoice = async (studentId, billingMonth) => {
  * Cron đầu tháng — chạy cho toàn trường. Với mỗi học sinh có plan Active:
  * tới kỳ → tạo hóa đơn TUITION; luôn tạo phiếu MONTHLY. Idempotent nhờ
  * UNIQUE(StudentID, BillingMonth, InvoiceType) — chạy lại không tạo trùng.
+ *
+ * `partialMonth=true` là chế độ demo/test khi trigger thủ công giữa tháng
+ * (không phải hành vi của cron thật): ExpectedMealFee sẽ tính theo số ngày
+ * công đã thực sự trôi qua từ ngày 1 đến HÔM NAY (trừ ngày nghỉ có phép cùng
+ * khoảng đó), thay vì thu trước cả tháng như bình thường. Chỉ có tác dụng khi
+ * `billingMonth` trùng đúng tháng/năm hiện tại của server — nếu billingMonth
+ * là tháng khác (quá khứ/tương lai), "ngày hôm nay" không có ý nghĩa trong
+ * tháng đó nên vẫn tính cả tháng như hành vi gốc, cờ này bị bỏ qua.
  * @param {string} [billingMonth] - 'MM-YYYY', default = tháng hiện tại
+ * @param {boolean} [partialMonth] - true = demo/test tính theo ngày đã trôi qua
  */
-export const runMonthlyBilling = async (billingMonth) => {
-  const resolvedBillingMonth = billingMonth || getMonthKey(Math.floor(Date.now() / 1000));
+export const runMonthlyBilling = async (billingMonth, partialMonth = false) => {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const localNow = new Date((nowSec + TZ_OFFSET_SECONDS) * 1000);
+  const currentMonthKey = getMonthKey(nowSec + TZ_OFFSET_SECONDS);
+  const resolvedBillingMonth = billingMonth || currentMonthKey;
+
+  const partialUntilDay = (partialMonth && resolvedBillingMonth === currentMonthKey)
+    ? localNow.getUTCDate()
+    : undefined;
 
   const [plans] = await pool.query(
     `SELECT stp.PlanID, stp.StudentID, stp.PackageID, stp.StartMonth, stp.MonthlyTuitionSnapshot,
@@ -337,7 +393,7 @@ export const runMonthlyBilling = async (billingMonth) => {
         else skipped++;
       }
 
-      const monthlyInvoice = await generateMonthlyInvoice(row.StudentID, resolvedBillingMonth);
+      const monthlyInvoice = await generateMonthlyInvoice(row.StudentID, resolvedBillingMonth, partialUntilDay);
       if (monthlyInvoice) monthlyCount++;
       else skipped++;
     } catch (error) {
@@ -360,6 +416,8 @@ export const runMonthlyBilling = async (billingMonth) => {
     generated: { tuition: tuitionCount, monthly: monthlyCount, extracurricular: extracurricularCount },
     skipped,
     failedStudentIds,
+    partialMonth: partialUntilDay !== undefined,
+    partialUntilDay: partialUntilDay ?? null,
   };
 };
 
@@ -415,6 +473,8 @@ const getInvoiceById = async (invoiceId) => {
 
 /**
  * Thêm phụ thu vào 1 hóa đơn (cộng dồn vào Surcharge hiện có).
+ * Tính lại PaymentStatus ngay sau đó vì Surcharge làm TotalAmount (generated
+ * column) tăng — invoice đã Paid trước đó có thể rơi về Partial/Unpaid.
  * @param {number} invoiceId
  * @param {number} amount
  * @param {string} [note]
@@ -426,6 +486,8 @@ export const addSurcharge = async (invoiceId, amount, note) => {
     'UPDATE Invoices SET Surcharge = Surcharge + ? WHERE InvoiceID = ?',
     [amount, invoiceId]
   );
+
+  await recalculateInvoicePaymentStatus(invoiceId);
 
   return getInvoiceById(invoiceId);
 };
@@ -443,6 +505,97 @@ export const updateDueDate = async (invoiceId, dueDate) => {
   await pool.query(
     'UPDATE Invoices SET DueDate = ?, ReminderSentAt = NULL, OverdueReminderSentAt = NULL WHERE InvoiceID = ?',
     [dueDate, invoiceId]
+  );
+
+  return getInvoiceById(invoiceId);
+};
+
+/**
+ * Công khai toàn bộ hóa đơn TUITION/MONTHLY nháp (Published=0) của 1 tháng cho
+ * phụ huynh thấy và thanh toán. Hóa đơn EXTRACURRICULAR không thuộc quy trình
+ * duyệt này nên không bị điều kiện InvoiceType đụng tới.
+ * DueDate = thời điểm publish + 10 ngày (không phải ngày 10 cố định của
+ * billingMonth) — để hiệu trưởng publish trễ không làm phụ huynh bị rút ngắn
+ * thời gian đóng tiền.
+ * @param {string} billingMonth - 'MM-YYYY'
+ * @returns {Promise<{billingMonth: string, publishedCount: number}>}
+ */
+export const publishInvoicesForMonth = async (billingMonth) => {
+  const [result] = await pool.query(
+    `UPDATE Invoices
+     SET Published = 1,
+         PublishedAt = UNIX_TIMESTAMP(),
+         DueDate = UNIX_TIMESTAMP() + 10 * 86400
+     WHERE BillingMonth = ? AND InvoiceType IN ('TUITION', 'MONTHLY') AND Published = 0`,
+    [billingMonth]
+  );
+  return { billingMonth, publishedCount: result.affectedRows };
+};
+
+/**
+ * Công khai 1 tập hóa đơn TUITION/MONTHLY nháp được chọn tùy ý (bulk-select
+ * trên UI) — không phải toàn bộ tháng, không phải chỉ 1 cái. ID nào không hợp
+ * lệ (không tồn tại, EXTRACURRICULAR, hoặc đã publish rồi) bị bỏ qua thay vì
+ * làm hỏng cả batch — trả về rõ đã công khai được gì và bỏ qua gì để FE báo
+ * lại cho hiệu trưởng.
+ * @param {number[]} invoiceIds
+ * @returns {Promise<{publishedCount: number, publishedIds: number[], skippedIds: number[]}>}
+ */
+export const publishSelectedInvoices = async (invoiceIds) => {
+  const uniqueIds = [...new Set(invoiceIds)];
+
+  const [rows] = await pool.query(
+    `SELECT InvoiceID, InvoiceType, Published FROM Invoices WHERE InvoiceID IN (?)`,
+    [uniqueIds]
+  );
+  const rowById = new Map(rows.map((r) => [r.InvoiceID, r]));
+
+  const publishableIds = [];
+  const skippedIds = [];
+  for (const id of uniqueIds) {
+    const row = rowById.get(id);
+    if (!row || row.InvoiceType === 'EXTRACURRICULAR' || row.Published) {
+      skippedIds.push(id);
+    } else {
+      publishableIds.push(id);
+    }
+  }
+
+  if (publishableIds.length === 0) {
+    return { publishedCount: 0, publishedIds: [], skippedIds };
+  }
+
+  await pool.query(
+    `UPDATE Invoices
+     SET Published = 1, PublishedAt = UNIX_TIMESTAMP(), DueDate = UNIX_TIMESTAMP() + 10 * 86400
+     WHERE InvoiceID IN (?)`,
+    [publishableIds]
+  );
+
+  return { publishedCount: publishableIds.length, publishedIds: publishableIds, skippedIds };
+};
+
+/**
+ * Công khai 1 hóa đơn TUITION/MONTHLY nháp riêng lẻ (sau khi hiệu trưởng đã
+ * sửa surcharge/due-date cho đúng). Không áp dụng cho EXTRACURRICULAR (luôn
+ * Published=1 sẵn từ lúc tạo) hoặc hóa đơn đã publish trước đó.
+ * @param {number} invoiceId
+ */
+export const publishInvoice = async (invoiceId) => {
+  const invoice = await getInvoiceById(invoiceId);
+
+  if (invoice.InvoiceType === 'EXTRACURRICULAR') {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Hóa đơn ngoại khóa không thuộc quy trình duyệt/công khai');
+  }
+  if (invoice.Published) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Hóa đơn đã được công khai trước đó');
+  }
+
+  await pool.query(
+    `UPDATE Invoices
+     SET Published = 1, PublishedAt = UNIX_TIMESTAMP(), DueDate = UNIX_TIMESTAMP() + 10 * 86400
+     WHERE InvoiceID = ?`,
+    [invoiceId]
   );
 
   return getInvoiceById(invoiceId);
@@ -587,6 +740,7 @@ export const sendPaymentReminders = async (nowSec) => {
     `SELECT i.InvoiceID, i.StudentID, i.DueDate, i.TotalAmount, i.InvoiceType, i.BillingMonth
      FROM Invoices i
      WHERE i.PaymentStatus != 'Paid'
+       AND (i.InvoiceType = 'EXTRACURRICULAR' OR i.Published = 1)
        AND i.DueDate IS NOT NULL
        AND i.DueDate <= ? AND i.DueDate > ?
        AND i.ReminderSentAt IS NULL`,
@@ -597,6 +751,7 @@ export const sendPaymentReminders = async (nowSec) => {
     `SELECT i.InvoiceID, i.StudentID, i.DueDate, i.TotalAmount, i.InvoiceType, i.BillingMonth
      FROM Invoices i
      WHERE i.PaymentStatus != 'Paid'
+       AND (i.InvoiceType = 'EXTRACURRICULAR' OR i.Published = 1)
        AND i.DueDate IS NOT NULL
        AND i.DueDate <= ?
        AND i.OverdueReminderSentAt IS NULL`,

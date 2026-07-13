@@ -535,6 +535,9 @@
  *                           fullName: { type: string, example: "Nguyễn Anh Tuấn" }
  *                           phoneNumber: { type: string, example: "0909090909" }
  *                           email: { type: string, nullable: true, example: "tuan.nguyen@gmail.com" }
+ *                           avatarUrl: { type: string, nullable: true, example: "https://media.kindercare.app/parents/parents-profile-avatar/xxx.jpg" }
+ *                           occupation: { type: string, nullable: true, description: "Nghề nghiệp (Parents.Job)", example: "Kỹ sư" }
+ *                           address: { type: string, nullable: true, example: "65 Huỳnh Thúc Kháng, Q1" }
  *                           relationship: { type: string, example: "Bố" }
  *                           isPrimary: { type: integer, description: "1 = phụ huynh chính, 0 = phụ huynh phụ", example: 1 }
  *       400:
@@ -618,6 +621,193 @@
  *         description: Forbidden - không phải role hiệu trưởng
  *       404:
  *         description: Not Found - không tìm thấy học sinh
+ */
+
+/**
+ * @swagger
+ * /principal/students/upload-avatar:
+ *   post:
+ *     summary: Upload ảnh đại diện học sinh, trả về URL
+ *     description: |
+ *       Upload 1 file ảnh (jpg/jpeg/png/webp/gif, tối đa 20MB) lên DigitalOcean Spaces,
+ *       trả về `avatarUrl` công khai. Endpoint này KHÔNG tự gắn ảnh vào học sinh nào —
+ *       FE gọi endpoint này trước để lấy URL, rồi đưa URL đó vào `student.avatarUrl` khi gọi
+ *       `POST /principal/students/enroll` (tạo mới) hoặc `PATCH /principal/student/{id}`
+ *       (cập nhật học sinh đã tồn tại).
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Student"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [avatar]
+ *             properties:
+ *               avatar:
+ *                 type: string
+ *                 format: binary
+ *                 description: File ảnh (jpg, jpeg, png, webp, gif), tối đa 20MB
+ *     responses:
+ *       200:
+ *         description: Upload thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 statusCode: { type: integer, example: 200 }
+ *                 message: { type: string, example: "Upload ảnh đại diện học sinh thành công" }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     avatarUrl:
+ *                       type: string
+ *                       example: "https://media.kindercare.app/students/avatar/1755000000-123456789.jpg"
+ *       400:
+ *         description: Bad Request - thiếu file, hoặc file không phải ảnh hợp lệ
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       500:
+ *         description: Internal Server Error - lỗi upload lên DigitalOcean Spaces
+ */
+
+/**
+ * @swagger
+ * /principal/students/enroll:
+ *   post:
+ *     summary: Thêm hồ sơ học sinh mới (Wizard Flow)
+ *     description: |
+ *       Tạo hồ sơ học sinh mới, kèm phụ huynh (tạo mới hoặc liên kết phụ huynh đã tồn tại)
+ *       và (tùy chọn) đăng ký gói học phí ngay trong 1 transaction. Học sinh mới tạo
+ *       `EnrollmentStatus = 'Active'`, `ClassID = NULL` — cần xếp lớp riêng qua
+ *       `POST /principal/assignments/students`.
+ *
+ *       Nếu `isNewParent = true`, hệ thống tạo mới tài khoản (`Users` với `RoleID = 4`)
+ *       và bản ghi `Parents` từ object `account`/`parent`. Nếu `isNewParent = false`,
+ *       dùng `parent.id` của phụ huynh đã tồn tại (không tạo tài khoản mới).
+ *
+ *       Nếu có `packageId`, tự động tạo `StudentTuitionPlans` — `MonthlyTuitionSnapshot`
+ *       lấy từ `BaseFees` của **năm học đang active**, `StartMonth` = tháng/năm của
+ *       `student.admissionDate` (định dạng `MM-YYYY`). Không truyền `packageId` thì bỏ qua
+ *       bước này, học sinh vẫn được tạo bình thường (chưa có gói học phí).
+ *
+ *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền thực hiện.
+ *     tags: ["Principal - Student"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [student, parent, isNewParent]
+ *             properties:
+ *               student:
+ *                 type: object
+ *                 required: [fullName, dateOfBirth, gender, admissionDate]
+ *                 properties:
+ *                   fullName:
+ *                     type: string
+ *                     example: "Nguyễn Minh Khang"
+ *                   dateOfBirth:
+ *                     type: integer
+ *                     description: Unix timestamp (seconds)
+ *                     example: 1684108800
+ *                   gender:
+ *                     type: string
+ *                     example: "Nam"
+ *                   allergies:
+ *                     type: string
+ *                     nullable: true
+ *                     example: "Dị ứng lạc"
+ *                   admissionDate:
+ *                     type: integer
+ *                     description: Unix timestamp (seconds) - dùng để tính StartMonth của gói học phí nếu có packageId
+ *                     example: 1754006700
+ *                   avatarUrl:
+ *                     type: string
+ *                     nullable: true
+ *                     description: URL avatar học sinh, lưu vào Students.AvatarURL. Bỏ trống = NULL.
+ *                     example: "https://media.kindercare.app/parents/student-profile-avatar/xxx.jpg"
+ *               parent:
+ *                 type: object
+ *                 description: |
+ *                   Nếu isNewParent=true: cần fullName, phoneNumber, email, occupation, address để tạo Parent mới.
+ *                   Nếu isNewParent=false: chỉ cần id (ParentID) của phụ huynh đã tồn tại.
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     description: ParentID đã tồn tại (bắt buộc khi isNewParent=false)
+ *                     example: 6
+ *                   fullName:
+ *                     type: string
+ *                     example: "Nguyễn Anh Tuấn"
+ *                   phoneNumber:
+ *                     type: string
+ *                     example: "0909090909"
+ *                   email:
+ *                     type: string
+ *                     nullable: true
+ *                     example: "tuan.nguyen@gmail.com"
+ *                   occupation:
+ *                     type: string
+ *                     nullable: true
+ *                     description: Lưu vào Parents.Job
+ *                     example: "Kỹ sư"
+ *                   address:
+ *                     type: string
+ *                     nullable: true
+ *                     example: "65 Huỳnh Thúc Kháng, Q1"
+ *               isNewParent:
+ *                 type: boolean
+ *                 description: true = tạo phụ huynh mới kèm tài khoản; false = liên kết phụ huynh đã tồn tại qua parent.id
+ *                 example: true
+ *               account:
+ *                 type: object
+ *                 description: Bắt buộc khi isNewParent=true - tài khoản đăng nhập cho phụ huynh mới
+ *                 properties:
+ *                   username:
+ *                     type: string
+ *                     example: "0909090909"
+ *                   password:
+ *                     type: string
+ *                     example: "123456"
+ *               packageId:
+ *                 type: integer
+ *                 nullable: true
+ *                 description: Tùy chọn - PackageID gói học phí muốn đăng ký ngay cho học sinh
+ *                 example: 1
+ *     responses:
+ *       201:
+ *         description: Tạo hồ sơ học sinh thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 message: { type: string, example: "Đã tạo hồ sơ học sinh thành công" }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     studentId: { type: integer, example: 150 }
+ *                     parentId: { type: integer, example: 6 }
+ *       400:
+ *         description: Bad Request - thiếu field bắt buộc trong student/parent/account
+ *       401:
+ *         description: Unauthorized - thiếu/không hợp lệ token
+ *       403:
+ *         description: Forbidden - không phải role hiệu trưởng
+ *       500:
+ *         description: Internal Server Error
  */
 
 /**
@@ -1612,6 +1802,15 @@
  *       kèm thêm `transactions[]` — lịch sử giao dịch thanh toán của hóa đơn đó (bảng `Transactions`),
  *       sắp xếp theo `transactionDate` giảm dần.
  *
+ *       Với hóa đơn `invoiceType = 'MONTHLY'`, trả kèm `mealRefundBreakdown` — diễn giải khoản
+ *       `refundAmount` (hoàn tiền ăn do nghỉ có phép trong tháng trước `billingMonth`): số ngày
+ *       công bị trừ, đơn giá tiền ăn/ngày, và số tiền hoàn = deductedDays × dailyFee. Được tính
+ *       lại real-time từ `LeaveRequests` + `BaseFees` hiện hành mỗi lần gọi API (không phải giá
+ *       trị lưu cứng lúc tạo hóa đơn) — nếu học phí cơ bản của lớp đã đổi sau khi hóa đơn được
+ *       tạo, `mealRefundBreakdown.refundAmount` có thể lệch nhẹ so với field `refundAmount` gốc
+ *       (dùng đơn giá tại thời điểm cron chạy), nhưng `deductedDays` luôn chính xác vì dữ liệu
+ *       nghỉ phép không đổi theo thời gian. Với hóa đơn không phải `MONTHLY`, field này là `null`.
+ *
  *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền truy cập.
  *     tags: ["Principal - Fees"]
  *     security:
@@ -1659,8 +1858,29 @@
  *                     invoiceType: { type: string, example: "EXTRACURRICULAR" }
  *                     createdAt: { type: integer, description: "Unix timestamp (seconds)", example: 1783564680 }
  *                     dueDate: { type: integer, nullable: true, description: "Unix timestamp (seconds)", example: 1783616400 }
+ *                     published: { type: integer, description: "0 = nháp (chưa công khai cho phụ huynh), 1 = đã công khai. Luôn 1 với EXTRACURRICULAR.", example: 1 }
+ *                     publishedAt: { type: integer, nullable: true, description: "Unix timestamp (seconds), null nếu chưa publish", example: 1755000000 }
  *                     reminderSentAt: { type: integer, nullable: true, example: null }
  *                     overdueReminderSentAt: { type: integer, nullable: true, example: 1783645200 }
+ *                     mealRefundBreakdown:
+ *                       type: object
+ *                       nullable: true
+ *                       description: "Chỉ có giá trị khi invoiceType='MONTHLY', ngược lại là null"
+ *                       properties:
+ *                         deductedDays:
+ *                           type: integer
+ *                           description: Số ngày công bị trừ tiền ăn do nghỉ có phép trong tháng trước billingMonth
+ *                           example: 3
+ *                         dailyFee:
+ *                           type: number
+ *                           format: float
+ *                           description: Đơn giá tiền ăn/ngày hiện hành (BaseFees.DailyMealFee)
+ *                           example: 60000
+ *                         refundAmount:
+ *                           type: number
+ *                           format: float
+ *                           description: deductedDays × dailyFee (tính real-time, có thể lệch nhẹ so với field refundAmount gốc nếu BaseFees đã đổi)
+ *                           example: 180000
  *                     transactions:
  *                       type: array
  *                       description: Lịch sử giao dịch thanh toán của hóa đơn

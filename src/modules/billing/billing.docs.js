@@ -143,7 +143,23 @@
  * /billing/run-monthly:
  *   post:
  *     summary: Run monthly billing for the whole school
- *     description: For every student with an Active tuition plan, generates a TUITION invoice if the cycle is due, and always generates a MONTHLY invoice. Idempotent — safe to run multiple times for the same billingMonth (relies on UNIQUE(StudentID, BillingMonth, InvoiceType)). Intended for manual triggering during testing; in production it also runs automatically via cron at 00:05 on day 1 of each month.
+ *     description: >
+ *       For every student with an Active tuition plan, generates a TUITION invoice if the cycle
+ *       is due, and always generates a MONTHLY invoice. Generated invoices start as drafts
+ *       (Published=0, DueDate=NULL) — they are invisible to parents until a principal reviews and
+ *       publishes them via PATCH /billing/invoices/publish. Idempotent — safe to run multiple
+ *       times for the same billingMonth (relies on UNIQUE(StudentID, BillingMonth, InvoiceType)).
+ *       Can be called at any time during the month (not just day 1) to demo/test the flow without
+ *       waiting for the real cron — omit billingMonth to default to the current month. This same
+ *       endpoint is also what the cron calls automatically at 00:05 on day 1 of each month.
+ *
+ *       `partialMonth: true` switches ExpectedMealFee to a "as-of-today" calculation instead of
+ *       prepaying the whole month: (working days from day 1 to today) minus (approved leave days
+ *       in that same range), both multiplied by the daily meal fee. This only takes effect when
+ *       `billingMonth` is the server's current month — for a past/future billingMonth there is no
+ *       meaningful "today" inside it, so the flag is silently ignored and the whole-month
+ *       calculation is used instead (same as omitting the flag). Intended for demoing/testing the
+ *       billing flow without waiting for a full month to pass; the real cron never sends this flag.
  *     tags: ["Billing"]
  *     security:
  *       - bearerAuth: []
@@ -158,6 +174,13 @@
  *                 type: string
  *                 description: "'MM-YYYY'. Default = current month."
  *                 example: "08-2026"
+ *               partialMonth:
+ *                 type: boolean
+ *                 description: >
+ *                   Demo/test only. If true AND billingMonth is the current month, ExpectedMealFee
+ *                   is computed from day 1 up to today (minus approved leave days in that range)
+ *                   instead of the whole month. Default false.
+ *                 example: true
  *     responses:
  *       200:
  *         description: Monthly billing run completed
@@ -194,6 +217,15 @@
  *                       type: integer
  *                       description: Count of invoices skipped because they already existed (idempotent re-run)
  *                       example: 0
+ *                     partialMonth:
+ *                       type: boolean
+ *                       description: Whether the as-of-today calculation actually took effect (false if the flag was ignored)
+ *                       example: true
+ *                     partialUntilDay:
+ *                       type: integer
+ *                       nullable: true
+ *                       description: Day-of-month used as the cutoff when partialMonth is true; null otherwise
+ *                       example: 13
  *       401:
  *         description: Unauthorized
  *       403:
@@ -330,6 +362,207 @@
  *                       description: Full updated Invoices row (raw DB column names)
  *       400:
  *         description: Bad Request - missing or invalid dueDate (must be YYYY-MM-DD)
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a principal
+ *       404:
+ *         description: Not Found - invoice not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+// ─────────────────────────────────────────────────────────────
+//  GROUP 5 · Billing - Publish (draft → visible to parents)
+//  PATCH /billing/invoices/publish
+//  PATCH /billing/invoices/publish-selected
+//  PATCH /billing/invoices/:invoiceId/publish
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /billing/invoices/publish:
+ *   patch:
+ *     summary: Publish all draft TUITION/MONTHLY invoices of a billing month
+ *     description: >
+ *       TUITION and MONTHLY invoices are created as drafts (Published=0, DueDate=NULL) by the
+ *       monthly billing cron so a principal can review/correct them (e.g. via the surcharge or
+ *       due-date endpoints) before parents ever see them. This endpoint publishes every remaining
+ *       draft of a given billingMonth: sets Published=1, PublishedAt=now, and DueDate=now+10 days
+ *       — the due date is anchored to the actual publish time, not a fixed day of the billing
+ *       month, so a late review never shortens the parent's payment window. EXTRACURRICULAR
+ *       invoices are never affected — they are published immediately when created and are not
+ *       part of this review workflow.
+ *     tags: ["Billing"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [billingMonth]
+ *             properties:
+ *               billingMonth:
+ *                 type: string
+ *                 description: "'MM-YYYY'"
+ *                 example: "08-2026"
+ *     responses:
+ *       200:
+ *         description: Invoices published successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: "Đã công khai 42 hóa đơn"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     billingMonth:
+ *                       type: string
+ *                       example: "08-2026"
+ *                     publishedCount:
+ *                       type: integer
+ *                       example: 42
+ *       400:
+ *         description: Bad Request - missing billingMonth
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a principal
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /billing/invoices/publish-selected:
+ *   patch:
+ *     summary: Publish an arbitrary set of selected draft TUITION/MONTHLY invoices
+ *     description: >
+ *       Used by the principal's bulk-select UI when only some drafts of a billing month have been
+ *       reviewed and should go out now, while the rest stay as drafts. Unlike
+ *       PATCH /billing/invoices/publish (whole month) or PATCH /billing/invoices/{id}/publish
+ *       (single invoice), this takes an explicit list of invoiceIds. Invalid ids (not found,
+ *       EXTRACURRICULAR, or already published) are silently skipped rather than failing the whole
+ *       batch — check skippedIds in the response to know what was left out. Each published invoice
+ *       gets Published=1, PublishedAt=now, DueDate=now+10 days (computed independently per call,
+ *       not a single shared timestamp for the batch).
+ *     tags: ["Billing"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [invoiceIds]
+ *             properties:
+ *               invoiceIds:
+ *                 type: array
+ *                 minItems: 1
+ *                 items:
+ *                   type: integer
+ *                 example: [53, 54, 60]
+ *     responses:
+ *       200:
+ *         description: Selected invoices published successfully (possibly with some skipped)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: "Đã công khai 3 hóa đơn"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     publishedCount:
+ *                       type: integer
+ *                       example: 3
+ *                     publishedIds:
+ *                       type: array
+ *                       items:
+ *                         type: integer
+ *                       example: [53, 54, 60]
+ *                     skippedIds:
+ *                       type: array
+ *                       description: ids that were not found, EXTRACURRICULAR, or already published
+ *                       items:
+ *                         type: integer
+ *                       example: []
+ *       400:
+ *         description: Bad Request - missing/empty invoiceIds or non-integer values
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a principal
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /billing/invoices/{invoiceId}/publish:
+ *   patch:
+ *     summary: Publish a single draft TUITION/MONTHLY invoice
+ *     description: >
+ *       Use after correcting an individual invoice (surcharge, etc.) instead of publishing the
+ *       whole month. Sets Published=1, PublishedAt=now, DueDate=now+10 days. Rejects
+ *       EXTRACURRICULAR invoices (not part of this workflow) and invoices already published.
+ *     tags: ["Billing"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: invoiceId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 9
+ *     responses:
+ *       200:
+ *         description: Invoice published successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Công khai hóa đơn thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     invoice:
+ *                       type: object
+ *                       description: Full updated Invoices row (raw DB column names)
+ *       400:
+ *         description: Bad Request - invoice is EXTRACURRICULAR or already published
  *       401:
  *         description: Unauthorized
  *       403:

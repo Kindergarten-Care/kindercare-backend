@@ -2,6 +2,7 @@ import * as principalService from './principal.service.js';
 import ApiResponse from '../../utils/ApiResponse.js';
 import ApiError from '../../utils/ApiError.js';
 import httpStatus from 'http-status';
+import { uploadToSpace } from '../../utils/s3Upload.js';
 
 const getMyProfile = async (req, res, next) => {
   try {
@@ -919,8 +920,14 @@ const updatePaymentPackage = async (req, res, next) => {
 
 const getInvoices = async (req, res, next) => {
   try {
-    const { studentId, billingMonth, paymentStatus, invoiceType } = req.query;
-    const data = await principalService.getInvoices({ studentId, billingMonth, paymentStatus, invoiceType });
+    const { studentId, billingMonth, paymentStatus, invoiceType, published } = req.query;
+    const data = await principalService.getInvoices({
+      studentId,
+      billingMonth,
+      paymentStatus,
+      invoiceType,
+      published: published !== undefined ? published === '1' || published === 'true' : undefined,
+    });
     res.status(200).json({
       success: true,
       data,
@@ -941,6 +948,22 @@ const getInvoiceDetail = async (req, res, next) => {
 
     res.status(httpStatus.OK).json(
       new ApiResponse(httpStatus.OK, invoice, 'Lấy thông tin chi tiết hóa đơn thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const uploadStudentAvatar = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng chọn một file ảnh');
+    }
+
+    const avatarUrl = await uploadToSpace(req.file, 'students/avatar');
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, { avatarUrl }, 'Upload ảnh đại diện học sinh thành công')
     );
   } catch (error) {
     next(error);
@@ -1005,6 +1028,7 @@ export default {
   updatePaymentPackage,
   getInvoices,
   getInvoiceDetail,
+  uploadStudentAvatar,
   enrollStudent,
   addParentToStudent,
   importStudents,
