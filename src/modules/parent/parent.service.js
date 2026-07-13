@@ -516,7 +516,9 @@ export const getStudentAttendance = async (studentId, startDate, endDate) => {
       
       a.CheckedInByTeacherID AS checkedInByTeacherId,
       a.CheckedOutByTeacherID AS checkedOutByTeacherId,
-      a.ProxyAuthorizationID AS proxyAuthorizationId
+      a.ProxyAuthorizationID AS proxyAuthorizationId,
+      a.dropoffImage AS dropoffImage,
+      a.pickupImage AS pickupImage
     FROM Attendances a
     LEFT JOIN Parents p_in ON a.DroppedOffByParentID = p_in.ParentID
     LEFT JOIN StudentParents sp_in ON p_in.ParentID = sp_in.ParentID AND sp_in.StudentID = a.StudentID
@@ -1233,12 +1235,19 @@ export const getStudentWeeklyTimetable = async (studentId, dateParam = null) => 
  * @returns {Promise<Object>} Object containing classId and daily events array
  */
 export const getStudentDailyEvents = async (studentId, startDateStr, endDateStr = null) => {
-  // 1. Get ClassID of the student
-  const [studentRows] = await pool.query('SELECT ClassID FROM Students WHERE StudentID = ?', [studentId]);
+  // 1. Get ClassID (and its YearID, để lọc Holidays theo đúng năm học) của học sinh
+  const [studentRows] = await pool.query(
+    `SELECT s.ClassID, c.YearID
+     FROM Students s
+     LEFT JOIN Classes c ON s.ClassID = c.ClassID
+     WHERE s.StudentID = ?`,
+    [studentId]
+  );
   if (studentRows.length === 0) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy học sinh');
   }
   const classId = studentRows[0].ClassID;
+  const yearId = studentRows[0].YearID;
 
   // 2. Convert date string (YYYY-MM-DD) to startOfDay and endOfDay local (GMT+7) Unix timestamps in seconds
   const [startYear, startMonth, startDay] = startDateStr.split('-').map(Number);
@@ -1281,9 +1290,28 @@ export const getStudentDailyEvents = async (studentId, startDateStr, endDateStr 
 
   const [events] = await pool.query(query, [endOfDay, startOfDay, classId || null, studentId]);
 
+  // 4. Ngày nghỉ lễ (Holidays) trong khoảng ngày được chọn — bảng riêng, không liên kết
+  // với Events, nên lọc/trả về tách biệt. Học sinh chưa có lớp (yearId=null) thì không
+  // xác định được năm học nào để lọc, trả về mảng rỗng thay vì lấy Holidays của mọi năm.
+  let holidays = [];
+  if (yearId) {
+    const [holidayRows] = await pool.query(
+      `SELECT
+         HolidayID   AS holidayId,
+         HolidayDate AS holidayDate,
+         HolidayName AS holidayName
+       FROM Holidays
+       WHERE YearID = ? AND HolidayDate BETWEEN ? AND ?
+       ORDER BY HolidayDate ASC`,
+      [yearId, startOfDay, endOfDay]
+    );
+    holidays = holidayRows;
+  }
+
   return {
     classId,
-    events
+    events,
+    holidays
   };
 };
 
@@ -1914,9 +1942,33 @@ export const cancelExtracurricular = async (enrollmentId, studentId) => {
       'UPDATE Invoices SET ExtracurricularFee = GREATEST(ExtracurricularFee - ?, 0) WHERE InvoiceID = ?',
       [activity.MonthlyFee, enrollment.InvoiceID]
     );
-    // ExtracurricularFee vừa giảm kéo TotalAmount (generated column) giảm theo — số tiền
-    // đã trả trước đó có thể giờ đã đủ/dư cho TotalAmount mới, phải tính lại PaymentStatus
-    // (vd: 2 hoạt động 900k đã Paid, hủy 1 hoạt động 400k -> còn 500k, đã trả 900k -> Paid).
+
+    // Enrollment đang Active nghĩa là đã có 1 Transaction Success trả đúng MonthlyFee này
+    // trước đó — tiền đó vừa được hoàn (shouldRefund=true) nên KHÔNG được tính là "đã trả"
+    // nữa, nếu không SUM(AmountPaid Success) sẽ vẫn cộng khoản đã hoàn vào, khiến lần đăng ký
+    // lại sau này bị tính sai thành Partial thay vì Unpaid. Không có cách liên kết trực tiếp
+    // 1 Transaction với 1 enrollment cụ thể (invoice có thể gộp nhiều hoạt động), nên khớp
+    // gần đúng nhất có thể: đúng InvoiceID + đúng số tiền + Success + giao dịch gần nhất.
+    if (enrollment.Status === 'Active') {
+      await pool.query(
+        `UPDATE Transactions
+         SET Status = 'Refunded'
+         WHERE TransactionID = (
+           SELECT TransactionID FROM (
+             SELECT TransactionID FROM Transactions
+             WHERE InvoiceID = ? AND AmountPaid = ? AND Status = 'Success'
+             ORDER BY TransactionDate DESC
+             LIMIT 1
+           ) AS t
+         )`,
+        [enrollment.InvoiceID, activity.MonthlyFee]
+      );
+    }
+
+    // ExtracurricularFee vừa giảm kéo TotalAmount (generated column) giảm theo, và Transaction
+    // hoàn tiền (nếu có) vừa bị loại khỏi SUM — số đã trả thực tế có thể giờ đã đủ/dư/thiếu cho
+    // TotalAmount mới (vd: 2 hoạt động 900k đã Paid, hủy 1 hoạt động 400k -> còn 500k, đã trả
+    // 900k -> Paid), phải tính lại PaymentStatus.
     await recalculateInvoicePaymentStatus(enrollment.InvoiceID);
   }
 

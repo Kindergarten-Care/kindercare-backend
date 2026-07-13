@@ -1174,6 +1174,7 @@ const getChildDailyEvents = async (req, res, next) => {
           studentId: parseInt(studentId, 10),
           classId: result.classId,
           events: result.events,
+          holidays: result.holidays,
         },
         'Lấy danh sách sự kiện thành công'
       )

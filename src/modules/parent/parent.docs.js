@@ -987,6 +987,16 @@
  *                         type: integer
  *                         nullable: true
  *                         example: 12
+ *                       dropoffImage:
+ *                         type: string
+ *                         nullable: true
+ *                         description: URL ảnh giáo viên chụp lúc nhận trẻ (điểm danh bằng ảnh)
+ *                         example: https://media.kindercare.app/attendance/dropoff-19-20260713.jpg
+ *                       pickupImage:
+ *                         type: string
+ *                         nullable: true
+ *                         description: URL ảnh giáo viên chụp lúc trả trẻ (điểm danh bằng ảnh)
+ *                         example: https://media.kindercare.app/attendance/pickup-19-20260713.jpg
  *       400:
  *         description: Bad Request - invalid parameters
  *       401:
@@ -1725,6 +1735,27 @@
  *                             type: string
  *                             enum: [Class, School, Holiday, Student]
  *                             example: Holiday
+ *                     holidays:
+ *                       type: array
+ *                       description: >
+ *                         Ngày nghỉ lễ chính thức (bảng Holidays, lọc theo YearID của lớp học
+ *                         sinh) trong khoảng ngày được chọn — KHÔNG liên quan tới Events, đây là
+ *                         nguồn dữ liệu tách biệt hoàn toàn (không có eventId/startTime/endTime).
+ *                         Trả về rỗng nếu học sinh chưa được xếp lớp (chưa xác định được năm học).
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           holidayId:
+ *                             type: integer
+ *                             example: 1
+ *                           holidayDate:
+ *                             type: integer
+ *                             description: Unix timestamp (seconds)
+ *                             example: 1787884800
+ *                           holidayName:
+ *                             type: string
+ *                             nullable: true
+ *                             example: "Quốc khánh 2/9"
  *       400:
  *         description: Bad Request - missing parameters or invalid date format
  *       401:
