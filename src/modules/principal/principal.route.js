@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import principalController from './principal.controller.js';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
+import { upload as uploadImageToSpace } from '../../utils/s3Upload.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -68,6 +69,10 @@ router.get('/invoices', authenticate, authorize(2), principalController.getInvoi
 
 // Lấy thông tin chi tiết 1 hóa đơn kèm lịch sử giao dịch
 router.get('/invoices/:id', authenticate, authorize(2), principalController.getInvoiceDetail);
+
+// Upload ảnh avatar học sinh lên cloud storage, trả về URL để dùng cho student.avatarUrl
+// khi gọi POST /students/enroll hoặc PATCH /student/:id
+router.post('/students/upload-avatar', authenticate, authorize(2), uploadImageToSpace.single('avatar'), principalController.uploadStudentAvatar);
 
 // Thêm học sinh mới (Wizard Flow)
 router.post('/students/enroll', authenticate, authorize(2), principalController.enrollStudent);
