@@ -1,4 +1,6 @@
 import pool from '../../config/db.js';
+import { uploadToSpace } from '../../utils/s3Upload.js';
+import { emitNotificationToUser } from '../../config/socket.js';
 
 /**
  * Get the single active class assigned to a teacher (only AcademicYears with IsActive = 1).
@@ -1577,4 +1579,96 @@ export const updateProxyAuthorizationStatus = async (authorizationId, status) =>
     [status, authorizationId]
   );
   return result.affectedRows > 0;
+};
+
+/**
+ * Submit Photo Attendance
+ */
+export const submitPhotoAttendance = async (file, studentId, classId, teacherId) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // 1. Upload photo to DigitalOcean Space
+    const photoUrl = await uploadToSpace(file, 'attendance');
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const vnDate = new Date(timestamp * 1000 + 7 * 60 * 60 * 1000);
+    const dateTimestamp = Math.floor(Date.UTC(vnDate.getUTCFullYear(), vnDate.getUTCMonth(), vnDate.getUTCDate()) / 1000);
+
+    // 2. Insert into AttendancePhotos
+    const [photoResult] = await connection.query(
+      `INSERT INTO AttendancePhotos (StudentID, ClassID, TeacherID, PhotoURL, UploadedAt) VALUES (?, ?, ?, ?, ?)`,
+      [studentId, classId, teacherId, photoUrl, timestamp]
+    );
+
+    // 3. Update Attendances table
+    const [attRows] = await connection.query(
+      `SELECT AttendanceID FROM Attendances WHERE StudentID = ? AND AttendanceDate = ?`,
+      [studentId, dateTimestamp]
+    );
+
+    let timeStr = `${String(vnDate.getUTCHours()).padStart(2, '0')}:${String(vnDate.getUTCMinutes()).padStart(2, '0')}`;
+
+    if (attRows.length === 0) {
+      await connection.query(
+        `INSERT INTO Attendances (StudentID, AttendanceDate, CheckInTime, Status, CheckedInByTeacherID)
+         VALUES (?, ?, ?, 'Present', ?)`,
+        [studentId, dateTimestamp, timestamp, teacherId]
+      );
+    } else {
+      await connection.query(
+        `UPDATE Attendances SET CheckInTime = IFNULL(CheckInTime, ?), Status = 'Present', CheckedInByTeacherID = ? WHERE AttendanceID = ?`,
+        [timestamp, teacherId, attRows[0].AttendanceID]
+      );
+    }
+
+    // 4. Get student details and parent
+    const [studentRows] = await connection.query(
+      `SELECT FullName FROM Students WHERE StudentID = ?`, [studentId]
+    );
+    const studentName = studentRows[0]?.FullName || 'Học sinh';
+
+    const [parentRows] = await connection.query(
+      `SELECT ParentID FROM StudentParents WHERE StudentID = ?`, [studentId]
+    );
+
+    // 5. Insert notification and emit socket
+    for (const parent of parentRows) {
+      const parentId = parent.ParentID;
+      const title = 'Điểm danh bằng hình ảnh';
+      const body = \`Đã nhận trẻ \${studentName} tại lớp lúc \${timeStr}.\`;
+
+      // Assuming Notifications table exists with Title, Body, UserID (or ParentID)
+      const [notifResult] = await connection.query(
+        \`INSERT INTO Notifications (UserID, Title, Message, Type, ReferenceID, CreatedAt) VALUES (?, ?, ?, 'ATTENDANCE', ?, ?)\`,
+        [parentId, title, body, studentId, timestamp]
+      );
+
+      // 6. Socket push
+      emitNotificationToUser(parentId, {
+        notificationId: notifResult.insertId,
+        title,
+        body,
+        type: 'ATTENDANCE',
+        referenceId: studentId,
+        createdAt: timestamp,
+        photoUrl // Include photoUrl in the socket payload for instant preview if needed
+      });
+    }
+
+    await connection.commit();
+
+    return {
+      photoId: photoResult.insertId,
+      photoUrl,
+      studentId,
+      time: timeStr
+    };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 };

@@ -1446,4 +1446,33 @@ export const updateClassMenu = async (req, res, next) => {
   }
 };
 
+/**
+ * Upload Photo Attendance
+ */
+export const uploadPhotoAttendance = async (req, res, next) => {
+  try {
+    const teacherId = req.user.userId;
+    const { studentId, classId } = req.body;
 
+    if (!req.file) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng chọn một file ảnh');
+    }
+
+    const numericStudentId = Number(studentId);
+    const numericClassId = Number(classId);
+
+    // Security check
+    const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, numericClassId);
+    if (!isAssigned) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền thực hiện điểm danh lớp này');
+    }
+
+    const result = await teacherService.submitPhotoAttendance(req.file, numericStudentId, numericClassId, teacherId);
+
+    res.status(httpStatus.CREATED).json(
+      new ApiResponse(httpStatus.CREATED, result, 'Điểm danh bằng hình ảnh thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};

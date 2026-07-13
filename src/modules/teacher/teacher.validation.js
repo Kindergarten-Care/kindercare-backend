@@ -602,3 +602,20 @@ export const validateUpdateClassMenu = (req, res, next) => {
 
   next();
 };
+
+/**
+ * Validate photo attendance upload
+ */
+export const validateUploadPhotoAttendance = (req, res, next) => {
+  const { studentId, classId } = req.body;
+
+  if (!studentId || isNaN(Number(studentId))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'studentId là bắt buộc và phải là số hợp lệ'));
+  }
+
+  if (!classId || isNaN(Number(classId))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId là bắt buộc và phải là số hợp lệ'));
+  }
+
+  next();
+};
