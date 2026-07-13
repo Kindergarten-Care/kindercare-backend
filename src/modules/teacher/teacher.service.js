@@ -1636,11 +1636,11 @@ export const submitPhotoAttendance = async (file, studentId, classId, teacherId)
     for (const parent of parentRows) {
       const parentId = parent.ParentID;
       const title = 'Điểm danh bằng hình ảnh';
-      const body = \`Đã nhận trẻ \${studentName} tại lớp lúc \${timeStr}.\`;
+      const body = `Đã nhận trẻ ${studentName} tại lớp lúc ${timeStr}.`;
 
       // Assuming Notifications table exists with Title, Body, UserID (or ParentID)
       const [notifResult] = await connection.query(
-        \`INSERT INTO Notifications (UserID, Title, Message, Type, ReferenceID, CreatedAt) VALUES (?, ?, ?, 'ATTENDANCE', ?, ?)\`,
+        `INSERT INTO Notifications (UserID, Title, Message, Type, ReferenceID, CreatedAt) VALUES (?, ?, ?, 'ATTENDANCE', ?, ?)`,
         [parentId, title, body, studentId, timestamp]
       );
 
