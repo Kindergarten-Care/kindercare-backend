@@ -1638,10 +1638,10 @@ export const submitPhotoAttendance = async (file, studentId, classId, teacherId)
       const title = 'Điểm danh bằng hình ảnh';
       const body = `Đã nhận trẻ ${studentName} tại lớp lúc ${timeStr}.`;
 
-      // Assuming Notifications table exists with Title, Body, UserID (or ParentID)
+      const dataPayload = JSON.stringify({ referenceId: studentId, photoUrl });
       const [notifResult] = await connection.query(
-        `INSERT INTO Notifications (UserID, Title, Message, Type, ReferenceID, CreatedAt) VALUES (?, ?, ?, 'ATTENDANCE', ?, ?)`,
-        [parentId, title, body, studentId, timestamp]
+        `INSERT INTO Notifications (UserID, Title, Message, Type, IsRead, IsCritical, DataPayload, CreatedAt, UpdatedAt) VALUES (?, ?, ?, 'ATTENDANCE', 0, 0, ?, ?, ?)`,
+        [parentId, title, body, dataPayload, timestamp, timestamp]
       );
 
       // 6. Socket push
@@ -1650,9 +1650,8 @@ export const submitPhotoAttendance = async (file, studentId, classId, teacherId)
         title,
         body,
         type: 'ATTENDANCE',
-        referenceId: studentId,
+        dataPayload,
         createdAt: timestamp,
-        photoUrl // Include photoUrl in the socket payload for instant preview if needed
       });
     }
 
