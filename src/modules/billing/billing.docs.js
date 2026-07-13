@@ -152,6 +152,14 @@
  *       Can be called at any time during the month (not just day 1) to demo/test the flow without
  *       waiting for the real cron — omit billingMonth to default to the current month. This same
  *       endpoint is also what the cron calls automatically at 00:05 on day 1 of each month.
+ *
+ *       `partialMonth: true` switches ExpectedMealFee to a "as-of-today" calculation instead of
+ *       prepaying the whole month: (working days from day 1 to today) minus (approved leave days
+ *       in that same range), both multiplied by the daily meal fee. This only takes effect when
+ *       `billingMonth` is the server's current month — for a past/future billingMonth there is no
+ *       meaningful "today" inside it, so the flag is silently ignored and the whole-month
+ *       calculation is used instead (same as omitting the flag). Intended for demoing/testing the
+ *       billing flow without waiting for a full month to pass; the real cron never sends this flag.
  *     tags: ["Billing"]
  *     security:
  *       - bearerAuth: []
@@ -166,6 +174,13 @@
  *                 type: string
  *                 description: "'MM-YYYY'. Default = current month."
  *                 example: "08-2026"
+ *               partialMonth:
+ *                 type: boolean
+ *                 description: >
+ *                   Demo/test only. If true AND billingMonth is the current month, ExpectedMealFee
+ *                   is computed from day 1 up to today (minus approved leave days in that range)
+ *                   instead of the whole month. Default false.
+ *                 example: true
  *     responses:
  *       200:
  *         description: Monthly billing run completed
@@ -202,6 +217,15 @@
  *                       type: integer
  *                       description: Count of invoices skipped because they already existed (idempotent re-run)
  *                       example: 0
+ *                     partialMonth:
+ *                       type: boolean
+ *                       description: Whether the as-of-today calculation actually took effect (false if the flag was ignored)
+ *                       example: true
+ *                     partialUntilDay:
+ *                       type: integer
+ *                       nullable: true
+ *                       description: Day-of-month used as the cutoff when partialMonth is true; null otherwise
+ *                       example: 13
  *       401:
  *         description: Unauthorized
  *       403:
