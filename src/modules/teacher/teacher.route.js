@@ -83,6 +83,7 @@ router.get(
 router.post('/attendance/quick', teacherValidation.validateQuickAttendance, teacherController.submitQuickAttendance);
 router.post('/attendance/meals', teacherValidation.validateQuickMealLogs, teacherController.submitQuickMealLogs);
 router.post('/attendance/activities', teacherController.submitQuickActivities);
+router.post('/attendance/upload-photo', upload.single('photo'), teacherValidation.validateUploadPhotoAttendance, teacherController.uploadPhotoAttendance);
 
 // Uploads
 router.post('/upload', upload.single('image'), teacherController.uploadImage);
