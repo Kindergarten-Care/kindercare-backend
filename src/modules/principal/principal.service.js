@@ -8,6 +8,8 @@ import { Readable } from 'stream';
 import { sendPushToUser } from '../notification/notification.service.js';
 import logger from '../../config/logger.js';
 import { getWeeksByMonthly } from '../teacher/sub/weeklySchedule.service.js';
+import { getMealRefundBreakdown } from '../billing/billing.service.js';
+import { addMonths } from '../../utils/dateHelpers.js';
 
 /**
  * Lấy thông tin profile của hiệu trưởng theo PrincipalID.
@@ -983,7 +985,17 @@ export const getInvoiceDetail = async (invoiceId) => {
     ORDER BY TransactionDate DESC
   `, [invoiceId]);
 
-  return { ...rows[0], transactions };
+  const invoice = rows[0];
+
+  // Breakdown hoàn tiền ăn (nghỉ có phép) — chỉ có ý nghĩa với hóa đơn MONTHLY,
+  // vì đây là loại duy nhất có RefundAmount do trừ tiền ăn tháng trước.
+  let mealRefundBreakdown = null;
+  if (invoice.invoiceType === 'MONTHLY' && invoice.studentId) {
+    const prevMonth = addMonths(invoice.billingMonth, -1);
+    mealRefundBreakdown = await getMealRefundBreakdown(invoice.studentId, prevMonth);
+  }
+
+  return { ...invoice, mealRefundBreakdown, transactions };
 };
 
 export const enrollStudent = async ({ student, parent, account, isNewParent, packageId }) => {
