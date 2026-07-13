@@ -1,8 +1,6 @@
 import express from 'express';
 import * as teacherController from './teacher.controller.js';
 import * as teacherValidation from './teacher.validation.js';
-import * as lessonPlanController from './sub/lessonPlan.controller.js';
-import * as lessonPlanValidation from './sub/lessonPlan.validation.js';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
 import { upload } from '../../utils/s3Upload.js';
 
@@ -41,12 +39,21 @@ router.put(
   teacherController.updateLeaveRequestStatus
 );
 
+// Proxy Approvals
+router.get('/proxy-approvals', teacherController.getProxyApprovals);
+router.patch('/proxy-approvals', teacherController.updateProxyApproval);
+
 // Classes
 router.get('/classes', teacherController.getClasses);
 router.get(
   '/classes/:classId/menu',
   teacherValidation.validateGetClassMenu,
   teacherController.getClassMenu
+);
+router.get(
+  '/classes/:classId/menu/weekly',
+  teacherValidation.validateGetWeeklyMenu,
+  teacherController.getWeeklyMenu
 );
 router.put(
   '/classes/:classId/menu',
@@ -74,6 +81,7 @@ router.get(
 router.post('/attendance/quick', teacherValidation.validateQuickAttendance, teacherController.submitQuickAttendance);
 router.post('/attendance/meals', teacherValidation.validateQuickMealLogs, teacherController.submitQuickMealLogs);
 router.post('/attendance/activities', teacherController.submitQuickActivities);
+router.post('/attendance/upload-photo', upload.single('photo'), teacherValidation.validateUploadPhotoAttendance, teacherController.uploadPhotoAttendance);
 
 // Uploads
 router.post('/upload', upload.single('image'), teacherController.uploadImage);
@@ -153,17 +161,6 @@ router.post(
 router.put('/classes/:classId/schedule/:scheduleId/status', teacherValidation.validateUpdateScheduleStatus, teacherController.updateScheduleStatus);
 
 router.post('/attendance/scan', teacherValidation.validateScanQR, teacherController.scanQRAttendance);
-
-// Lesson Plans
-import { upsertLessonPlan as upsertLessonPlanValidation } from './sub/lessonPlan.validation.js';
-import validate from '../../middlewares/validate.middleware.js';
-
-router.get('/lesson-plans', lessonPlanController.getLessonPlans);
-router.get('/lesson-plans/:id', lessonPlanController.getLessonPlanById);
-router.post('/lesson-plans', validate(upsertLessonPlanValidation), lessonPlanController.upsertLessonPlan);
-router.post('/lesson-plans/:id/submit', lessonPlanController.submitLessonPlan);
-router.post('/lesson-plans/:id/withdraw', lessonPlanController.withdrawLessonPlan);
-router.patch('/lesson-plans/:planId/items/:itemId/complete', lessonPlanController.completeLessonPlanItem);
 
 // Weekly Schedule Templates
 import weeklyScheduleRouter from './sub/weeklySchedule.route.js';

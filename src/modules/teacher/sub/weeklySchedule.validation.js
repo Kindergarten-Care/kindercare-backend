@@ -8,12 +8,26 @@ export { VALID_WEEKDAYS, VALID_ACTIVITY_TYPES };
 
 const weeklyScheduleItemSchema = Joi.object({
   dayOfWeek: Joi.string().valid(...VALID_WEEKDAYS).required(),
-  startTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/).required(),
-  endTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/).required(),
-  activityName: Joi.string().max(150).required(),
+  startTime: Joi.string().pattern(/^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/).required()
+    .messages({ 'string.pattern.base': 'startTime phải đúng định dạng HH:mm' }),
+  endTime: Joi.string().pattern(/^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/).required()
+    .messages({ 'string.pattern.base': 'endTime phải đúng định dạng HH:mm' }),
+  activityName: Joi.string().max(255).required(),
   activityType: Joi.string().valid(...VALID_ACTIVITY_TYPES).default('other'),
   details: Joi.string().allow('', null).optional(),
   location: Joi.string().max(100).allow('', null).optional(),
+}).custom((value, helpers) => {
+  const { startTime, endTime } = value;
+  if (startTime && endTime) {
+    const [startH, startM] = startTime.split(':').map(Number);
+    const [endH, endM] = endTime.split(':').map(Number);
+    const startVal = startH * 60 + startM;
+    const endVal = endH * 60 + endM;
+    if (endVal <= startVal) {
+      return helpers.message('Thời gian kết thúc (endTime) phải lớn hơn thời gian bắt đầu (startTime)');
+    }
+  }
+  return value;
 });
 
 const ALLOWED_CSV_MIME = ['text/csv', 'application/vnd.ms-excel', 'text/plain', 'application/octet-stream'];

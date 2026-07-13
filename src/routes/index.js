@@ -8,6 +8,7 @@ import principalRoute from '../modules/principal/principal.route.js';
 import notificationRoute from '../modules/notification/notification.route.js';
 import billingRoute from '../modules/billing/billing.route.js';
 import newsfeedRoute from '../modules/newsfeed/newsfeed.route.js';
+import studentRoute from '../modules/student/student.route.js';
 
 const router = express.Router();
 
@@ -20,6 +21,7 @@ const defaultRoutes = [
     { path: '/notifications', route: notificationRoute },
     { path: '/billing', route: billingRoute },
     { path: '/teacher', route: newsfeedRoute },
+    { path: '/students', route: studentRoute },
 ];
 
 defaultRoutes.forEach((route) => {

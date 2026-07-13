@@ -15,8 +15,8 @@ export const validateUpdateProfile = (req, res, next) => {
     return next(new ApiError(httpStatus.BAD_REQUEST, 'Email không đúng định dạng'));
   }
 
-  if (phoneNumber && !/^[0-9]{9,11}$/.test(phoneNumber)) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'Số điện thoại không hợp lệ, phải gồm 9 - 11 chữ số'));
+  if (phoneNumber && !/^(03|05|07|08|09)[0-9]{8}$/.test(phoneNumber)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'Số điện thoại không hợp lệ, phải gồm 10 chữ số và bắt đầu bằng đầu số chuẩn VN (03, 05, 07, 08, 09)'));
   }
 
   if (dateOfBirth !== undefined && dateOfBirth !== null && (typeof dateOfBirth !== 'number' || dateOfBirth < 0)) {
@@ -27,8 +27,8 @@ export const validateUpdateProfile = (req, res, next) => {
     return next(new ApiError(httpStatus.BAD_REQUEST, 'Giới tính phải là chuỗi ký tự'));
   }
 
-  if (idCard && typeof idCard !== 'string') {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'Số CMND/CCCD phải là chuỗi ký tự'));
+  if (idCard && !/^([0-9]{9}|[0-9]{12})$/.test(idCard)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'CCCD/CMND phải là chuỗi số có độ dài chính xác 9 hoặc 12 chữ số'));
   }
 
   if (address && typeof address !== 'string') {
@@ -145,6 +145,28 @@ export const validateGetClassStudents = (req, res, next) => {
  * Validate class menu list input parameters
  */
 export const validateGetClassMenu = (req, res, next) => {
+  const { classId } = req.params;
+  const { date } = req.query;
+
+  const numericClassId = Number(classId);
+  if (isNaN(numericClassId)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId phải là một số nguyên hợp lệ'));
+  }
+
+  if (date !== undefined && date !== null) {
+    const numericDate = Number(date);
+    if (isNaN(numericDate) || numericDate < 0) {
+      return next(new ApiError(httpStatus.BAD_REQUEST, 'Ngày lọc (date) phải là một số nguyên Unix timestamp hợp lệ'));
+    }
+  }
+
+  next();
+};
+
+/**
+ * Validate class weekly menu input parameters
+ */
+export const validateGetWeeklyMenu = (req, res, next) => {
   const { classId } = req.params;
   const { date } = req.query;
 
@@ -576,6 +598,23 @@ export const validateUpdateClassMenu = (req, res, next) => {
 
   if (typeof breakfastMenu !== 'string' || typeof lunchMenu !== 'string' || typeof afternoonSnackMenu !== 'string') {
     return next(new ApiError(httpStatus.BAD_REQUEST, 'Menu các bữa (breakfastMenu, lunchMenu, afternoonSnackMenu) phải là chuỗi ký tự'));
+  }
+
+  next();
+};
+
+/**
+ * Validate photo attendance upload
+ */
+export const validateUploadPhotoAttendance = (req, res, next) => {
+  const { studentId, classId } = req.body;
+
+  if (!studentId || isNaN(Number(studentId))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'studentId là bắt buộc và phải là số hợp lệ'));
+  }
+
+  if (!classId || isNaN(Number(classId))) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'classId là bắt buộc và phải là số hợp lệ'));
   }
 
   next();

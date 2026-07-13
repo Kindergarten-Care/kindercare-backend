@@ -34,7 +34,7 @@ export const getAllAllergiesInClass = async (classId) => {
             a.CreatedAt AS createdAt,
             a.UpdatedAt AS updatedAt
        FROM allergies a
-       JOIN students s ON a.StudentID = s.StudentID
+       JOIN Students s ON a.StudentID = s.StudentID
       WHERE s.ClassID = ?
         AND s.EnrollmentStatus = 'Active'
         AND a.IsActive = 1
@@ -140,7 +140,7 @@ export const getMedicationsInClass = async (classId, dateString) => {
             mr.MedicineImageURL AS medicineImageUrl, mr.ParentNote AS parentNote,
             mr.AdministeredAt AS administeredAt, mr.AdministeredBy AS administeredBy
        FROM medicationrequests mr
-       JOIN students s ON mr.StudentID = s.StudentID
+       JOIN Students s ON mr.StudentID = s.StudentID
       WHERE s.ClassID = ?
         AND ((mr.ScheduledDate IS NOT NULL AND mr.ScheduledDate BETWEEN ? AND ?)
              OR (mr.ScheduledDate IS NULL AND mr.RequestDate BETWEEN ? AND ?))
@@ -228,7 +228,7 @@ export const getClassHealthRecords = async (classId, termPeriod) => {
     `SELECT s.StudentID AS studentId, s.FullName AS name, s.AvatarURL AS avatarUrl,
             hr.RecordID AS recordId, hr.TermPeriod AS termPeriod,
             hr.Height AS height, hr.Weight AS weight, hr.BMI AS bmi, hr.Notes AS note
-       FROM students s
+       FROM Students s
        LEFT JOIN healthrecords hr ON s.StudentID = hr.StudentID AND hr.TermPeriod = ?
       WHERE s.ClassID = ?
         AND s.EnrollmentStatus = 'Active'
@@ -384,6 +384,33 @@ const getHealthLogById = async (logId) => {
 // Development Assessments  (bảng `DevelopmentAssessments`)
 // -----------------------------------------------------------------------------
 
+export const getDevelopmentAssessmentHistory = async (studentId, monthsBack = 6) => {
+  const limit = Math.min(Math.max(parseInt(monthsBack, 10) || 6, 1), 12);
+  const [rows] = await pool.query(
+    `SELECT
+       da.AssessmentID    AS assessmentId,
+       da.StudentID       AS studentId,
+       da.TermPeriod      AS termPeriod,
+       da.PhysicalScore   AS physicalScore,
+       da.EmotionalScore  AS emotionalScore,
+       da.SocialScore     AS socialScore,
+       da.LanguageScore   AS languageScore,
+       da.CognitiveScore  AS cognitiveScore,
+       da.AestheticScore  AS aestheticScore,
+       da.LifeSkillScore  AS lifeSkillScore,
+       da.OverallNote     AS overallNote,
+       da.AssessedBy      AS assessedBy,
+       da.CreatedAt       AS createdAt,
+       da.UpdatedAt       AS updatedAt
+     FROM DevelopmentAssessments da
+     WHERE da.StudentID = ?
+     ORDER BY da.TermPeriod DESC
+     LIMIT ?`,
+    [studentId, limit]
+  );
+  return rows;
+};
+
 export const getDevelopmentAssessments = async (classId, termPeriod) => {
   const [rows] = await pool.query(
     `SELECT s.StudentID AS studentId, s.FullName AS name, s.AvatarURL AS avatarUrl,
@@ -393,10 +420,12 @@ export const getDevelopmentAssessments = async (classId, termPeriod) => {
             da.SocialScore AS socialScore,
             da.LanguageScore AS languageScore,
             da.CognitiveScore AS cognitiveScore,
+            da.AestheticScore AS aestheticScore,
+            da.LifeSkillScore AS lifeSkillScore,
             da.OverallNote AS overallNote,
             da.AssessedBy AS assessedBy
-       FROM students s
-       LEFT JOIN developmentassessments da
+       FROM Students s
+       LEFT JOIN DevelopmentAssessments da
               ON s.StudentID = da.StudentID AND da.TermPeriod = ?
       WHERE s.ClassID = ?
         AND s.EnrollmentStatus = 'Active'
@@ -419,14 +448,17 @@ export const upsertDevelopmentAssessments = async (teacherId, termPeriod, items)
       const social = clampScore(item.socialScore);
       const language = clampScore(item.languageScore);
       const cognitive = clampScore(item.cognitiveScore);
+      const aesthetic = clampScore(item.aestheticScore);
+      const lifeSkill = clampScore(item.lifeSkillScore);
       const note = item.overallNote ?? null;
       const now = unixNow();
 
       await connection.query(
-        `INSERT INTO developmentassessments
+        `INSERT INTO DevelopmentAssessments
            (StudentID, TermPeriod, PhysicalScore, EmotionalScore, SocialScore,
-            LanguageScore, CognitiveScore, OverallNote, AssessedBy, CreatedAt, UpdatedAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            LanguageScore, CognitiveScore, OverallNote, AssessedBy, CreatedAt, UpdatedAt,
+            AestheticScore, LifeSkillScore)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
             PhysicalScore  = VALUES(PhysicalScore),
             EmotionalScore = VALUES(EmotionalScore),
@@ -435,8 +467,10 @@ export const upsertDevelopmentAssessments = async (teacherId, termPeriod, items)
             CognitiveScore = VALUES(CognitiveScore),
             OverallNote    = VALUES(OverallNote),
             AssessedBy     = VALUES(AssessedBy),
-            UpdatedAt      = VALUES(UpdatedAt)`,
-        [studentId, termPeriod, physical, emotional, social, language, cognitive, note, teacherId, now, now]
+            UpdatedAt      = VALUES(UpdatedAt),
+            AestheticScore = VALUES(AestheticScore),
+            LifeSkillScore = VALUES(LifeSkillScore)`,
+        [studentId, termPeriod, physical, emotional, social, language, cognitive, note, teacherId, now, now, aesthetic, lifeSkill]
       );
     }
     await connection.commit();
@@ -453,8 +487,8 @@ const clampScore = (v) => {
   if (v === undefined || v === null || v === '') return null;
   const n = parseInt(v, 10);
   if (isNaN(n)) return null;
-  if (n < 0) return 0;
-  if (n > 5) return 5;
+  if (n < 1) return 1;
+  if (n > 10) return 10;
   return n;
 };
 
@@ -464,7 +498,7 @@ const clampScore = (v) => {
 
 export const assertStudentBelongsToClass = async (studentId, classId) => {
   const [rows] = await pool.query(
-    `SELECT StudentID FROM students WHERE StudentID = ? AND ClassID = ?`,
+    `SELECT StudentID FROM Students WHERE StudentID = ? AND ClassID = ?`,
     [studentId, classId]
   );
   if (rows.length === 0) {
