@@ -386,10 +386,10 @@ export const isTeacherAssignedToClass = async (teacherId, classId) => {
  */
 export const updateLeaveRequestStatus = async (requestId, status, teacherId) => {
   if (status === 'Approved') {
-    const [reqRows] = await pool.query('SELECT LeaveDate, StudentID FROM LeaveRequests WHERE RequestID = ?', [requestId]);
+    const [reqRows] = await pool.query('SELECT FromDate, ToDate, StudentID FROM LeaveRequests WHERE RequestID = ?', [requestId]);
     if (reqRows.length > 0) {
-      const { LeaveDate, StudentID } = reqRows[0];
-      const [attRows] = await pool.query('SELECT AttendanceID FROM Attendances WHERE StudentID = ? AND AttendanceDate = ? AND (Status = "Present" OR dropoffImage IS NOT NULL OR pickupImage IS NOT NULL)', [StudentID, LeaveDate]);
+      const { FromDate, ToDate, StudentID } = reqRows[0];
+      const [attRows] = await pool.query('SELECT AttendanceID FROM Attendances WHERE StudentID = ? AND AttendanceDate BETWEEN ? AND ? AND (Status = "Present" OR dropoffImage IS NOT NULL OR pickupImage IS NOT NULL)', [StudentID, FromDate, ToDate]);
       if (attRows.length > 0) {
         throw new ApiError(400, 'Học sinh đã được điểm danh trong ngày này, không thể duyệt đơn nghỉ phép.');
       }
@@ -428,7 +428,7 @@ export const upsertAttendance = async (
 ) => {
   if (status === 'Present') {
     const [leaveRows] = await pool.query(
-      `SELECT RequestID FROM LeaveRequests WHERE StudentID = ? AND LeaveDate = ? AND Status = 'Approved'`,
+      `SELECT RequestID FROM LeaveRequests WHERE StudentID = ? AND ? BETWEEN FromDate AND ToDate AND Status = 'Approved'`,
       [studentId, date]
     );
     if (leaveRows.length > 0) {
@@ -1631,7 +1631,7 @@ export const submitPhotoAttendance = async (file, studentId, classId, teacherId)
 
     // Check if student has an APPROVED leave request today
     const [leaveRows] = await connection.query(
-      `SELECT RequestID FROM LeaveRequests WHERE StudentID = ? AND LeaveDate = ? AND Status = 'Approved'`,
+      `SELECT RequestID FROM LeaveRequests WHERE StudentID = ? AND ? BETWEEN FromDate AND ToDate AND Status = 'Approved'`,
       [studentId, dateTimestamp]
     );
 

@@ -1,8 +1,6 @@
 import express from 'express';
 import * as teacherController from './teacher.controller.js';
 import * as teacherValidation from './teacher.validation.js';
-import * as lessonPlanController from './sub/lessonPlan.controller.js';
-import * as lessonPlanValidation from './sub/lessonPlan.validation.js';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
 import { upload } from '../../utils/s3Upload.js';
 
@@ -163,17 +161,6 @@ router.post(
 router.put('/classes/:classId/schedule/:scheduleId/status', teacherValidation.validateUpdateScheduleStatus, teacherController.updateScheduleStatus);
 
 router.post('/attendance/scan', teacherValidation.validateScanQR, teacherController.scanQRAttendance);
-
-// Lesson Plans
-import { upsertLessonPlan as upsertLessonPlanValidation } from './sub/lessonPlan.validation.js';
-import validate from '../../middlewares/validate.middleware.js';
-
-router.get('/lesson-plans', lessonPlanController.getLessonPlans);
-router.get('/lesson-plans/:id', lessonPlanController.getLessonPlanById);
-router.post('/lesson-plans', validate(upsertLessonPlanValidation), lessonPlanController.upsertLessonPlan);
-router.post('/lesson-plans/:id/submit', lessonPlanController.submitLessonPlan);
-router.post('/lesson-plans/:id/withdraw', lessonPlanController.withdrawLessonPlan);
-router.patch('/lesson-plans/:planId/items/:itemId/complete', lessonPlanController.completeLessonPlanItem);
 
 // Weekly Schedule Templates
 import weeklyScheduleRouter from './sub/weeklySchedule.route.js';
