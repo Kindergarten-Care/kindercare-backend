@@ -116,6 +116,29 @@ const publishInvoice = async (req, res, next) => {
   }
 };
 
+const publishSelectedInvoices = async (req, res, next) => {
+  try {
+    const { invoiceIds } = req.body;
+
+    if (!Array.isArray(invoiceIds) || invoiceIds.length === 0) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng chọn ít nhất 1 hóa đơn để công khai');
+    }
+
+    const parsedIds = invoiceIds.map((id) => parseInt(id, 10));
+    if (parsedIds.some((id) => Number.isNaN(id))) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'invoiceIds phải là mảng số nguyên');
+    }
+
+    const result = await billingService.publishSelectedInvoices(parsedIds);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, result, `Đã công khai ${result.publishedCount} hóa đơn`)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   registerTuitionPlan,
   runMonthlyBilling,
@@ -123,4 +146,5 @@ export default {
   updateDueDate,
   publishInvoicesForMonth,
   publishInvoice,
+  publishSelectedInvoices,
 };

@@ -21,6 +21,9 @@ router.patch('/invoices/:invoiceId/due-date', authenticate, authorize(2), billin
 // Công khai toàn bộ hóa đơn TUITION/MONTHLY nháp của 1 tháng cho phụ huynh (DueDate = lúc publish + 10 ngày)
 router.patch('/invoices/publish', authenticate, authorize(2), billingController.publishInvoicesForMonth);
 
+// Công khai 1 tập hóa đơn TUITION/MONTHLY nháp được chọn tùy ý (bulk-select trên UI)
+router.patch('/invoices/publish-selected', authenticate, authorize(2), billingController.publishSelectedInvoices);
+
 // Công khai 1 hóa đơn TUITION/MONTHLY nháp riêng lẻ
 router.patch('/invoices/:invoiceId/publish', authenticate, authorize(2), billingController.publishInvoice);
 

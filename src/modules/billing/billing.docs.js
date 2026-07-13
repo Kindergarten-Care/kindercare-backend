@@ -351,6 +351,7 @@
 // ─────────────────────────────────────────────────────────────
 //  GROUP 5 · Billing - Publish (draft → visible to parents)
 //  PATCH /billing/invoices/publish
+//  PATCH /billing/invoices/publish-selected
 //  PATCH /billing/invoices/:invoiceId/publish
 // ─────────────────────────────────────────────────────────────
 
@@ -411,6 +412,81 @@
  *                       example: 42
  *       400:
  *         description: Bad Request - missing billingMonth
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a principal
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /billing/invoices/publish-selected:
+ *   patch:
+ *     summary: Publish an arbitrary set of selected draft TUITION/MONTHLY invoices
+ *     description: >
+ *       Used by the principal's bulk-select UI when only some drafts of a billing month have been
+ *       reviewed and should go out now, while the rest stay as drafts. Unlike
+ *       PATCH /billing/invoices/publish (whole month) or PATCH /billing/invoices/{id}/publish
+ *       (single invoice), this takes an explicit list of invoiceIds. Invalid ids (not found,
+ *       EXTRACURRICULAR, or already published) are silently skipped rather than failing the whole
+ *       batch — check skippedIds in the response to know what was left out. Each published invoice
+ *       gets Published=1, PublishedAt=now, DueDate=now+10 days (computed independently per call,
+ *       not a single shared timestamp for the batch).
+ *     tags: ["Billing"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [invoiceIds]
+ *             properties:
+ *               invoiceIds:
+ *                 type: array
+ *                 minItems: 1
+ *                 items:
+ *                   type: integer
+ *                 example: [53, 54, 60]
+ *     responses:
+ *       200:
+ *         description: Selected invoices published successfully (possibly with some skipped)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: "Đã công khai 3 hóa đơn"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     publishedCount:
+ *                       type: integer
+ *                       example: 3
+ *                     publishedIds:
+ *                       type: array
+ *                       items:
+ *                         type: integer
+ *                       example: [53, 54, 60]
+ *                     skippedIds:
+ *                       type: array
+ *                       description: ids that were not found, EXTRACURRICULAR, or already published
+ *                       items:
+ *                         type: integer
+ *                       example: []
+ *       400:
+ *         description: Bad Request - missing/empty invoiceIds or non-integer values
  *       401:
  *         description: Unauthorized
  *       403:
