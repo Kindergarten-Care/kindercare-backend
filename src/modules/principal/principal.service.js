@@ -869,7 +869,7 @@ export const updatePaymentPackage = async (packageId, { name, duration, discount
   return result.affectedRows > 0;
 };
 
-export const getInvoices = async ({ studentId, billingMonth, paymentStatus, invoiceType } = {}) => {
+export const getInvoices = async ({ studentId, billingMonth, paymentStatus, invoiceType, published } = {}) => {
   const conditions = [];
   const params = [];
 
@@ -888,6 +888,10 @@ export const getInvoices = async ({ studentId, billingMonth, paymentStatus, invo
   if (invoiceType) {
     conditions.push('i.InvoiceType = ?');
     params.push(invoiceType);
+  }
+  if (published !== undefined) {
+    conditions.push('i.Published = ?');
+    params.push(published ? 1 : 0);
   }
 
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -914,6 +918,8 @@ export const getInvoices = async ({ studentId, billingMonth, paymentStatus, invo
       i.InvoiceType as invoiceType,
       i.CreatedAt as createdAt,
       i.DueDate as dueDate,
+      i.Published as published,
+      i.PublishedAt as publishedAt,
       i.ReminderSentAt as reminderSentAt,
       i.OverdueReminderSentAt as overdueReminderSentAt
     FROM Invoices i
@@ -950,6 +956,8 @@ export const getInvoiceDetail = async (invoiceId) => {
       i.InvoiceType as invoiceType,
       i.CreatedAt as createdAt,
       i.DueDate as dueDate,
+      i.Published as published,
+      i.PublishedAt as publishedAt,
       i.ReminderSentAt as reminderSentAt,
       i.OverdueReminderSentAt as overdueReminderSentAt
     FROM Invoices i

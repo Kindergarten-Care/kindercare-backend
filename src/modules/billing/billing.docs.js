@@ -143,7 +143,15 @@
  * /billing/run-monthly:
  *   post:
  *     summary: Run monthly billing for the whole school
- *     description: For every student with an Active tuition plan, generates a TUITION invoice if the cycle is due, and always generates a MONTHLY invoice. Idempotent — safe to run multiple times for the same billingMonth (relies on UNIQUE(StudentID, BillingMonth, InvoiceType)). Intended for manual triggering during testing; in production it also runs automatically via cron at 00:05 on day 1 of each month.
+ *     description: >
+ *       For every student with an Active tuition plan, generates a TUITION invoice if the cycle
+ *       is due, and always generates a MONTHLY invoice. Generated invoices start as drafts
+ *       (Published=0, DueDate=NULL) — they are invisible to parents until a principal reviews and
+ *       publishes them via PATCH /billing/invoices/publish. Idempotent — safe to run multiple
+ *       times for the same billingMonth (relies on UNIQUE(StudentID, BillingMonth, InvoiceType)).
+ *       Can be called at any time during the month (not just day 1) to demo/test the flow without
+ *       waiting for the real cron — omit billingMonth to default to the current month. This same
+ *       endpoint is also what the cron calls automatically at 00:05 on day 1 of each month.
  *     tags: ["Billing"]
  *     security:
  *       - bearerAuth: []
@@ -330,6 +338,131 @@
  *                       description: Full updated Invoices row (raw DB column names)
  *       400:
  *         description: Bad Request - missing or invalid dueDate (must be YYYY-MM-DD)
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a principal
+ *       404:
+ *         description: Not Found - invoice not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+// ─────────────────────────────────────────────────────────────
+//  GROUP 5 · Billing - Publish (draft → visible to parents)
+//  PATCH /billing/invoices/publish
+//  PATCH /billing/invoices/:invoiceId/publish
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /billing/invoices/publish:
+ *   patch:
+ *     summary: Publish all draft TUITION/MONTHLY invoices of a billing month
+ *     description: >
+ *       TUITION and MONTHLY invoices are created as drafts (Published=0, DueDate=NULL) by the
+ *       monthly billing cron so a principal can review/correct them (e.g. via the surcharge or
+ *       due-date endpoints) before parents ever see them. This endpoint publishes every remaining
+ *       draft of a given billingMonth: sets Published=1, PublishedAt=now, and DueDate=now+10 days
+ *       — the due date is anchored to the actual publish time, not a fixed day of the billing
+ *       month, so a late review never shortens the parent's payment window. EXTRACURRICULAR
+ *       invoices are never affected — they are published immediately when created and are not
+ *       part of this review workflow.
+ *     tags: ["Billing"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [billingMonth]
+ *             properties:
+ *               billingMonth:
+ *                 type: string
+ *                 description: "'MM-YYYY'"
+ *                 example: "08-2026"
+ *     responses:
+ *       200:
+ *         description: Invoices published successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: "Đã công khai 42 hóa đơn"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     billingMonth:
+ *                       type: string
+ *                       example: "08-2026"
+ *                     publishedCount:
+ *                       type: integer
+ *                       example: 42
+ *       400:
+ *         description: Bad Request - missing billingMonth
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - user is not a principal
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /billing/invoices/{invoiceId}/publish:
+ *   patch:
+ *     summary: Publish a single draft TUITION/MONTHLY invoice
+ *     description: >
+ *       Use after correcting an individual invoice (surcharge, etc.) instead of publishing the
+ *       whole month. Sets Published=1, PublishedAt=now, DueDate=now+10 days. Rejects
+ *       EXTRACURRICULAR invoices (not part of this workflow) and invoices already published.
+ *     tags: ["Billing"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: invoiceId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 9
+ *     responses:
+ *       200:
+ *         description: Invoice published successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Công khai hóa đơn thành công
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     invoice:
+ *                       type: object
+ *                       description: Full updated Invoices row (raw DB column names)
+ *       400:
+ *         description: Bad Request - invoice is EXTRACURRICULAR or already published
  *       401:
  *         description: Unauthorized
  *       403:

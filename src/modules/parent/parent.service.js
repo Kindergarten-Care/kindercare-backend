@@ -1295,7 +1295,10 @@ export const getStudentDailyEvents = async (studentId, startDateStr, endDateStr 
 export const getInvoicesByStudentId = async (studentId, filters = {}) => {
   const { type, status, from, to } = filters;
 
-  const conditions = ['StudentID = ?'];
+  // Hóa đơn TUITION/MONTHLY còn nháp (Published=0, chờ hiệu trưởng duyệt) không
+  // được lộ ra cho phụ huynh. EXTRACURRICULAR luôn hiển thị vì không qua bước
+  // duyệt này (Published=1 sẵn từ lúc tạo).
+  const conditions = ['StudentID = ?', "(InvoiceType = 'EXTRACURRICULAR' OR Published = 1)"];
   const values = [studentId];
 
   if (type) { conditions.push('InvoiceType = ?'); values.push(type); }
@@ -1373,7 +1376,7 @@ export const getInvoiceDetail = async (invoiceId) => {
        DueDate             AS dueDate,
        CreatedAt           AS createdAt
      FROM Invoices
-     WHERE InvoiceID = ?`;
+     WHERE InvoiceID = ? AND (InvoiceType = 'EXTRACURRICULAR' OR Published = 1)`;
   const transactionsQuery = `
     SELECT
        TransactionID    AS transactionId,
@@ -1442,7 +1445,8 @@ export const getInvoiceDetail = async (invoiceId) => {
 };
 
 /**
- * Kiểm tra 1 hóa đơn có thuộc về học sinh của phụ huynh hay không.
+ * Kiểm tra 1 hóa đơn có thuộc về học sinh của phụ huynh hay không. Hóa đơn
+ * TUITION/MONTHLY còn nháp (Published=0) coi như chưa tồn tại với phụ huynh.
  * @param {number} invoiceId
  * @param {number} parentId
  * @returns {Promise<boolean>}
@@ -1452,7 +1456,8 @@ export const isParentOfInvoice = async (invoiceId, parentId) => {
     `SELECT 1
      FROM Invoices i
      JOIN StudentParents sp ON i.StudentID = sp.StudentID
-     WHERE i.InvoiceID = ? AND sp.ParentID = ?`,
+     WHERE i.InvoiceID = ? AND sp.ParentID = ?
+       AND (i.InvoiceType = 'EXTRACURRICULAR' OR i.Published = 1)`,
     [invoiceId, parentId]
   );
   return rows.length > 0;
