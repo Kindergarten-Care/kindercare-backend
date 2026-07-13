@@ -1648,7 +1648,7 @@
  * /teacher/attendance/upload-photo:
  *   post:
  *     summary: Upload Photo Attendance
- *     description: Tải ảnh lên để điểm danh học sinh. Hệ thống sẽ lưu ảnh, cập nhật trạng thái điểm danh và gửi thông báo real-time tới phụ huynh.
+ *     description: Tải ảnh lên để điểm danh học sinh (2 chiều). Nếu chưa điểm danh hoặc chưa có ảnh đầu ngày, hệ thống lưu vào `dropoffImage`. Nếu đã có `dropoffImage`, hệ thống lưu vào `pickupImage`. Nếu đã điểm danh cả 2 lần, hệ thống trả về lỗi 400.
  *     tags: [Teacher]
  *     security:
  *       - bearerAuth: []
@@ -1675,7 +1675,7 @@
  *                 description: ID của lớp học
  *     responses:
  *       201:
- *         description: Successfully uploaded photo attendance
+ *         description: Successfully uploaded photo attendance (dropoff or pickup)
  *         content:
  *           application/json:
  *             schema:
@@ -1693,16 +1693,17 @@
  *                 data:
  *                   type: object
  *                   properties:
- *                     photoId:
- *                       type: integer
  *                     photoUrl:
  *                       type: string
  *                     studentId:
  *                       type: integer
  *                     time:
  *                       type: string
+ *                     type:
+ *                       type: string
+ *                       example: dropoff
  *       400:
- *         description: Bad request (missing file or invalid ids)
+ *         description: Bad request (missing file, invalid ids, or already attended twice today)
  *       403:
  *         description: Forbidden (teacher is not assigned to this class)
  *       500:

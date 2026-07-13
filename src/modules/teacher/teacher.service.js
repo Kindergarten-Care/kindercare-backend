@@ -1,6 +1,8 @@
 import pool from '../../config/db.js';
 import { uploadToSpace } from '../../utils/s3Upload.js';
 import { emitNotificationToUser } from '../../config/socket.js';
+import ApiError from '../../utils/ApiError.js';
+
 
 /**
  * Get the single active class assigned to a teacher (only AcademicYears with IsActive = 1).
@@ -1595,56 +1597,70 @@ export const submitPhotoAttendance = async (file, studentId, classId, teacherId)
     const vnDate = new Date(timestamp * 1000 + 7 * 60 * 60 * 1000);
     const dateTimestamp = Math.floor(Date.UTC(vnDate.getUTCFullYear(), vnDate.getUTCMonth(), vnDate.getUTCDate()) / 1000);
 
-    // 2. Insert into AttendancePhotos
-    const [photoResult] = await connection.query(
-      `INSERT INTO AttendancePhotos (StudentID, ClassID, TeacherID, PhotoURL, UploadedAt) VALUES (?, ?, ?, ?, ?)`,
-      [studentId, classId, teacherId, photoUrl, timestamp]
-    );
-
-    // 3. Update Attendances table
+    // 2. Query today's attendance record
     const [attRows] = await connection.query(
-      `SELECT AttendanceID FROM Attendances WHERE StudentID = ? AND AttendanceDate = ?`,
+      `SELECT AttendanceID, dropoffImage, pickupImage FROM Attendances WHERE StudentID = ? AND AttendanceDate = ?`,
       [studentId, dateTimestamp]
     );
 
     let timeStr = `${String(vnDate.getUTCHours()).padStart(2, '0')}:${String(vnDate.getUTCMinutes()).padStart(2, '0')}`;
+    let title = '';
+    let bodyTemplate = '';
+    let attendanceType = '';
 
-    if (attRows.length === 0) {
+    if (attRows.length === 0 || !attRows[0].dropoffImage) {
+      // Logic 1: Nhận trẻ (Dropoff)
+      attendanceType = 'dropoff';
+      if (attRows.length === 0) {
+        await connection.query(
+          `INSERT INTO Attendances (StudentID, AttendanceDate, CheckInTime, Status, CheckedInByTeacherID, dropoffImage)
+           VALUES (?, ?, ?, 'Present', ?, ?)`,
+          [studentId, dateTimestamp, timestamp, teacherId, photoUrl]
+        );
+      } else {
+        await connection.query(
+          `UPDATE Attendances SET CheckInTime = IFNULL(CheckInTime, ?), Status = 'Present', CheckedInByTeacherID = ?, dropoffImage = ? WHERE AttendanceID = ?`,
+          [timestamp, teacherId, photoUrl, attRows[0].AttendanceID]
+        );
+      }
+      title = 'Điểm danh bằng hình ảnh';
+      bodyTemplate = `Đã nhận trẻ {name} tại lớp lúc ${timeStr}.`;
+    } else if (!attRows[0].pickupImage) {
+      // Logic 2: Trả trẻ (Pickup)
+      attendanceType = 'pickup';
       await connection.query(
-        `INSERT INTO Attendances (StudentID, AttendanceDate, CheckInTime, Status, CheckedInByTeacherID)
-         VALUES (?, ?, ?, 'Present', ?)`,
-        [studentId, dateTimestamp, timestamp, teacherId]
+        `UPDATE Attendances SET CheckOutTime = IFNULL(CheckOutTime, ?), pickupImage = ? WHERE AttendanceID = ?`,
+        [timestamp, photoUrl, attRows[0].AttendanceID]
       );
+      title = 'Điểm danh bằng hình ảnh';
+      bodyTemplate = `Phụ huynh đã đón trẻ {name} về lúc ${timeStr}.`;
     } else {
-      await connection.query(
-        `UPDATE Attendances SET CheckInTime = IFNULL(CheckInTime, ?), Status = 'Present', CheckedInByTeacherID = ? WHERE AttendanceID = ?`,
-        [timestamp, teacherId, attRows[0].AttendanceID]
-      );
+      // Logic 3: Đã đủ 2 lần
+      throw new ApiError(400, 'Học sinh đã điểm danh đủ 2 lần trong ngày, không thể chụp thêm');
     }
 
-    // 4. Get student details and parent
+    // 3. Get student details and parent
     const [studentRows] = await connection.query(
       `SELECT FullName FROM Students WHERE StudentID = ?`, [studentId]
     );
     const studentName = studentRows[0]?.FullName || 'Học sinh';
+    const body = bodyTemplate.replace('{name}', studentName);
 
     const [parentRows] = await connection.query(
       `SELECT ParentID FROM StudentParents WHERE StudentID = ?`, [studentId]
     );
 
-    // 5. Insert notification and emit socket
+    // 4. Insert notification and emit socket
     for (const parent of parentRows) {
       const parentId = parent.ParentID;
-      const title = 'Điểm danh bằng hình ảnh';
-      const body = `Đã nhận trẻ ${studentName} tại lớp lúc ${timeStr}.`;
-
-      const dataPayload = JSON.stringify({ referenceId: studentId, photoUrl });
+      const dataPayload = JSON.stringify({ referenceId: studentId, photoUrl, type: attendanceType });
+      
       const [notifResult] = await connection.query(
         `INSERT INTO Notifications (UserID, Title, Message, Type, IsRead, IsCritical, DataPayload, CreatedAt, UpdatedAt) VALUES (?, ?, ?, 'ATTENDANCE', 0, 0, ?, ?, ?)`,
         [parentId, title, body, dataPayload, timestamp, timestamp]
       );
 
-      // 6. Socket push
+      // 5. Socket push
       emitNotificationToUser(parentId, {
         notificationId: notifResult.insertId,
         title,
@@ -1658,10 +1674,10 @@ export const submitPhotoAttendance = async (file, studentId, classId, teacherId)
     await connection.commit();
 
     return {
-      photoId: photoResult.insertId,
       photoUrl,
       studentId,
-      time: timeStr
+      time: timeStr,
+      type: attendanceType
     };
   } catch (error) {
     await connection.rollback();
