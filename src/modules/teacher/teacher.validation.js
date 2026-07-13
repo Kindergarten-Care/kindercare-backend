@@ -15,8 +15,8 @@ export const validateUpdateProfile = (req, res, next) => {
     return next(new ApiError(httpStatus.BAD_REQUEST, 'Email không đúng định dạng'));
   }
 
-  if (phoneNumber && !/^[0-9]{9,11}$/.test(phoneNumber)) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'Số điện thoại không hợp lệ, phải gồm 9 - 11 chữ số'));
+  if (phoneNumber && !/^(03|05|07|08|09)[0-9]{8}$/.test(phoneNumber)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'Số điện thoại không hợp lệ, phải gồm 10 chữ số và bắt đầu bằng đầu số chuẩn VN (03, 05, 07, 08, 09)'));
   }
 
   if (dateOfBirth !== undefined && dateOfBirth !== null && (typeof dateOfBirth !== 'number' || dateOfBirth < 0)) {
@@ -27,8 +27,8 @@ export const validateUpdateProfile = (req, res, next) => {
     return next(new ApiError(httpStatus.BAD_REQUEST, 'Giới tính phải là chuỗi ký tự'));
   }
 
-  if (idCard && typeof idCard !== 'string') {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'Số CMND/CCCD phải là chuỗi ký tự'));
+  if (idCard && !/^([0-9]{9}|[0-9]{12})$/.test(idCard)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'CCCD/CMND phải là chuỗi số có độ dài chính xác 9 hoặc 12 chữ số'));
   }
 
   if (address && typeof address !== 'string') {

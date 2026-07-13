@@ -385,6 +385,17 @@ export const isTeacherAssignedToClass = async (teacherId, classId) => {
  * @returns {Promise<boolean>} True if updated
  */
 export const updateLeaveRequestStatus = async (requestId, status, teacherId) => {
+  if (status === 'Approved') {
+    const [reqRows] = await pool.query('SELECT LeaveDate, StudentID FROM LeaveRequests WHERE RequestID = ?', [requestId]);
+    if (reqRows.length > 0) {
+      const { LeaveDate, StudentID } = reqRows[0];
+      const [attRows] = await pool.query('SELECT AttendanceID FROM Attendances WHERE StudentID = ? AND AttendanceDate = ? AND (Status = "Present" OR dropoffImage IS NOT NULL OR pickupImage IS NOT NULL)', [StudentID, LeaveDate]);
+      if (attRows.length > 0) {
+        throw new ApiError(400, 'Học sinh đã được điểm danh trong ngày này, không thể duyệt đơn nghỉ phép.');
+      }
+    }
+  }
+
   const query = `
     UPDATE LeaveRequests
     SET Status = ?, ApproverID = ?
@@ -415,6 +426,16 @@ export const upsertAttendance = async (
   checkedOutByTeacherId = null,
   proxyAuthorizationId = null
 ) => {
+  if (status === 'Present') {
+    const [leaveRows] = await pool.query(
+      `SELECT RequestID FROM LeaveRequests WHERE StudentID = ? AND LeaveDate = ? AND Status = 'Approved'`,
+      [studentId, date]
+    );
+    if (leaveRows.length > 0) {
+      throw new ApiError(400, 'Học sinh đã được duyệt đơn nghỉ phép trong ngày hôm nay, không thể điểm danh.');
+    }
+  }
+
   const checkQuery = 'SELECT AttendanceID FROM Attendances WHERE StudentID = ? AND AttendanceDate = ?';
   const [rows] = await pool.query(checkQuery, [studentId, date]);
 
@@ -1611,6 +1632,16 @@ export const submitPhotoAttendance = async (file, studentId, classId, teacherId)
     let title = '';
     let bodyTemplate = '';
     let attendanceType = '';
+
+    // Check if student has an APPROVED leave request today
+    const [leaveRows] = await connection.query(
+      `SELECT RequestID FROM LeaveRequests WHERE StudentID = ? AND LeaveDate = ? AND Status = 'Approved'`,
+      [studentId, dateTimestamp]
+    );
+
+    if (leaveRows.length > 0) {
+      throw new ApiError(400, 'Học sinh đã được duyệt đơn nghỉ phép trong ngày hôm nay, không thể điểm danh.');
+    }
 
     if (attRows.length === 0 || !attRows[0].dropoffImage) {
       // Logic 1: Nhận trẻ (Dropoff)
