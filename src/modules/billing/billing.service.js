@@ -101,16 +101,15 @@ const getPackageById = async (packageId) => {
  */
 export const generateTuitionInvoice = async (plan, pkg, billingMonth) => {
   const { tuitionFee, discountAmount, periodRange } = tuitionForCycle(plan, pkg, billingMonth);
-  const dueDate = getDueDate(billingMonth);
 
   try {
     const [result] = await pool.query(
       `INSERT INTO Invoices
-         (StudentID, PackageID, PeriodRange, BillingMonth, TuitionFee, DiscountAmount, InvoiceType, DueDate)
-       VALUES (?, ?, ?, ?, ?, ?, 'TUITION', ?)`,
-      [plan.StudentID, plan.PackageID, periodRange, billingMonth, tuitionFee, discountAmount, dueDate]
+         (StudentID, PackageID, PeriodRange, BillingMonth, TuitionFee, DiscountAmount, InvoiceType, DueDate, Published)
+       VALUES (?, ?, ?, ?, ?, ?, 'TUITION', NULL, 0)`,
+      [plan.StudentID, plan.PackageID, periodRange, billingMonth, tuitionFee, discountAmount]
     );
-    return { invoiceId: result.insertId, tuitionFee, discountAmount, periodRange, billingMonth, dueDate };
+    return { invoiceId: result.insertId, tuitionFee, discountAmount, periodRange, billingMonth };
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') {
       return null;
@@ -269,21 +268,19 @@ export const generateMonthlyInvoice = async (studentId, billingMonth) => {
     expectedMealFee(studentId, billingMonth),
     refundForPrevMonth(studentId, prevMonth),
   ]);
-  const dueDate = getDueDate(billingMonth);
 
   try {
     const [result] = await pool.query(
       `INSERT INTO Invoices
-         (StudentID, BillingMonth, ExpectedMealFee, Surcharge, RefundAmount, InvoiceType, DueDate)
-       VALUES (?, ?, ?, 0, ?, 'MONTHLY', ?)`,
-      [studentId, billingMonth, meal, refund, dueDate]
+         (StudentID, BillingMonth, ExpectedMealFee, Surcharge, RefundAmount, InvoiceType, DueDate, Published)
+       VALUES (?, ?, ?, 0, ?, 'MONTHLY', NULL, 0)`,
+      [studentId, billingMonth, meal, refund]
     );
     return {
       invoiceId: result.insertId,
       billingMonth,
       expectedMealFee: meal,
       refundAmount: refund,
-      dueDate,
     };
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') {
@@ -415,6 +412,8 @@ const getInvoiceById = async (invoiceId) => {
 
 /**
  * Thêm phụ thu vào 1 hóa đơn (cộng dồn vào Surcharge hiện có).
+ * Tính lại PaymentStatus ngay sau đó vì Surcharge làm TotalAmount (generated
+ * column) tăng — invoice đã Paid trước đó có thể rơi về Partial/Unpaid.
  * @param {number} invoiceId
  * @param {number} amount
  * @param {string} [note]
@@ -426,6 +425,8 @@ export const addSurcharge = async (invoiceId, amount, note) => {
     'UPDATE Invoices SET Surcharge = Surcharge + ? WHERE InvoiceID = ?',
     [amount, invoiceId]
   );
+
+  await recalculateInvoicePaymentStatus(invoiceId);
 
   return getInvoiceById(invoiceId);
 };
@@ -443,6 +444,54 @@ export const updateDueDate = async (invoiceId, dueDate) => {
   await pool.query(
     'UPDATE Invoices SET DueDate = ?, ReminderSentAt = NULL, OverdueReminderSentAt = NULL WHERE InvoiceID = ?',
     [dueDate, invoiceId]
+  );
+
+  return getInvoiceById(invoiceId);
+};
+
+/**
+ * Công khai toàn bộ hóa đơn TUITION/MONTHLY nháp (Published=0) của 1 tháng cho
+ * phụ huynh thấy và thanh toán. Hóa đơn EXTRACURRICULAR không thuộc quy trình
+ * duyệt này nên không bị điều kiện InvoiceType đụng tới.
+ * DueDate = thời điểm publish + 10 ngày (không phải ngày 10 cố định của
+ * billingMonth) — để hiệu trưởng publish trễ không làm phụ huynh bị rút ngắn
+ * thời gian đóng tiền.
+ * @param {string} billingMonth - 'MM-YYYY'
+ * @returns {Promise<{billingMonth: string, publishedCount: number}>}
+ */
+export const publishInvoicesForMonth = async (billingMonth) => {
+  const [result] = await pool.query(
+    `UPDATE Invoices
+     SET Published = 1,
+         PublishedAt = UNIX_TIMESTAMP(),
+         DueDate = UNIX_TIMESTAMP() + 10 * 86400
+     WHERE BillingMonth = ? AND InvoiceType IN ('TUITION', 'MONTHLY') AND Published = 0`,
+    [billingMonth]
+  );
+  return { billingMonth, publishedCount: result.affectedRows };
+};
+
+/**
+ * Công khai 1 hóa đơn TUITION/MONTHLY nháp riêng lẻ (sau khi hiệu trưởng đã
+ * sửa surcharge/due-date cho đúng). Không áp dụng cho EXTRACURRICULAR (luôn
+ * Published=1 sẵn từ lúc tạo) hoặc hóa đơn đã publish trước đó.
+ * @param {number} invoiceId
+ */
+export const publishInvoice = async (invoiceId) => {
+  const invoice = await getInvoiceById(invoiceId);
+
+  if (invoice.InvoiceType === 'EXTRACURRICULAR') {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Hóa đơn ngoại khóa không thuộc quy trình duyệt/công khai');
+  }
+  if (invoice.Published) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Hóa đơn đã được công khai trước đó');
+  }
+
+  await pool.query(
+    `UPDATE Invoices
+     SET Published = 1, PublishedAt = UNIX_TIMESTAMP(), DueDate = UNIX_TIMESTAMP() + 10 * 86400
+     WHERE InvoiceID = ?`,
+    [invoiceId]
   );
 
   return getInvoiceById(invoiceId);
@@ -587,6 +636,7 @@ export const sendPaymentReminders = async (nowSec) => {
     `SELECT i.InvoiceID, i.StudentID, i.DueDate, i.TotalAmount, i.InvoiceType, i.BillingMonth
      FROM Invoices i
      WHERE i.PaymentStatus != 'Paid'
+       AND (i.InvoiceType = 'EXTRACURRICULAR' OR i.Published = 1)
        AND i.DueDate IS NOT NULL
        AND i.DueDate <= ? AND i.DueDate > ?
        AND i.ReminderSentAt IS NULL`,
@@ -597,6 +647,7 @@ export const sendPaymentReminders = async (nowSec) => {
     `SELECT i.InvoiceID, i.StudentID, i.DueDate, i.TotalAmount, i.InvoiceType, i.BillingMonth
      FROM Invoices i
      WHERE i.PaymentStatus != 'Paid'
+       AND (i.InvoiceType = 'EXTRACURRICULAR' OR i.Published = 1)
        AND i.DueDate IS NOT NULL
        AND i.DueDate <= ?
        AND i.OverdueReminderSentAt IS NULL`,

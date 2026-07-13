@@ -919,8 +919,14 @@ const updatePaymentPackage = async (req, res, next) => {
 
 const getInvoices = async (req, res, next) => {
   try {
-    const { studentId, billingMonth, paymentStatus, invoiceType } = req.query;
-    const data = await principalService.getInvoices({ studentId, billingMonth, paymentStatus, invoiceType });
+    const { studentId, billingMonth, paymentStatus, invoiceType, published } = req.query;
+    const data = await principalService.getInvoices({
+      studentId,
+      billingMonth,
+      paymentStatus,
+      invoiceType,
+      published: published !== undefined ? published === '1' || published === 'true' : undefined,
+    });
     res.status(200).json({
       success: true,
       data,

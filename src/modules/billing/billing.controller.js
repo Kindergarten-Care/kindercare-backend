@@ -83,9 +83,44 @@ const updateDueDate = async (req, res, next) => {
   }
 };
 
+const publishInvoicesForMonth = async (req, res, next) => {
+  try {
+    const { billingMonth } = req.body;
+
+    if (!billingMonth) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Vui lòng cung cấp billingMonth (định dạng MM-YYYY)');
+    }
+
+    const result = await billingService.publishInvoicesForMonth(billingMonth);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, result, `Đã công khai ${result.publishedCount} hóa đơn`)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const publishInvoice = async (req, res, next) => {
+  try {
+    const { invoiceId } = req.params;
+    const invoiceIdVal = parseInt(invoiceId, 10);
+
+    const invoice = await billingService.publishInvoice(invoiceIdVal);
+
+    res.status(httpStatus.OK).json(
+      new ApiResponse(httpStatus.OK, { invoice }, 'Công khai hóa đơn thành công')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   registerTuitionPlan,
   runMonthlyBilling,
   addSurcharge,
   updateDueDate,
+  publishInvoicesForMonth,
+  publishInvoice,
 };
