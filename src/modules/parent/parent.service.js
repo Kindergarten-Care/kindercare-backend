@@ -516,7 +516,9 @@ export const getStudentAttendance = async (studentId, startDate, endDate) => {
       
       a.CheckedInByTeacherID AS checkedInByTeacherId,
       a.CheckedOutByTeacherID AS checkedOutByTeacherId,
-      a.ProxyAuthorizationID AS proxyAuthorizationId
+      a.ProxyAuthorizationID AS proxyAuthorizationId,
+      a.dropoffImage AS dropoffImage,
+      a.pickupImage AS pickupImage
     FROM Attendances a
     LEFT JOIN Parents p_in ON a.DroppedOffByParentID = p_in.ParentID
     LEFT JOIN StudentParents sp_in ON p_in.ParentID = sp_in.ParentID AND sp_in.StudentID = a.StudentID
