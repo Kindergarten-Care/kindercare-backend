@@ -219,13 +219,14 @@ export const expectedMealFee = async (studentId, billingMonth) => {
 };
 
 /**
- * Tiền hoàn tiền ăn của tháng trước (nghỉ có phép, được miễn tiền ăn).
- * Đơn nghỉ đã auto-Approved sẵn — chỉ cần lọc IsMealFeeDeducted=1.
+ * Số ngày công bị trừ tiền ăn của 1 tháng do nghỉ có phép (IsMealFeeDeducted=1).
+ * Đơn nghỉ đã auto-Approved sẵn — chỉ cần lọc theo cờ này.
  * @param {number} studentId
- * @param {string} prevMonth - 'MM-YYYY'
+ * @param {string} monthKey - 'MM-YYYY'
+ * @returns {Promise<number>}
  */
-export const refundForPrevMonth = async (studentId, prevMonth) => {
-  const { month, year, daysInMonth } = parseMonthKeyToRange(prevMonth);
+const deductedMealDaysForMonth = async (studentId, monthKey) => {
+  const { month, year, daysInMonth } = parseMonthKeyToRange(monthKey);
   const monthStartSec = Math.floor(new Date(year, month - 1, 1).getTime() / 1000) - TZ_OFFSET_SECONDS;
   const monthEndSec = Math.floor(new Date(year, month - 1, daysInMonth, 23, 59, 59).getTime() / 1000) - TZ_OFFSET_SECONDS;
 
@@ -236,10 +237,6 @@ export const refundForPrevMonth = async (studentId, prevMonth) => {
        AND FromDate <= ? AND ToDate >= ?`,
     [studentId, monthEndSec, monthStartSec]
   );
-
-  if (rows.length === 0) return 0;
-
-  const dailyFee = await getDailyMealFeeForStudent(studentId);
 
   let deductedDays = 0;
   for (const row of rows) {
@@ -252,7 +249,40 @@ export const refundForPrevMonth = async (studentId, prevMonth) => {
     }
   }
 
+  return deductedDays;
+};
+
+/**
+ * Tiền hoàn tiền ăn của tháng trước (nghỉ có phép, được miễn tiền ăn).
+ * @param {number} studentId
+ * @param {string} prevMonth - 'MM-YYYY'
+ * @returns {Promise<number>}
+ */
+export const refundForPrevMonth = async (studentId, prevMonth) => {
+  const deductedDays = await deductedMealDaysForMonth(studentId, prevMonth);
+  if (deductedDays === 0) return 0;
+
+  const dailyFee = await getDailyMealFeeForStudent(studentId);
   return deductedDays * dailyFee;
+};
+
+/**
+ * Breakdown hoàn tiền ăn của tháng trước — dùng để hiển thị chi tiết hóa đơn
+ * (không phải để tạo hóa đơn). Tính lại real-time từ LeaveRequests hiện có +
+ * DailyMealFee HIỆN TẠI, nên nếu BaseFees đã đổi sau khi hóa đơn được tạo,
+ * `refundAmount` ở đây có thể lệch nhẹ so với `Invoices.RefundAmount` đã lưu
+ * (dùng giá tại thời điểm tạo) — deductedDays vẫn chính xác vì dữ liệu nghỉ
+ * không đổi theo thời gian.
+ * @param {number} studentId
+ * @param {string} prevMonth - 'MM-YYYY'
+ * @returns {Promise<{deductedDays: number, dailyFee: number, refundAmount: number}>}
+ */
+export const getMealRefundBreakdown = async (studentId, prevMonth) => {
+  const [deductedDays, dailyFee] = await Promise.all([
+    deductedMealDaysForMonth(studentId, prevMonth),
+    getDailyMealFeeForStudent(studentId),
+  ]);
+  return { deductedDays, dailyFee, refundAmount: deductedDays * dailyFee };
 };
 
 /**

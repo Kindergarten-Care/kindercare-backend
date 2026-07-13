@@ -1800,6 +1800,15 @@
  *       kèm thêm `transactions[]` — lịch sử giao dịch thanh toán của hóa đơn đó (bảng `Transactions`),
  *       sắp xếp theo `transactionDate` giảm dần.
  *
+ *       Với hóa đơn `invoiceType = 'MONTHLY'`, trả kèm `mealRefundBreakdown` — diễn giải khoản
+ *       `refundAmount` (hoàn tiền ăn do nghỉ có phép trong tháng trước `billingMonth`): số ngày
+ *       công bị trừ, đơn giá tiền ăn/ngày, và số tiền hoàn = deductedDays × dailyFee. Được tính
+ *       lại real-time từ `LeaveRequests` + `BaseFees` hiện hành mỗi lần gọi API (không phải giá
+ *       trị lưu cứng lúc tạo hóa đơn) — nếu học phí cơ bản của lớp đã đổi sau khi hóa đơn được
+ *       tạo, `mealRefundBreakdown.refundAmount` có thể lệch nhẹ so với field `refundAmount` gốc
+ *       (dùng đơn giá tại thời điểm cron chạy), nhưng `deductedDays` luôn chính xác vì dữ liệu
+ *       nghỉ phép không đổi theo thời gian. Với hóa đơn không phải `MONTHLY`, field này là `null`.
+ *
  *       **Chỉ hiệu trưởng (roleId=2)** mới có quyền truy cập.
  *     tags: ["Principal - Fees"]
  *     security:
@@ -1847,8 +1856,29 @@
  *                     invoiceType: { type: string, example: "EXTRACURRICULAR" }
  *                     createdAt: { type: integer, description: "Unix timestamp (seconds)", example: 1783564680 }
  *                     dueDate: { type: integer, nullable: true, description: "Unix timestamp (seconds)", example: 1783616400 }
+ *                     published: { type: integer, description: "0 = nháp (chưa công khai cho phụ huynh), 1 = đã công khai. Luôn 1 với EXTRACURRICULAR.", example: 1 }
+ *                     publishedAt: { type: integer, nullable: true, description: "Unix timestamp (seconds), null nếu chưa publish", example: 1755000000 }
  *                     reminderSentAt: { type: integer, nullable: true, example: null }
  *                     overdueReminderSentAt: { type: integer, nullable: true, example: 1783645200 }
+ *                     mealRefundBreakdown:
+ *                       type: object
+ *                       nullable: true
+ *                       description: "Chỉ có giá trị khi invoiceType='MONTHLY', ngược lại là null"
+ *                       properties:
+ *                         deductedDays:
+ *                           type: integer
+ *                           description: Số ngày công bị trừ tiền ăn do nghỉ có phép trong tháng trước billingMonth
+ *                           example: 3
+ *                         dailyFee:
+ *                           type: number
+ *                           format: float
+ *                           description: Đơn giá tiền ăn/ngày hiện hành (BaseFees.DailyMealFee)
+ *                           example: 60000
+ *                         refundAmount:
+ *                           type: number
+ *                           format: float
+ *                           description: deductedDays × dailyFee (tính real-time, có thể lệch nhẹ so với field refundAmount gốc nếu BaseFees đã đổi)
+ *                           example: 180000
  *                     transactions:
  *                       type: array
  *                       description: Lịch sử giao dịch thanh toán của hóa đơn
