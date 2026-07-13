@@ -297,6 +297,8 @@ export const getStudentDetail = async (id) => {
       p.PhoneNumber    AS phoneNumber,
       p.Email          AS email,
       p.AvatarURL      AS avatarUrl,
+      p.Job            AS occupation,
+      p.Address        AS address,
       sp.Relationship  AS relationship,
       sp.IsPrimary     AS isPrimary
     FROM StudentParents sp
