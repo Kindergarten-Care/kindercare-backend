@@ -94,8 +94,6 @@ const developmentAssessmentItemSchema = Joi.object({
   socialScore: Joi.number().integer().min(1).max(10).allow(null).optional(),
   languageScore: Joi.number().integer().min(1).max(10).allow(null).optional(),
   cognitiveScore: Joi.number().integer().min(1).max(10).allow(null).optional(),
-  aestheticScore: Joi.number().integer().min(1).max(10).allow(null).optional(),
-  lifeSkillScore: Joi.number().integer().min(1).max(10).allow(null).optional(),
   overallNote: Joi.string().trim().allow('', null).max(500).optional()
 });
 
