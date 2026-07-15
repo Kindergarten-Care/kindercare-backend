@@ -408,8 +408,7 @@ export const validateSubmitClassAssessments = (req, res, next) => {
         !isValidScore(item.cognitiveScore) ||
         !isValidScore(item.languageScore) ||
         !isValidScore(item.emotionalScore) ||
-        !isValidScore(item.aestheticScore) ||
-        !isValidScore(item.lifeSkillsScore)) {
+        !isValidScore(item.aestheticScore)) {
       return next(new ApiError(httpStatus.BAD_REQUEST, `Điểm số tại phần tử thứ ${i + 1} phải là số từ 1 đến 10`));
     }
   }
@@ -428,12 +427,11 @@ export const validateSubmitClassAssessments = (req, res, next) => {
  *   languageScore: number,    // 1-10
  *   emotionalScore: number,   // 1-10
  *   aestheticScore: number,   // 1-10
- *   lifeSkillsScore: number, // 1-10
  *   notes?: string
  * }
  */
 export const validateSubmitAssessments = (req, res, next) => {
-  const { classId, studentId, month, physicalScore, cognitiveScore, languageScore, emotionalScore, aestheticScore, lifeSkillsScore } = req.body;
+  const { classId, studentId, month, physicalScore, cognitiveScore, languageScore, emotionalScore, aestheticScore } = req.body;
 
   if (!classId || isNaN(Number(classId))) {
     return next(new ApiError(httpStatus.BAD_REQUEST, 'classId là bắt buộc và phải là số nguyên hợp lệ'));
@@ -464,9 +462,6 @@ export const validateSubmitAssessments = (req, res, next) => {
   }
   if (!isValidScore(aestheticScore)) {
     return next(new ApiError(httpStatus.BAD_REQUEST, 'aestheticScore phải là số từ 1 đến 10'));
-  }
-  if (!isValidScore(lifeSkillsScore)) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'lifeSkillsScore phải là số từ 1 đến 10'));
   }
 
   next();
