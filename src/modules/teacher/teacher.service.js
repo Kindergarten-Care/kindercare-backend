@@ -279,6 +279,7 @@ export const getLeaveRequestsForTeacher = async (teacherId, status) => {
       c.ClassName AS className,
       lr.ParentID AS parentId,
       p.FullName AS parentName,
+      p.PhoneNumber AS parentPhone,
       lr.FromDate AS fromDate,
       lr.ToDate AS toDate,
       lr.Reason AS reason,
