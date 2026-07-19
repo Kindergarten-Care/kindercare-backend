@@ -54,7 +54,7 @@ export const getWeeksInMonth = (year, month) => {
 
 export const getMonthlySchedule = async (classId, month, year) => {
   const [rows] = await pool.query(
-    `SELECT MonthlyScheduleID, ClassID, Month, Year, MonthTheme, CreatedAt, UpdatedAt
+    `SELECT MonthlyScheduleID, ClassID, Month, Year, MonthTheme, ApprovedStatus, IsActive, CreatedAt, UpdatedAt
      FROM MonthlySchedules
      WHERE ClassID = ? AND Month = ? AND Year = ?`,
     [classId, month, year]
@@ -67,6 +67,8 @@ export const getMonthlySchedule = async (classId, month, year) => {
     month: r.Month,
     year: r.Year,
     monthTheme: r.MonthTheme,
+    approvedStatus: r.ApprovedStatus,
+    isActive: r.IsActive,
     createdAt: r.CreatedAt,
     updatedAt: r.UpdatedAt,
   };
