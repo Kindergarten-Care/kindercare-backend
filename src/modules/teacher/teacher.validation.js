@@ -421,7 +421,7 @@ export const validateSubmitClassAssessments = (req, res, next) => {
  * Body: {
  *   classId: number,
  *   studentId: number,
- *   month: string,          // 'YYYY-MM' (Accepting both month and assessmentMonth for compatibility)
+ *   month: string,          // 'MM-YYYY' (Accepting both month and assessmentMonth for compatibility)
  *   assessmentMonth: string,
  *   physicalScore: number,   // 1-10
  *   cognitiveScore: number,   // 1-10
@@ -433,7 +433,7 @@ export const validateSubmitClassAssessments = (req, res, next) => {
  */
 export const validateSubmitAssessments = (req, res, next) => {
   const { classId, studentId, physicalScore, cognitiveScore, languageScore, aestheticScore } = req.body;
-  
+
   // Accept both versions for compatibility
   const month = req.body.assessmentMonth || req.body.month;
   const socioEmotionalScore = req.body.socioEmotionalScore !== undefined ? req.body.socioEmotionalScore : req.body.emotionalScore;
@@ -447,8 +447,8 @@ export const validateSubmitAssessments = (req, res, next) => {
     return next(new ApiError(httpStatus.BAD_REQUEST, 'studentId là bắt buộc và phải là số nguyên hợp lệ'));
   }
 
-  if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'month/assessmentMonth là bắt buộc và phải có định dạng YYYY-MM (VD: 2026-07)'));
+  if (!month || !/^(0[1-9]|1[0-2])-\d{4}$/.test(month)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'month/assessmentMonth là bắt buộc và phải có định dạng MM-YYYY (VD: 07-2026)'));
   }
 
   const isValidScore = (score) =>
