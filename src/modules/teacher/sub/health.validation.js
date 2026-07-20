@@ -38,7 +38,7 @@ const bmiUpdateSchema = Joi.object({
   height: Joi.number().min(50).max(200).optional(),
   weight: Joi.number().min(5).max(150).optional(),
   notes: Joi.string().trim().max(1000).allow('', null).optional()
-}).min(1).messages({ 'object.min': 'Cần ít nhất 1 trường để cập nhật' });
+}).unknown(true).min(1).messages({ 'object.min': 'Cần ít nhất 1 trường để cập nhật' });
 
 const allergyBodySchema = Joi.object({
   allergen: Joi.string().trim().min(1).max(150).required(),

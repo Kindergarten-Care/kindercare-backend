@@ -1083,8 +1083,8 @@ export const submitAssessments = async (req, res, next) => {
       await sendPushToUser(
         parentId,
         'Cập nhật Phiếu Bé Ngoan',
-        `Giáo viên đã cập nhật Phiếu Bé Ngoan / Đánh giá tháng ${month} của bé ${studentName}.`,
-        { type: 'STUDENT_ASSESSMENT', studentId: String(studentId), month: String(month) }
+        `Giáo viên đã cập nhật Phiếu Bé Ngoan / Đánh giá tháng ${assessmentMonth} của bé ${studentName}.`,
+        { type: 'STUDENT_ASSESSMENT', studentId: String(studentId), month: String(assessmentMonth) }
       );
     }
 
