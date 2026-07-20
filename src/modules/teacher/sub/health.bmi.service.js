@@ -135,7 +135,7 @@ const decorateRow = (row) => ({
   isLatest: row.isLatest === 1 || row.isLatest === true,
 });
 
-const getClassBmiLogs = async ({ classId, termPeriod, studentId, includeOverwritten = true }) => {
+export const getClassBmiLogs = async ({ classId, termPeriod, studentId, includeOverwritten = true }) => {
   if (!TERM_PERIOD_REGEX.test(termPeriod)) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
