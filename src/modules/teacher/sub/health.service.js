@@ -33,7 +33,7 @@ export const getAllAllergiesInClass = async (classId) => {
             a.IsActive AS isActive,
             a.CreatedAt AS createdAt,
             a.UpdatedAt AS updatedAt
-       FROM allergies a
+       FROM Allergies a
        JOIN Students s ON a.StudentID = s.StudentID
       WHERE s.ClassID = ?
         AND s.EnrollmentStatus = 'Active'
@@ -52,7 +52,7 @@ export const createAllergy = async (studentId, payload) => {
   const now = unixNow();
 
   const [result] = await pool.query(
-    `INSERT INTO allergies (StudentID, Allergen, Severity, Reaction, Notes, IsActive, CreatedAt, UpdatedAt)
+    `INSERT INTO Allergies (StudentID, Allergen, Severity, Reaction, Notes, IsActive, CreatedAt, UpdatedAt)
      VALUES (?, ?, ?, ?, ?, 1, ?, ?)`,
     [studentId, allergen, severity, reaction, notes, now, now]
   );
@@ -90,7 +90,7 @@ export const updateAllergy = async (allergyId, payload) => {
   values.push(allergyId);
 
   const [result] = await pool.query(
-    `UPDATE allergies SET ${fields.join(', ')} WHERE AllergyID = ?`,
+    `UPDATE Allergies SET ${fields.join(', ')} WHERE AllergyID = ?`,
     values
   );
   if (result.affectedRows === 0) {
@@ -102,7 +102,7 @@ export const updateAllergy = async (allergyId, payload) => {
 export const deleteAllergy = async (allergyId) => {
   // Soft delete (IsActive = 0) để giữ lịch sử
   const [result] = await pool.query(
-    `UPDATE allergies SET IsActive = 0, UpdatedAt = ? WHERE AllergyID = ?`,
+    `UPDATE Allergies SET IsActive = 0, UpdatedAt = ? WHERE AllergyID = ?`,
     [unixNow(), allergyId]
   );
   if (result.affectedRows === 0) {
@@ -116,7 +116,7 @@ const getAllergyById = async (allergyId) => {
     `SELECT AllergyID AS allergyId, StudentID AS studentId, Allergen AS allergen,
             Severity AS severity, Reaction AS reaction, Notes AS notes,
             IsActive AS isActive, CreatedAt AS createdAt, UpdatedAt AS updatedAt
-       FROM allergies
+       FROM Allergies
       WHERE AllergyID = ?`,
     [allergyId]
   );
@@ -131,15 +131,15 @@ export const getMedicationsInClass = async (classId, dateString) => {
   const start = startOfDayTs(dateString);
   const end = endOfDayTs(dateString);
   const [rows] = await pool.query(
-    `SELECT mr.MedRequestID AS medicationId, mr.StudentID AS studentId,
+    `SELECT mr.MedRequestID AS medRequestId, mr.StudentID AS studentId,
             s.FullName AS fullName, s.AvatarURL AS avatarUrl,
-            mr.MedicineDetails AS medicineName, mr.Dosage AS dosage,
-            mr.TimeToTake AS scheduledTime, mr.Frequency AS frequency,
-            mr.Status AS status, mr.TeacherNote AS notes,
+            mr.MedicineDetails AS medicineDetails, mr.Dosage AS dosage,
+            mr.TimeToTake AS timeToTake, mr.Frequency AS frequency,
+            mr.Status AS status, mr.TeacherNote AS teacherNote,
             mr.RequestDate AS requestDate, mr.ScheduledDate AS scheduledDate,
             mr.MedicineImageURL AS medicineImageUrl, mr.ParentNote AS parentNote,
             mr.AdministeredAt AS administeredAt, mr.AdministeredBy AS administeredBy
-       FROM medicationrequests mr
+       FROM MedicationRequests mr
        JOIN Students s ON mr.StudentID = s.StudentID
       WHERE s.ClassID = ?
         AND ((mr.ScheduledDate IS NOT NULL AND mr.ScheduledDate BETWEEN ? AND ?)
@@ -154,7 +154,7 @@ export const updateMedicationStatus = async (medicationId, status, teacherId, no
   const now = unixNow();
   const administeredAt = status === 'Done' ? now : null;
   const [result] = await pool.query(
-    `UPDATE medicationrequests
+    `UPDATE MedicationRequests
         SET Status = ?,
             TeacherNote = COALESCE(?, TeacherNote),
             AdministeredAt = COALESCE(?, AdministeredAt),
@@ -173,7 +173,7 @@ export const updateMedicationStatus = async (medicationId, status, teacherId, no
 export const createMedication = async (studentId, payload) => {
   const now = unixNow();
   const [result] = await pool.query(
-    `INSERT INTO medicationrequests
+    `INSERT INTO MedicationRequests
        (StudentID, RequestDate, ScheduledDate, MedicineDetails, Dosage,
         Frequency, TimeToTake, Status, TeacherNote, UpdatedTime)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -181,12 +181,12 @@ export const createMedication = async (studentId, payload) => {
       studentId,
       now,
       payload.scheduledDate ?? startOfDayTs(),
-      payload.medicineName,
+      payload.medicineDetails ?? payload.medicineName,
       payload.dosage,
       payload.frequency ?? null,
-      payload.scheduledTime ?? null,
+      payload.timeToTake ?? payload.scheduledTime ?? null,
       payload.status ?? 'Pending',
-      payload.notes ?? null,
+      payload.teacherNote ?? payload.notes ?? null,
       now
     ]
   );
@@ -195,7 +195,7 @@ export const createMedication = async (studentId, payload) => {
 
 export const deleteMedication = async (medicationId) => {
   const [result] = await pool.query(
-    `DELETE FROM medicationrequests WHERE MedRequestID = ?`,
+    `DELETE FROM MedicationRequests WHERE MedRequestID = ?`,
     [medicationId]
   );
   if (result.affectedRows === 0) {
@@ -206,13 +206,14 @@ export const deleteMedication = async (medicationId) => {
 
 const getMedicationById = async (medicationId) => {
   const [rows] = await pool.query(
-    `SELECT MedRequestID AS medicationId, StudentID AS studentId,
-            MedicineDetails AS medicineName, Dosage AS dosage,
-            TimeToTake AS scheduledTime, Frequency AS frequency,
-            Status AS status, TeacherNote AS notes,
+    `SELECT MedRequestID AS medRequestId, StudentID AS studentId,
+            MedicineDetails AS medicineDetails, Dosage AS dosage,
+            TimeToTake AS timeToTake, Frequency AS frequency,
+            Status AS status, TeacherNote AS teacherNote,
             RequestDate AS requestDate, ScheduledDate AS scheduledDate,
+            MedicineImageURL AS medicineImageUrl, ParentNote AS parentNote,
             AdministeredAt AS administeredAt, AdministeredBy AS administeredBy
-       FROM medicationrequests
+       FROM MedicationRequests
       WHERE MedRequestID = ?`,
     [medicationId]
   );
@@ -229,7 +230,7 @@ export const getClassHealthRecords = async (classId, termPeriod) => {
             hr.RecordID AS recordId, hr.TermPeriod AS termPeriod,
             hr.Height AS height, hr.Weight AS weight, hr.BMI AS bmi, hr.Notes AS note
        FROM Students s
-       LEFT JOIN healthrecords hr ON s.StudentID = hr.StudentID AND hr.TermPeriod = ?
+       LEFT JOIN HealthRecords hr ON s.StudentID = hr.StudentID AND hr.TermPeriod = ?
       WHERE s.ClassID = ?
         AND s.EnrollmentStatus = 'Active'
       ORDER BY s.FullName ASC`,
@@ -255,20 +256,20 @@ export const batchUpdateHealthRecords = async (classId, termPeriod, records) => 
       }
 
       const [existing] = await connection.query(
-        'SELECT RecordID FROM healthrecords WHERE StudentID = ? AND TermPeriod = ?',
+        'SELECT RecordID FROM HealthRecords WHERE StudentID = ? AND TermPeriod = ?',
         [studentId, termPeriod]
       );
 
       if (existing.length > 0) {
         await connection.query(
-          `UPDATE healthrecords
+          `UPDATE HealthRecords
               SET Height = ?, Weight = ?, BMI = ?, Notes = ?
             WHERE RecordID = ?`,
           [height, weight, bmi, note, existing[0].RecordID]
         );
       } else {
         await connection.query(
-          `INSERT INTO healthrecords (StudentID, TermPeriod, Height, Weight, BMI, Notes)
+          `INSERT INTO HealthRecords (StudentID, TermPeriod, Height, Weight, BMI, Notes)
            VALUES (?, ?, ?, ?, ?, ?)`,
           [studentId, termPeriod, height, weight, bmi, note]
         );
@@ -298,7 +299,7 @@ export const createHealthLog = async (studentId, payload) => {
   }
 
   const [result] = await pool.query(
-    `INSERT INTO healthrecords (StudentID, TermPeriod, Height, Weight, BMI, Notes)
+    `INSERT INTO HealthRecords (StudentID, TermPeriod, Height, Weight, BMI, Notes)
      VALUES (?, ?, ?, ?, ?, ?)`,
     [studentId, termPeriod, height, weight, bmi, note]
   );
@@ -330,7 +331,7 @@ export const updateHealthLog = async (logId, payload) => {
 
   // Tính lại BMI nếu height/weight thay đổi
   const [cur] = await pool.query(
-    `SELECT Height, Weight FROM healthrecords WHERE RecordID = ?`,
+    `SELECT Height, Weight FROM HealthRecords WHERE RecordID = ?`,
     [logId]
   );
   if (cur.length === 0) {
@@ -349,7 +350,7 @@ export const updateHealthLog = async (logId, payload) => {
   values.push(logId);
 
   const [result] = await pool.query(
-    `UPDATE healthrecords SET ${fields.join(', ')} WHERE RecordID = ?`,
+    `UPDATE HealthRecords SET ${fields.join(', ')} WHERE RecordID = ?`,
     values
   );
   if (result.affectedRows === 0) {
@@ -360,7 +361,7 @@ export const updateHealthLog = async (logId, payload) => {
 
 export const deleteHealthLog = async (logId) => {
   const [result] = await pool.query(
-    `DELETE FROM healthrecords WHERE RecordID = ?`,
+    `DELETE FROM HealthRecords WHERE RecordID = ?`,
     [logId]
   );
   if (result.affectedRows === 0) {
@@ -373,7 +374,7 @@ const getHealthLogById = async (logId) => {
   const [rows] = await pool.query(
     `SELECT RecordID AS recordId, StudentID AS studentId, TermPeriod AS termPeriod,
             Height AS height, Weight AS weight, BMI AS bmi, Notes AS note
-       FROM healthrecords
+       FROM HealthRecords
       WHERE RecordID = ?`,
     [logId]
   );
@@ -396,8 +397,6 @@ export const getDevelopmentAssessmentHistory = async (studentId, monthsBack = 6)
        da.SocialScore     AS socialScore,
        da.LanguageScore   AS languageScore,
        da.CognitiveScore  AS cognitiveScore,
-       da.AestheticScore  AS aestheticScore,
-       da.LifeSkillScore  AS lifeSkillScore,
        da.OverallNote     AS overallNote,
        da.AssessedBy      AS assessedBy,
        da.CreatedAt       AS createdAt,
@@ -420,8 +419,6 @@ export const getDevelopmentAssessments = async (classId, termPeriod) => {
             da.SocialScore AS socialScore,
             da.LanguageScore AS languageScore,
             da.CognitiveScore AS cognitiveScore,
-            da.AestheticScore AS aestheticScore,
-            da.LifeSkillScore AS lifeSkillScore,
             da.OverallNote AS overallNote,
             da.AssessedBy AS assessedBy
        FROM Students s
@@ -448,17 +445,14 @@ export const upsertDevelopmentAssessments = async (teacherId, termPeriod, items)
       const social = clampScore(item.socialScore);
       const language = clampScore(item.languageScore);
       const cognitive = clampScore(item.cognitiveScore);
-      const aesthetic = clampScore(item.aestheticScore);
-      const lifeSkill = clampScore(item.lifeSkillScore);
       const note = item.overallNote ?? null;
       const now = unixNow();
 
       await connection.query(
         `INSERT INTO DevelopmentAssessments
            (StudentID, TermPeriod, PhysicalScore, EmotionalScore, SocialScore,
-            LanguageScore, CognitiveScore, OverallNote, AssessedBy, CreatedAt, UpdatedAt,
-            AestheticScore, LifeSkillScore)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            LanguageScore, CognitiveScore, OverallNote, AssessedBy, CreatedAt, UpdatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
             PhysicalScore  = VALUES(PhysicalScore),
             EmotionalScore = VALUES(EmotionalScore),
@@ -467,10 +461,8 @@ export const upsertDevelopmentAssessments = async (teacherId, termPeriod, items)
             CognitiveScore = VALUES(CognitiveScore),
             OverallNote    = VALUES(OverallNote),
             AssessedBy     = VALUES(AssessedBy),
-            UpdatedAt      = VALUES(UpdatedAt),
-            AestheticScore = VALUES(AestheticScore),
-            LifeSkillScore = VALUES(LifeSkillScore)`,
-        [studentId, termPeriod, physical, emotional, social, language, cognitive, note, teacherId, now, now, aesthetic, lifeSkill]
+            UpdatedAt      = VALUES(UpdatedAt)`,
+        [studentId, termPeriod, physical, emotional, social, language, cognitive, note, teacherId, now, now]
       );
     }
     await connection.commit();

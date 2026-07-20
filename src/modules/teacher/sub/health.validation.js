@@ -55,19 +55,23 @@ const allergyUpdateSchema = Joi.object({
 }).min(1);
 
 const medicationBodySchema = Joi.object({
-  medicineName: Joi.string().trim().min(1).max(150).required(),
+  medicineDetails: Joi.string().trim().min(1).max(150).optional(),
+  medicineName: Joi.string().trim().min(1).max(150).optional(),
   dosage: Joi.string().trim().min(1).max(100).required(),
+  timeToTake: Joi.string().trim().max(50).allow('', null).optional(),
   scheduledTime: Joi.string().trim().max(50).allow('', null).optional(),
   frequency: Joi.string().trim().max(100).allow('', null).optional(),
   status: Joi.string().valid(...MED_STATUS_VALUES).default('Pending'),
   medRequestId: Joi.number().integer().positive().optional(),
+  teacherNote: Joi.string().trim().allow('', null).optional(),
   notes: Joi.string().trim().allow('', null).optional()
-});
+}).or('medicineDetails', 'medicineName').unknown(true);
 
 const medicationStatusSchema = Joi.object({
   status: Joi.string().valid(...MED_STATUS_VALUES).required(),
+  teacherNote: Joi.string().trim().allow('', null).optional(),
   notes: Joi.string().trim().allow('', null).optional()
-});
+}).unknown(true);
 
 const healthLogBodySchema = Joi.object({
   logType: Joi.string().valid(...LOG_TYPE_VALUES).required(),
@@ -94,10 +98,8 @@ const developmentAssessmentItemSchema = Joi.object({
   socialScore: Joi.number().integer().min(1).max(10).allow(null).optional(),
   languageScore: Joi.number().integer().min(1).max(10).allow(null).optional(),
   cognitiveScore: Joi.number().integer().min(1).max(10).allow(null).optional(),
-  aestheticScore: Joi.number().integer().min(1).max(10).allow(null).optional(),
-  lifeSkillScore: Joi.number().integer().min(1).max(10).allow(null).optional(),
   overallNote: Joi.string().trim().allow('', null).max(500).optional()
-});
+}).unknown(true);
 
 const developmentAssessmentBodySchema = Joi.object({
   termPeriod: Joi.string().trim().pattern(/^\d{4}-\d{2}$/).optional(),

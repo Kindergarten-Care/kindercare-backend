@@ -445,13 +445,13 @@
  *                     languageScore:
  *                       type: integer
  *                       example: 5
- *                     socioEmotionalScore:
+ *                     emotionalScore:
  *                       type: integer
  *                       example: 5
  *                     aestheticScore:
  *                       type: integer
  *                       example: 4
- *                     teacherComment:
+ *                     notes:
  *                       type: string
  *                       example: Bé rất ngoan và vâng lời cô
  *     responses:

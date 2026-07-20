@@ -279,6 +279,7 @@ export const getLeaveRequestsForTeacher = async (teacherId, status) => {
       c.ClassName AS className,
       lr.ParentID AS parentId,
       p.FullName AS parentName,
+      p.PhoneNumber AS parentPhone,
       lr.FromDate AS fromDate,
       lr.ToDate AS toDate,
       lr.Reason AS reason,
@@ -1181,10 +1182,9 @@ export const getClassAssessments = async (classId, month) => {
         a.PhysicalScore       AS physicalScore,
         a.CognitiveScore      AS cognitiveScore,
         a.LanguageScore       AS languageScore,
-        a.SocioEmotionalScore AS emotionalScore,
+        a.SocioEmotionalScore AS socioEmotionalScore,
         a.AestheticScore     AS aestheticScore,
-        a.LifeSkillsScore     AS lifeSkillsScore,
-        a.TeacherComment      AS notes
+        a.TeacherComment      AS teacherComment
      FROM Students s
      LEFT JOIN StudentAssessments a ON s.StudentID = a.StudentID AND a.AssessmentMonth = ?
      WHERE s.ClassID = ? AND s.EnrollmentStatus = 'Active'
@@ -1201,14 +1201,14 @@ export const getClassAssessments = async (classId, month) => {
       fullName: row.fullName,
       avatarUrl: row.avatarUrl,
       assessment: {
-        assessmentId:    row.assessmentId,
-        physicalScore:   row.physicalScore,
-        cognitiveScore:  row.cognitiveScore,
-        languageScore:   row.languageScore,
-        emotionalScore:  row.emotionalScore,
-        aestheticScore:  row.aestheticScore,
-        lifeSkillsScore: row.lifeSkillsScore,
-        notes:           row.notes,
+        assessmentId:        row.assessmentId,
+        assessmentMonth:     month,
+        physicalScore:       row.physicalScore,
+        cognitiveScore:      row.cognitiveScore,
+        languageScore:       row.languageScore,
+        socioEmotionalScore: row.socioEmotionalScore,
+        aestheticScore:      row.aestheticScore,
+        teacherComment:      row.teacherComment,
       }
     };
   });
@@ -1216,7 +1216,7 @@ export const getClassAssessments = async (classId, month) => {
 
 /**
  * Upsert student assessment for a specific month.
- * Fields follow FE spec: emotionalScore, lifeSkillsScore, notes.
+ * Fields follow FE spec: emotionalScore, notes.
  * @param {number} studentId
  * @param {string} month — 'YYYY-MM'
  * @param {number} physicalScore
@@ -1224,13 +1224,12 @@ export const getClassAssessments = async (classId, month) => {
  * @param {number} languageScore
  * @param {number} emotionalScore — maps to SocioEmotionalScore in DB
  * @param {number} aestheticScore
- * @param {number} lifeSkillsScore
  * @param {string|null} notes — maps to TeacherComment in DB
  */
-export const upsertStudentAssessment = async (studentId, month, physicalScore, cognitiveScore, languageScore, emotionalScore, aestheticScore, lifeSkillsScore, notes) => {
+export const upsertStudentAssessment = async (studentId, assessmentMonth, physicalScore, cognitiveScore, languageScore, socioEmotionalScore, aestheticScore, teacherComment) => {
   const [existing] = await pool.query(
     'SELECT AssessmentID FROM StudentAssessments WHERE StudentID = ? AND AssessmentMonth = ?',
-    [studentId, month]
+    [studentId, assessmentMonth]
   );
 
   if (existing.length > 0) {
@@ -1238,20 +1237,20 @@ export const upsertStudentAssessment = async (studentId, month, physicalScore, c
     await pool.query(
       `UPDATE StudentAssessments
          SET PhysicalScore = ?, CognitiveScore = ?, LanguageScore = ?,
-             SocioEmotionalScore = ?, AestheticScore = ?, LifeSkillsScore = ?, TeacherComment = ?
+             SocioEmotionalScore = ?, AestheticScore = ?, TeacherComment = ?
          WHERE AssessmentID = ?`,
       [physicalScore, cognitiveScore, languageScore,
-       emotionalScore, aestheticScore, lifeSkillsScore, notes,
+       socioEmotionalScore, aestheticScore, teacherComment,
        assessmentId]
     );
   } else {
     await pool.query(
       `INSERT INTO StudentAssessments
          (StudentID, AssessmentMonth, PhysicalScore, CognitiveScore, LanguageScore,
-          SocioEmotionalScore, AestheticScore, LifeSkillsScore, TeacherComment)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [studentId, month, physicalScore, cognitiveScore, languageScore,
-       emotionalScore, aestheticScore, lifeSkillsScore, notes]
+          SocioEmotionalScore, AestheticScore, TeacherComment)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [studentId, assessmentMonth, physicalScore, cognitiveScore, languageScore,
+       socioEmotionalScore, aestheticScore, teacherComment]
     );
   }
 };
@@ -1269,14 +1268,13 @@ export const getStudentAssessmentHistory = async (classId, studentId) => {
   const [rows] = await pool.query(
     `SELECT
         sa.AssessmentID       AS assessmentId,
-        sa.AssessmentMonth    AS month,
+        sa.AssessmentMonth    AS assessmentMonth,
         sa.PhysicalScore     AS physicalScore,
         sa.CognitiveScore     AS cognitiveScore,
         sa.LanguageScore     AS languageScore,
-        sa.SocioEmotionalScore AS emotionalScore,
+        sa.SocioEmotionalScore AS socioEmotionalScore,
         sa.AestheticScore     AS aestheticScore,
-        sa.LifeSkillsScore    AS lifeSkillsScore,
-        sa.TeacherComment     AS notes
+        sa.TeacherComment     AS teacherComment
      FROM StudentAssessments sa
      JOIN Students s ON sa.StudentID = s.StudentID
      WHERE s.StudentID        = ?

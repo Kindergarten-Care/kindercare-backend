@@ -408,8 +408,7 @@ export const validateSubmitClassAssessments = (req, res, next) => {
         !isValidScore(item.cognitiveScore) ||
         !isValidScore(item.languageScore) ||
         !isValidScore(item.emotionalScore) ||
-        !isValidScore(item.aestheticScore) ||
-        !isValidScore(item.lifeSkillsScore)) {
+        !isValidScore(item.aestheticScore)) {
       return next(new ApiError(httpStatus.BAD_REQUEST, `Điểm số tại phần tử thứ ${i + 1} phải là số từ 1 đến 10`));
     }
   }
@@ -422,18 +421,23 @@ export const validateSubmitClassAssessments = (req, res, next) => {
  * Body: {
  *   classId: number,
  *   studentId: number,
- *   month: string,          // 'YYYY-MM'
+ *   month: string,          // 'YYYY-MM' (Accepting both month and assessmentMonth for compatibility)
+ *   assessmentMonth: string,
  *   physicalScore: number,   // 1-10
  *   cognitiveScore: number,   // 1-10
  *   languageScore: number,    // 1-10
- *   emotionalScore: number,   // 1-10
+ *   socioEmotionalScore: number,   // 1-10
  *   aestheticScore: number,   // 1-10
- *   lifeSkillsScore: number, // 1-10
- *   notes?: string
+ *   teacherComment?: string
  * }
  */
 export const validateSubmitAssessments = (req, res, next) => {
-  const { classId, studentId, month, physicalScore, cognitiveScore, languageScore, emotionalScore, aestheticScore, lifeSkillsScore } = req.body;
+  const { classId, studentId, physicalScore, cognitiveScore, languageScore, aestheticScore } = req.body;
+  
+  // Accept both versions for compatibility
+  const month = req.body.assessmentMonth || req.body.month;
+  const socioEmotionalScore = req.body.socioEmotionalScore !== undefined ? req.body.socioEmotionalScore : req.body.emotionalScore;
+  const teacherComment = req.body.teacherComment !== undefined ? req.body.teacherComment : req.body.notes;
 
   if (!classId || isNaN(Number(classId))) {
     return next(new ApiError(httpStatus.BAD_REQUEST, 'classId là bắt buộc và phải là số nguyên hợp lệ'));
@@ -444,33 +448,24 @@ export const validateSubmitAssessments = (req, res, next) => {
   }
 
   if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'month là bắt buộc và phải có định dạng YYYY-MM (VD: 2026-07)'));
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'month/assessmentMonth là bắt buộc và phải có định dạng YYYY-MM (VD: 2026-07)'));
   }
 
   const isValidScore = (score) =>
     score === undefined || score === null || (typeof score === 'number' && score >= 1 && score <= 10);
 
-  if (!isValidScore(physicalScore)) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'physicalScore phải là số từ 1 đến 10'));
+  if (!isValidScore(physicalScore) || !isValidScore(cognitiveScore) || !isValidScore(languageScore) || !isValidScore(socioEmotionalScore) || !isValidScore(aestheticScore)) {
+    return next(new ApiError(httpStatus.BAD_REQUEST, 'Các điểm số phải là số từ 1 đến 10'));
   }
-  if (!isValidScore(cognitiveScore)) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'cognitiveScore phải là số từ 1 đến 10'));
-  }
-  if (!isValidScore(languageScore)) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'languageScore phải là số từ 1 đến 10'));
-  }
-  if (!isValidScore(emotionalScore)) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'emotionalScore phải là số từ 1 đến 10'));
-  }
-  if (!isValidScore(aestheticScore)) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'aestheticScore phải là số từ 1 đến 10'));
-  }
-  if (!isValidScore(lifeSkillsScore)) {
-    return next(new ApiError(httpStatus.BAD_REQUEST, 'lifeSkillsScore phải là số từ 1 đến 10'));
-  }
+
+  // Bind standardized variables to req.body so controller can use them directly
+  req.body.assessmentMonth = month;
+  req.body.socioEmotionalScore = socioEmotionalScore;
+  req.body.teacherComment = teacherComment;
 
   next();
 };
+
 
 /**
  * Validate GET /teacher/assessments?studentId=... query parameters.

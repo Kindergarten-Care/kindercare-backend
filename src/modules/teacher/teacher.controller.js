@@ -988,7 +988,6 @@ export const submitClassAssessments = async (req, res, next) => {
         languageScore,
         emotionalScore,
         aestheticScore,
-        lifeSkillsScore,
         notes,
       } = item;
 
@@ -1000,7 +999,7 @@ export const submitClassAssessments = async (req, res, next) => {
       await teacherService.upsertStudentAssessment(
         studentId, month,
         physicalScore, cognitiveScore, languageScore,
-        emotionalScore, aestheticScore, lifeSkillsScore, notes
+        emotionalScore, aestheticScore, notes
       );
 
       const [parentIds, studentInfo] = await Promise.all([
@@ -1012,8 +1011,8 @@ export const submitClassAssessments = async (req, res, next) => {
         await sendPushToUser(
           parentId,
           'Cập nhật Phiếu Bé Ngoan',
-          `Giáo viên đã cập nhật Phiếu Bé Ngoan / Đánh giá tháng ${month} của bé ${studentName}.`,
-          { type: 'STUDENT_ASSESSMENT', studentId: String(studentId), month: String(month) }
+          `Giáo viên đã cập nhật Phiếu Bé Ngoan / Đánh giá tháng ${assessmentMonth || month} của bé ${studentName}.`,
+          { type: 'STUDENT_ASSESSMENT', studentId: String(studentId), month: String(assessmentMonth || month) }
         );
       }
     }
@@ -1031,14 +1030,13 @@ export const submitClassAssessments = async (req, res, next) => {
  * POST /api/teacher/assessments
  * Body: {
  *   studentId: number,
- *   month: string,           // 'YYYY-MM'
+ *   assessmentMonth: string, // 'YYYY-MM'
  *   physicalScore: number,   // 1-10
  *   cognitiveScore: number,   // 1-10
  *   languageScore: number,    // 1-10
- *   emotionalScore: number,   // 1-10
+ *   socioEmotionalScore: number,   // 1-10
  *   aestheticScore: number,   // 1-10
- *   lifeSkillsScore: number, // 1-10
- *   notes?: string
+ *   teacherComment?: string
  * }
  */
 export const submitAssessments = async (req, res, next) => {
@@ -1046,19 +1044,18 @@ export const submitAssessments = async (req, res, next) => {
     const teacherId = req.user.userId;
     const {
       studentId,
-      month,
+      assessmentMonth,
       physicalScore,
       cognitiveScore,
       languageScore,
-      emotionalScore,
+      socioEmotionalScore,
       aestheticScore,
-      lifeSkillsScore,
-      notes,
+      teacherComment,
     } = req.body;
     const classId = Number(req.body.classId);
 
-    if (!studentId || !month) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'studentId và month là bắt buộc');
+    if (!studentId || !assessmentMonth) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'studentId và assessmentMonth là bắt buộc');
     }
 
     const isAssigned = await teacherService.isTeacherAssignedToClass(teacherId, classId);
@@ -1072,9 +1069,9 @@ export const submitAssessments = async (req, res, next) => {
     }
 
     await teacherService.upsertStudentAssessment(
-      studentId, month,
+      studentId, assessmentMonth,
       physicalScore, cognitiveScore, languageScore,
-      emotionalScore, aestheticScore, lifeSkillsScore, notes
+      socioEmotionalScore, aestheticScore, teacherComment
     );
 
     const [parentIds, studentInfo] = await Promise.all([
