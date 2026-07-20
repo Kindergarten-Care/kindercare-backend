@@ -132,11 +132,12 @@ export const updateMedicationStatus = async (req, res, next) => {
     if (isNaN(medicationId)) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'medicationId không hợp lệ');
     }
+    const teacherNote = req.body.teacherNote !== undefined ? req.body.teacherNote : req.body.notes;
     const updated = await healthService.updateMedicationStatus(
       medicationId,
       req.body.status,
       teacherId,
-      req.body.notes
+      teacherNote
     );
     res.status(httpStatus.OK).json(
       new ApiResponse(httpStatus.OK, { medication: updated }, 'Cập nhật trạng thái thuốc thành công')
